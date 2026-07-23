@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Junior Competition Team | Stage Starz</title><meta name="description" content="Junior Competition Team content carried over from the current Stage Starz site."><style>
+:root{--black:#080712;--ink:#171427;--muted:#6f6780;--white:#fff;--purple:#7e32ff;--teal:#24c8d8;--pink:#ec3fa9;--border:rgba(126,50,255,.18);--shadow:0 24px 70px rgba(31,18,74,.16);--radius:28px;--max:1180px}*{box-sizing:border-box}body{margin:0;color:var(--ink);font-family:Arial,Helvetica,sans-serif;line-height:1.65;background:radial-gradient(circle at 10% 0%,rgba(236,63,169,.18),transparent 32rem),radial-gradient(circle at 92% 4%,rgba(36,200,216,.24),transparent 34rem),linear-gradient(180deg,#fff8fd 0%,#fff 45%,#fff7fd 100%)}a{text-decoration:none;color:inherit}.topbar{background:var(--black);color:#fff;padding:8px 20px;display:flex;gap:22px;justify-content:center;flex-wrap:wrap;font-size:.88rem}.header{position:sticky;top:0;z-index:50;background:rgba(255,248,253,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}.nav{max-width:var(--max);margin:auto;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px}.logo{display:flex;align-items:center;gap:10px;font-weight:950;font-size:1.28rem;color:var(--black)}.logo-mark{width:40px;height:40px;border-radius:15px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink),var(--teal))}.nav-links{display:flex;align-items:center;gap:16px;font-weight:850}.menu{display:none;border:0;background:transparent;font-size:1.8rem}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;padding:13px 20px;font-weight:950;cursor:pointer}.btn.primary{color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink));box-shadow:0 16px 36px rgba(126,50,255,.25)}.btn.dark{color:#fff;background:var(--black)}.btn.ghost{background:#fff;color:var(--purple);border:2px solid var(--purple)}.btn.small{padding:9px 13px;font-size:.9rem}.hero,.page-hero,.section{max-width:var(--max);margin:auto;padding-left:22px;padding-right:22px}.hero{padding-top:84px;padding-bottom:56px;display:grid;grid-template-columns:1.25fr .75fr;gap:34px;align-items:center}.page-hero{padding-top:64px;padding-bottom:26px}.eyebrow{margin:0 0 12px;color:var(--pink);font-size:.78rem;text-transform:uppercase;letter-spacing:.11em;font-weight:950}h1,h2,h3{line-height:1.05;letter-spacing:-.04em}h1{font-size:clamp(2.5rem,6vw,5.3rem);margin:0 0 18px}h2{font-size:clamp(1.8rem,4vw,3rem);margin:0 0 20px}h3{font-size:1.28rem;margin:0 0 10px}.lead{font-size:1.15rem;color:var(--muted);max-width:760px}.section{padding-top:54px;padding-bottom:54px}.grid{display:grid;gap:20px}.grid.two{grid-template-columns:repeat(2,1fr)}.grid.three{grid-template-columns:repeat(3,1fr)}.card,.panel,.content-box,.form-card{background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px}.card h3{color:var(--purple)}.card p,.content-box p{color:var(--muted)}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.content-box h2{color:var(--purple)}.copied-content p{margin:0 0 16px}.quick-list a{display:block;padding:15px 16px;border:1px solid var(--border);border-radius:16px;background:#fff;font-weight:900;margin:10px 0}.footer{margin-top:40px;background:var(--black);color:#fff}.footer-inner{max-width:var(--max);margin:auto;padding:42px 22px;display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:28px}.footer a{display:block;color:#d8d1ff;margin:6px 0}.map{border:0;width:100%;min-height:320px;border-radius:28px;box-shadow:var(--shadow)}label{display:grid;gap:8px;font-weight:900}input,textarea{width:100%;border:1px solid var(--border);border-radius:16px;padding:13px 14px;font:inherit;background:#fff}.form-card{display:grid;gap:15px}.sticky-enroll{position:fixed;right:18px;bottom:18px;z-index:60}.portal-table{width:100%;border-collapse:collapse;background:#fff;border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}.portal-table th,.portal-table td{padding:15px;border-bottom:1px solid var(--border);text-align:left}.portal-table th{background:var(--black);color:#fff}@media(max-width:920px){.menu{display:block}.nav-links{display:none;position:absolute;left:18px;right:18px;top:72px;background:#fff;border:1px solid var(--border);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav-links.open{display:flex}.hero,.grid.two,.grid.three,.footer-inner{grid-template-columns:1fr}.sticky-enroll{display:none}}
+
+/* Jackrabbit registration embed */
+.jackrabbit-section{
+  max-width:1180px;
+  margin:0 auto;
+  padding:20px 22px 70px;
+}
+.jackrabbit-card{
+  background:rgba(255,255,255,.96);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:26px;
+  overflow:hidden;
+}
+.jackrabbit-card h2{
+  margin-top:0;
+}
+.jackrabbit-help{
+  color:var(--muted);
+  margin-bottom:18px;
+}
+.jackrabbit-frame{
+  border-radius:22px;
+  background:#05040b;
+  padding:18px;
+  overflow:auto;
+}
+.jackrabbit-frame table{
+  border-collapse:collapse;
+  width:100%;
+  max-width:100%;
+  margin:0 auto;
+  background-color:#fff;
+  box-shadow:none;
+  border:1px solid #d7d2e4;
+  border-radius:16px;
+  overflow:hidden;
+}
+.jackrabbit-frame th,
+.jackrabbit-frame td{
+  padding:12px;
+  text-align:left;
+  border-bottom:1px solid #e3def0;
+}
+.jackrabbit-frame th{
+  background:#171427;
+  color:#fff;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-size:.82rem;
+}
+.jackrabbit-frame td{
+  background-color:#fff;
+  color:#171427;
+}
+.jackrabbit-frame tr:hover td{
+  background-color:#f7f2ff;
+}
+.jackrabbit-frame img{
+  max-width:100%;
+  height:auto;
+}
+.jackrabbit-fallback{
+  color:#fff;
+  margin-top:12px;
+  font-size:.94rem;
+}
+@media screen and (max-width:700px){
+  .jackrabbit-frame table,
+  .jackrabbit-frame thead,
+  .jackrabbit-frame tbody,
+  .jackrabbit-frame th,
+  .jackrabbit-frame td,
+  .jackrabbit-frame tr{
+    display:block;
+  }
+  .jackrabbit-frame thead{
+    display:none;
+  }
+  .jackrabbit-frame tr{
+    border:1px solid #e3def0;
+    border-radius:16px;
+    overflow:hidden;
+    margin-bottom:12px;
+    background:#fff;
+  }
+  .jackrabbit-frame td{
+    border-bottom:none;
+    position:relative;
+    padding-left:48%;
+    min-height:44px;
+  }
+  .jackrabbit-frame td:before{
+    position:absolute;
+    top:12px;
+    left:12px;
+    width:42%;
+    padding-right:10px;
+    white-space:normal;
+    text-align:left;
+    font-weight:900;
+    color:#7e32ff;
+  }
+  .jackrabbit-frame td:nth-of-type(1):before{content:"Class";}
+  .jackrabbit-frame td:nth-of-type(2):before{content:"Instructor";}
+  .jackrabbit-frame td:nth-of-type(3):before{content:"Day / Time";}
+  .jackrabbit-frame td:nth-of-type(4):before{content:"Location";}
+  .jackrabbit-frame td:nth-of-type(5):before{content:"Openings";}
+  .jackrabbit-frame td:nth-of-type(6):before{content:"Register";}
+}
+
+
+/* Clean Jackrabbit boxes and blue registration buttons */
+.jackrabbit-frame{
+  background:#ffffff !important;
+  border:1px solid var(--border) !important;
+  border-radius:22px !important;
+  padding:18px !important;
+  overflow:auto !important;
+}
+.jackrabbit-frame table{
+  width:100% !important;
+  max-width:100% !important;
+  border-collapse:collapse !important;
+  background:#fff !important;
+}
+.jackrabbit-frame a,
+.jackrabbit-frame a:visited,
+.jackrabbit-frame input[type="button"],
+.jackrabbit-frame input[type="submit"],
+.jackrabbit-frame button,
+.jackrabbit-frame .button,
+.jackrabbit-frame .btn{
+  background:#007bff !important;
+  color:#ffffff !important;
+  border:none !important;
+  border-radius:10px !important;
+  padding:10px 16px !important;
+  font-weight:900 !important;
+  text-decoration:none !important;
+  display:inline-block !important;
+  line-height:1.2 !important;
+}
+.jackrabbit-frame a:hover,
+.jackrabbit-frame input[type="button"]:hover,
+.jackrabbit-frame input[type="submit"]:hover,
+.jackrabbit-frame button:hover,
+.jackrabbit-frame .button:hover,
+.jackrabbit-frame .btn:hover{
+  background:#0056d6 !important;
+  color:#ffffff !important;
+}
+.jackrabbit-fallback{
+  color:#171427 !important;
+  margin-top:14px !important;
+}
+
+.jackrabbit-fallback a{
+  background:none !important;
+  color:#007bff !important;
+  display:inline !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:none !important;
+  border-radius:0 !important;
+  font-weight:900 !important;
+  text-decoration:underline !important;
+  box-shadow:none !important;
+}
+.jackrabbit-fallback a:hover{
+  color:#0056d6 !important;
+  background:none !important;
+}
+
+
+.jackrabbit-fallback{
+    color:#171427 !important;
+    margin-top:14px !important;
+    display:block !important;
+}
+.jackrabbit-fallback a,
+.jackrabbit-frame .jackrabbit-fallback a,
+.jackrabbit-card .jackrabbit-fallback a{
+    background:none !important;
+    background-color:transparent !important;
+    color:#007bff !important;
+    display:inline !important;
+    padding:0 !important;
+    margin:0 !important;
+    border:none !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    font-weight:700 !important;
+    text-decoration:underline !important;
+}
+.jackrabbit-fallback a:hover,
+.jackrabbit-frame .jackrabbit-fallback a:hover,
+.jackrabbit-card .jackrabbit-fallback a:hover{
+    background:none !important;
+    background-color:transparent !important;
+    color:#0056d6 !important;
+}
+
+</style><script type="application/ld+json">{"@context": "https://schema.org", "@type": "DanceSchool", "name": "Stage Starz Academy of Dance", "address": {"@type": "PostalAddress", "streetAddress": "6800 Lewis Ave", "addressLocality": "Temperance", "addressRegion": "MI", "postalCode": "48182", "addressCountry": "US"}, "telephone": "+1-734-497-3740", "email": "stagestarzdance@aol.com", "url": "https://www.stagestarzdance.net/"}</script></head><body>
+<div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div><header class="header"><nav class="nav"><a class="logo" href="index.html"><span class="logo-mark">★</span><span>Stage Starz</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="store.html">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="contact.html">Register</a></div></nav></header><main><section class="page-hero"><p class="eyebrow">Competition Team</p><h1>Junior Competition Team</h1><p class="lead">Junior Competition Team content carried over from the current Stage Starz site.</p><div class="actions"><a class="btn primary" href="contact.html">Register / Ask Questions</a><a class="btn ghost" href="parent-hub.html">Parent Resources</a></div></section><section class="section"><div class="content-box copied-content"><p>JUNIOR COMPETITION TEAM (ages 9-13 Intermediate Level). Please note - AUDITION REQUIRED.</p>
+<p>Stage Starz Junior Competition Jazz/Lyrical group combo: $80 monthly for 90-minute weekly class block including 30 minutes required Ballet Tech, 30 minutes Lyrical Routine, and 30 minutes Jazz Routine.</p>
+<p>Stage Starz Junior Competition TAP Group: $55 monthly for 60-minute weekly class.</p>
+<p>Stage Starz Junior Competition HIP HOP Group: $38 monthly for 30-minute weekly class.</p>
+<p>Stage Starz Mixed-Age Musical Theater Group Competition Routine: $38 monthly for 45-minute weekly competition novelty musical theater character-jazz style routine.</p>
+<p>Intermediate Comp Ballet Tech: 45-minute supplemental Ballet Tech class focused on advancing and refining technical training. $38 monthly.</p>
+<p>Intermediate Flexibility & Conditioning Tech Class: 45-minute weekly class focused on stretching, flexibility, and extensions. $38 monthly.</p>
+<p>Intermediate Turns, Leaps, & Jumps Tech Class: 45-minute weekly tech class focused on turns, leaps, and jumps. $38 monthly.</p>
+<p>Stage Starz Junior Competition Duo/Trio: $45 monthly for 30-minute weekly class preparing dancers with a competitive duo or trio routine.</p></div></section>
+
+<section class="jackrabbit-section" aria-labelledby="jr-junior-openings-heading">
+  <div class="jackrabbit-card">
+    <h2 id="jr-junior-openings-heading">Junior Competition Team Registration</h2>
+    <p class="jackrabbit-help">Live class openings and registration are provided through Jackrabbit.</p>
+
+    <div class="jackrabbit-frame">
+      <script src="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsJS?OrgID=520608&cat1=preschool fall&InstructorID=&hidecols=Description&showcols=Instructors"></script>
+
+      <p class="jackrabbit-fallback">
+        Need help registering?
+        <a href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgId=520608" target="_blank" rel="noopener">Open Registration in the Parent Portal</a>.
+      </p>
+    </div>
+  </div>
+</section>
+
+</main><a class="btn primary sticky-enroll" href="contact.html">Enroll Now</a><footer class="footer"><div class="footer-inner"><div><h3>Stage Starz Academy of Dance</h3><p>Dance classes, competition teams, recital showcases, and parent resources in Temperance, Michigan.</p></div><div><h3>Pages</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a></div><div><h3>Contact</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a></div></div></footer><script>
+const m=document.querySelector('.menu'),n=document.querySelector('.nav-links');if(m&&n){m.addEventListener('click',()=>{const o=n.classList.toggle('open');m.setAttribute('aria-expanded',String(o));});}
+</script></body></html>
