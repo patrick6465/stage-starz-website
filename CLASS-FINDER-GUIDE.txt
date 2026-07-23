@@ -1,27 +1,17 @@
-STAGE STARZ WORKING CLASS FINDER
+STAGE STARZ CLASS FINDER — CORRECTED ROUTING
 
-The Class Finder is now functional and runs entirely in the visitor's browser.
-No database, server, subscription, or AI service is required.
+The recommendation logic has been rewritten so each age has an explicit route:
 
-QUESTIONS
-1. Dancer's age
-2. Dance experience
-3. Main interest
-4. Main goal
+- Ages 3–4 -> Preschool Program
+- Ages 5–6 -> Primary Program
+- Ages 7–9 -> Elementary Program
+- Ages 10–12 -> Intermediate & Advanced Program
+- Age 13 or older -> Intermediate & Advanced Program (teen pathway)
 
-CURRENT ROUTING
-- Ages 3–4 -> Preschool registration
-- Ages 5–6 -> Primary registration
-- Ages 7–9 -> Elementary registration
-- Ages 10+ -> Intermediate/Advanced registration
-- Specialty interest -> Specialized classes
-- Competition interest/goal/experience -> Competition auditions
+Intentional overrides:
+- Competition goal, interest, or prior competition experience -> Competition Team Auditions
+- Specialty-style interest -> Specialized Classes
 
-The recommendation links to the existing Stage Starz registration pages, which already contain the Jackrabbit category filters.
+The result now displays the visitor's selected answers so families and staff can verify that the correct age and preferences were read.
 
-IMPORTANT
-This is a program recommendation tool rather than exact placement. The page states that Stage Starz can confirm final placement when needed.
-
-FILES TO UPLOAD
-Upload the complete package, preserving the assets folder.
-Use index-new.html for preview or index.html for the live homepage.
+There is no longer any preschool fallback. If an age value is missing or invalid, the tool routes to staff-assisted placement rather than recommending Preschool.

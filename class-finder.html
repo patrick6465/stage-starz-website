@@ -64,7 +64,9 @@
     .result-badge{display:inline-flex;padding:8px 13px;border-radius:999px;background:#fff0f8;color:var(--pink);font-weight:950;text-transform:uppercase;letter-spacing:.08em;font-size:.76rem}
     .result-name{font-size:clamp(2.2rem,5vw,4rem);margin:18px 0 14px}
     .result-copy{max-width:650px;margin:0 auto;color:var(--muted);font-size:1.1rem}
-    .result-reasons{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:28px 0}
+    .answer-summary{margin:24px auto 4px;max-width:650px;padding:16px 18px;border-radius:16px;background:#f7f3f8;color:var(--muted);text-align:left}
+    .answer-summary strong{color:var(--ink)}
+    .result-reasons{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0 28px}
     .reason{padding:17px;border:1px solid var(--border);border-radius:17px;background:#fff9fd;font-weight:850}
     .result-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
     .note{margin-top:24px;padding:15px 18px;border-radius:16px;background:#f7f3f8;color:var(--muted);font-size:.92rem}
@@ -196,6 +198,7 @@
             <span class="result-badge">Recommended starting point</span>
             <h2 class="result-name" id="resultName"></h2>
             <p class="result-copy" id="resultCopy"></p>
+            <div class="answer-summary" id="answerSummary"></div>
             <div class="result-reasons" id="resultReasons"></div>
             <div class="result-actions">
               <a class="btn primary" id="registerLink" href="#">View Classes & Register →</a>
@@ -312,61 +315,119 @@
     });
 
     function getRecommendation(){
-      const age = selected('age');
-      const experience = selected('experience');
-      const interest = selected('interest');
-      const goal = selected('goal');
+      const answers = {
+        age: selected('age'),
+        experience: selected('experience'),
+        interest: selected('interest'),
+        goal: selected('goal')
+      };
 
-      if(goal === 'competition' || interest === 'competition' || experience === 'competitive'){
-        return ['competition', [
-          'Competition interest selected',
-          'Audition-based pathway',
-          'Direct competition information'
-        ]];
+      // Competition is an intentional override because it is audition-based.
+      if(
+        answers.goal === 'competition' ||
+        answers.interest === 'competition' ||
+        answers.experience === 'competitive'
+      ){
+        return {
+          key:'competition',
+          reasons:[
+            'Competition interest selected',
+            'Audition-based pathway',
+            'Direct competition information'
+          ],
+          answers
+        };
       }
 
-      if(interest === 'specialty'){
-        return ['specialty', [
-          'Specialty style selected',
-          'Age-appropriate options available',
-          'Direct specialty registration'
-        ]];
+      // Specialty is an intentional override when that is the dancer's main interest.
+      if(answers.interest === 'specialty'){
+        return {
+          key:'specialty',
+          reasons:[
+            'Specialty style selected',
+            'Age-appropriate options available',
+            'Direct specialty registration'
+          ],
+          answers
+        };
       }
 
-      if(age === '3-4'){
-        return ['preschool', [
-          'Designed for ages 3–4',
-          'Beginner-friendly foundation',
-          'Confidence through movement'
-        ]];
+      // Age pathway is explicit and mutually exclusive.
+      const ageRoutes = {
+        '3-4': {
+          key:'preschool',
+          reasons:[
+            'Designed for ages 3–4',
+            'Beginner-friendly foundation',
+            'Confidence through movement'
+          ]
+        },
+        '5-6': {
+          key:'primary',
+          reasons:[
+            'Designed for ages 5–6',
+            answers.experience === 'new' ? 'Welcoming first-class pathway' : 'Builds on early experience',
+            'Strong dance foundations'
+          ]
+        },
+        '7-9': {
+          key:'elementary',
+          reasons:[
+            'Designed for ages 7–9',
+            answers.experience === 'experienced' ? 'Supports continued progression' : 'Clear foundational pathway',
+            'Multiple style opportunities'
+          ]
+        },
+        '10-12': {
+          key:'advanced',
+          reasons:[
+            'Designed for ages 10–12',
+            answers.experience === 'new' ? 'Staff can confirm the best level' : 'Supports technical progression',
+            'Broader performance opportunities'
+          ]
+        },
+        '13+': {
+          key:'advanced',
+          reasons:[
+            'Designed for teen dancers',
+            answers.experience === 'new' ? 'Staff can confirm the best teen level' : 'Supports advanced progression',
+            'Teen performance opportunities'
+          ]
+        }
+      };
+
+      const route = ageRoutes[answers.age];
+
+      // Fail safely instead of returning an incorrect young-age recommendation.
+      if(!route){
+        return {
+          key:'advanced',
+          reasons:[
+            'Age selection needs confirmation',
+            'Staff-assisted placement recommended',
+            'No automatic preschool fallback'
+          ],
+          answers
+        };
       }
 
-      if(age === '5-6'){
-        return ['primary', [
-          'Designed for ages 5–6',
-          experience === 'new' ? 'Welcoming first-class pathway' : 'Builds on early experience',
-          'Strong dance foundations'
-        ]];
-      }
-
-      if(age === '7-9'){
-        return ['elementary', [
-          'Designed for elementary ages',
-          experience === 'experienced' ? 'Supports continued progression' : 'Clear foundational pathway',
-          'Multiple style opportunities'
-        ]];
-      }
-
-      return ['advanced', [
-        'Best match for older dancers',
-        experience === 'new' ? 'Placement can be confirmed by staff' : 'Supports technical progression',
-        'Broader performance opportunities'
-      ]];
+      return {
+        key:route.key,
+        reasons:route.reasons,
+        answers
+      };
     }
 
     function showResult(){
-      const [key, reasons] = getRecommendation();
-      const recommendation = recommendations[key];
+      const outcome = getRecommendation();
+      const recommendation = recommendations[outcome.key];
+
+      const labels = {
+        age:{'3-4':'Ages 3–4','5-6':'Ages 5–6','7-9':'Ages 7–9','10-12':'Ages 10–12','13+':'Age 13 or older'},
+        experience:{new:'Brand new',some:'About 1–2 years',experienced:'Experienced',competitive:'Competition experience'},
+        interest:{foundation:'Ballet, tap, or jazz foundations',specialty:'Specialty styles',variety:'A variety of styles',competition:'Competition training'},
+        goal:{recreation:'Fun and recreation',technique:'Technique and progression',performance:'Performance opportunities',competition:'Competition auditions'}
+      };
 
       form.style.display = 'none';
       result.classList.add('active');
@@ -374,7 +435,14 @@
       document.getElementById('resultName').textContent = recommendation.name;
       document.getElementById('resultCopy').textContent = recommendation.copy;
       document.getElementById('registerLink').href = recommendation.url;
-      document.getElementById('resultReasons').innerHTML = reasons.map(reason=>'<div class="reason">'+reason+'</div>').join('');
+      document.getElementById('answerSummary').innerHTML =
+        '<strong>Your answers:</strong><br>' +
+        labels.age[outcome.answers.age] + ' · ' +
+        labels.experience[outcome.answers.experience] + ' · ' +
+        labels.interest[outcome.answers.interest] + ' · ' +
+        labels.goal[outcome.answers.goal];
+      document.getElementById('resultReasons').innerHTML =
+        outcome.reasons.map(reason=>'<div class="reason">'+reason+'</div>').join('');
       result.scrollIntoView({behavior:'smooth', block:'center'});
     }
 
