@@ -19,3 +19,16 @@ Mobile-responsive static website prepared for GitHub Pages.
 - Parent Portal: `https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgId=520608`
 
 Open `index.html` to preview locally.
+
+
+## Jackrabbit filters
+
+- Primary: `cat1=Primary Level Fall`
+- Elementary: `cat1=Elementary Fall`
+- Intermediate/Advanced: `cat1=Competition Fall`
+- Specialized: `cat1=Specialty Fall`
+- Mini Team: `cat1=competition fall&cat2=mini`
+- Petite Team: `cat1=competition fall&cat2=petite`
+- Junior Team: `cat1=competition fall&cat2=junior`
+- Teen/Senior Team: `cat1=competition fall&cat2=teen`
+- Juniorettes: `cat1=competition fall&cat2=petite`
