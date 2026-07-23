@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Stage Starz Academy of Dance | Dance Classes in Temperance, Michigan</title>
   <meta name="description" content="Discover recreational and competitive dance classes for ages 3 and up at Stage Starz Academy of Dance in Temperance, Michigan.">
-  <meta name="theme-color" content="#100b22">
+  <meta name="theme-color" content="#050505">
+  <link rel="preload" as="image" href="assets/images/audriana-homepage-hero.jpg">
   <style>
     :root{
       --night:#0b0715;--night-2:#17102a;--ink:#191226;--muted:#706780;
-      --white:#fff;--paper:#fffafd;--purple:#7c3aed;--pink:#ec4899;--teal:#20c9d8;
-      --gold:#f4c95d;--line:rgba(124,58,237,.16);--shadow:0 28px 80px rgba(32,19,63,.18);
+      --white:#fff;--paper:#fffafd;--purple:#8c3cac;--pink:#e91e8c;--teal:#7bd8d1;
+      --silver:#d9d9df;--gold:#e3c98a;--line:rgba(233,30,140,.16);--shadow:0 28px 80px rgba(20,8,25,.22);
       --radius:28px;--max:1180px;
     }
     *{box-sizing:border-box}
@@ -23,24 +24,29 @@
     .topbar{background:var(--night);color:#eee7ff;padding:8px 20px;display:flex;justify-content:center;gap:24px;flex-wrap:wrap;font-size:.88rem}
     .header{position:sticky;top:0;z-index:100;background:rgba(255,250,253,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
     .nav{max-width:var(--max);margin:auto;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:20px}
-    .logo{display:flex;align-items:center;gap:11px;font-weight:950;letter-spacing:-.03em;font-size:1.28rem}
-    .logo-mark{width:42px;height:42px;border-radius:15px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink) 58%,var(--teal));box-shadow:0 12px 26px rgba(124,58,237,.26)}
+    .logo{display:flex;align-items:center;gap:12px;font-weight:950;letter-spacing:-.03em;font-size:1.22rem}
+    .logo img{width:92px;height:62px;object-fit:contain;object-position:center;filter:drop-shadow(0 7px 13px rgba(0,0,0,.16))}
+    .footer .logo img{width:150px;height:112px}
+    .brand-name{display:none}
     .nav-links{display:flex;align-items:center;gap:18px;font-weight:800;font-size:.95rem}
     .nav-links>a:not(.btn):hover{color:var(--purple)}
     .menu{display:none;border:0;background:none;font-size:1.8rem;cursor:pointer}
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:13px 20px;font-weight:900;transition:.25s ease;cursor:pointer}
     .btn:hover{transform:translateY(-2px)}
-    .btn.primary{color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink));box-shadow:0 15px 35px rgba(124,58,237,.28)}
+    .btn.primary{color:#fff;background:linear-gradient(135deg,var(--pink),#f45faf 58%,var(--teal));box-shadow:0 15px 35px rgba(233,30,140,.30)}
     .btn.light{background:#fff;color:var(--night);box-shadow:0 12px 30px rgba(0,0,0,.18)}
     .btn.outline{border:2px solid rgba(255,255,255,.72);color:#fff;background:rgba(255,255,255,.08)}
     .btn.dark{background:var(--night);color:#fff}.btn.small{padding:10px 15px;font-size:.9rem}
-    .hero{position:relative;min-height:760px;display:grid;align-items:center;overflow:hidden;color:#fff;background:
-      radial-gradient(circle at 15% 20%,rgba(236,72,153,.36),transparent 24rem),
-      radial-gradient(circle at 85% 25%,rgba(32,201,216,.28),transparent 28rem),
-      linear-gradient(115deg,rgba(8,5,20,.97) 10%,rgba(18,10,38,.9) 50%,rgba(31,16,57,.78) 100%)}
-    .hero:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:52px 52px;mask-image:linear-gradient(to bottom,black,transparent 88%)}
-    .hero:after{content:"★";position:absolute;right:-4vw;top:7%;font-size:min(46vw,620px);line-height:1;color:rgba(255,255,255,.035);transform:rotate(10deg)}
-    .hero-inner{position:relative;z-index:2;max-width:var(--max);margin:auto;padding:110px 22px 100px;display:grid;grid-template-columns:1.14fr .86fr;gap:64px;align-items:center;width:100%}
+    .hero{position:relative;min-height:clamp(680px,86vh,900px);display:grid;align-items:center;overflow:hidden;color:#fff;background:#050505 url("assets/images/audriana-homepage-hero.jpg") center center/cover no-repeat}
+    .hero:before{content:"";position:absolute;inset:0;background:
+      linear-gradient(90deg,rgba(0,0,0,.30) 0%,rgba(0,0,0,.12) 38%,rgba(0,0,0,.62) 68%,rgba(0,0,0,.92) 100%),
+      linear-gradient(0deg,rgba(0,0,0,.48) 0%,transparent 42%,rgba(0,0,0,.16) 100%)}
+    .hero:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 77% 38%,rgba(123,216,209,.12),transparent 22rem);pointer-events:none}
+    .hero-inner{position:relative;z-index:2;max-width:var(--max);margin:auto;padding:130px 22px 100px;display:grid;grid-template-columns:.95fr 1.05fr;gap:52px;align-items:center;width:100%}
+    .hero-content{grid-column:2;max-width:640px;justify-self:end}
+    .hero-logo{width:min(420px,82vw);max-height:290px;object-fit:contain;object-position:left center;margin:0 0 6px;filter:drop-shadow(0 14px 26px rgba(0,0,0,.48))}
+    .hero h1{font-size:clamp(3rem,6.4vw,6.5rem);text-shadow:0 5px 28px rgba(0,0,0,.45)}
+    .hero-copy{text-shadow:0 3px 18px rgba(0,0,0,.65)}
     .kicker{display:inline-flex;align-items:center;gap:9px;text-transform:uppercase;letter-spacing:.14em;font-size:.78rem;font-weight:900;color:#e7ddff;margin-bottom:20px}
     .kicker:before{content:"";width:42px;height:2px;background:linear-gradient(90deg,var(--teal),var(--pink))}
     h1,h2,h3{line-height:1.04;letter-spacing:-.045em;margin-top:0}
@@ -48,7 +54,7 @@
     .gradient-text{background:linear-gradient(90deg,#fff 0%,#d7c3ff 34%,#7ce7ef 70%,#ff95c7 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
     .hero-copy{font-size:clamp(1.05rem,2vw,1.28rem);color:#d8d0e5;max-width:710px;margin:0 0 30px}
     .actions{display:flex;gap:13px;flex-wrap:wrap}
-    .hero-card{position:relative;border:1px solid rgba(255,255,255,.16);background:linear-gradient(160deg,rgba(255,255,255,.13),rgba(255,255,255,.035));backdrop-filter:blur(16px);border-radius:34px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.28)}
+    .hero-card{display:none}
     .hero-card .visual{aspect-ratio:4/5;border-radius:24px;position:relative;overflow:hidden;background:
       radial-gradient(circle at 50% 28%,rgba(255,255,255,.9) 0 6%,transparent 6.5%),
       radial-gradient(ellipse at 50% 45%,rgba(255,255,255,.5) 0 10%,transparent 10.5%),
@@ -84,6 +90,23 @@
     .reveal{opacity:0;transform:translateY(18px);transition:.7s ease}.reveal.visible{opacity:1;transform:none}
     @media(max-width:980px){.menu{display:block}.nav-links{display:none;position:absolute;left:18px;right:18px;top:72px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav-links.open{display:flex}.hero-inner,.why,.performance{grid-template-columns:1fr}.hero-card{max-width:590px}.float-note{left:18px}.trust-inner{grid-template-columns:repeat(2,1fr)}.program-grid{grid-template-columns:repeat(2,1fr)}.experience{grid-template-columns:1fr}.footer-inner{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:640px){.topbar{gap:10px;font-size:.78rem}.hero{min-height:auto}.hero-inner{padding-top:76px;padding-bottom:70px}.hero-card{padding:18px}.float-note{position:relative;left:auto;bottom:auto;margin-top:14px;max-width:none}.trust-inner,.program-grid,.feature-grid,.footer-inner{grid-template-columns:1fr}.section{padding-top:68px;padding-bottom:68px}.section-head{align-items:flex-start;flex-direction:column}.program{min-height:290px}.cta{margin-left:14px;margin-right:14px;padding:55px 22px}.performance-art{min-height:380px}}
+
+    @media(max-width:860px){
+      .hero{background-position:42% center;min-height:760px}
+      .hero:before{background:linear-gradient(0deg,rgba(0,0,0,.92) 0%,rgba(0,0,0,.48) 55%,rgba(0,0,0,.16) 100%)}
+      .hero-inner{display:block;padding-top:360px;padding-bottom:70px}
+      .hero-content{max-width:680px;margin:0 auto;text-align:center}
+      .hero-logo{margin-left:auto;margin-right:auto;max-height:220px}
+      .hero .actions{justify-content:center}
+      .hero .kicker{justify-content:center}
+    }
+    @media(max-width:560px){
+      .logo img{width:74px;height:52px}
+      .hero{background-position:38% center;min-height:720px}
+      .hero-inner{padding-top:345px}
+      .hero-logo{width:min(340px,88vw)}
+    }
+
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.btn{transition:none}}
   </style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
@@ -91,20 +114,17 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">Call or text: (734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div>
-<header class="header"><nav class="nav" aria-label="Main navigation"><a class="logo" href="index-new.html"><span class="logo-mark">★</span><span>Stage Starz</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="store.html">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="classes.html">Register</a></div></nav></header>
+<header class="header"><nav class="nav" aria-label="Main navigation"><a class="logo" href="index-new.html" aria-label="Stage Starz Academy of Dance home"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance"><span class="brand-name">Stage Starz</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="store.html">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="classes.html">Register</a></div></nav></header>
 <main id="main">
   <section class="hero">
     <div class="hero-inner">
-      <div>
+      <div class="hero-content">
+        <img class="hero-logo" src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance">
         <div class="kicker">Temperance, Michigan</div>
         <h1><span class="gradient-text">Where passion</span><br>meets performance.</h1>
         <p class="hero-copy">From a dancer’s first class to the competition stage, Stage Starz nurtures confidence, technique, creativity, and a lifelong love of dance.</p>
-        <div class="actions"><a class="btn primary" href="classes.html">Explore Classes <span>→</span></a><a class="btn outline" href="class-finder.html">Find My Perfect Class</a></div>
+        <div class="actions"><a class="btn primary" href="classes.html">Register Today <span>→</span></a><a class="btn outline" href="#programs">Explore Classes</a></div>
       </div>
-      <aside class="hero-card" aria-label="Stage Starz program highlight">
-        <div class="visual"><span>Recreational and competitive programs for ages 3 and up</span></div>
-        <div class="float-note">A place to grow.<small>Technique, artistry, confidence, and community.</small></div>
-      </aside>
     </div>
   </section>
   <section class="trust-strip" aria-label="Studio highlights"><div class="trust-inner">
@@ -151,7 +171,7 @@
 
   <section class="cta reveal"><p class="eyebrow" style="color:#fff">Your next step starts here</p><h2>Ready to dance with Stage Starz?</h2><p>Explore programs, find the best class for your dancer, and use the direct registration pages to secure your place.</p><div class="actions"><a class="btn light" href="classes.html">Register for Classes</a><a class="btn outline" href="class-finder.html">Use the Class Finder</a></div></section>
 </main>
-<footer class="footer"><div class="footer-inner"><div><a class="logo" href="index-new.html" style="color:#fff"><span class="logo-mark">★</span><span>Stage Starz</span></a><p>Dance classes, competition teams, performance opportunities, and parent resources in Temperance, Michigan.</p></div><div><h3>Explore</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="about.html">About</a></div><div><h3>Families</h3><a href="parent-hub.html">Parent Hub</a><a href="portal.html">Dancer Portal</a><a href="store.html">Studio Shop</a><a href="contact.html">Contact</a></div><div><h3>Connect</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">Email the Studio</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a><p>6800 Lewis Ave<br>Temperance, MI 48182</p></div></div><div class="copyright">© <span id="year"></span> Stage Starz Academy of Dance. All rights reserved.</div></footer>
+<footer class="footer"><div class="footer-inner"><div><a class="logo" href="index-new.html" aria-label="Stage Starz Academy of Dance home"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance"></a><p>Dance classes, competition teams, performance opportunities, and parent resources in Temperance, Michigan.</p></div><div><h3>Explore</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="about.html">About</a></div><div><h3>Families</h3><a href="parent-hub.html">Parent Hub</a><a href="portal.html">Dancer Portal</a><a href="store.html">Studio Shop</a><a href="contact.html">Contact</a></div><div><h3>Connect</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">Email the Studio</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a><p>6800 Lewis Ave<br>Temperance, MI 48182</p></div></div><div class="copyright">© <span id="year"></span> Stage Starz Academy of Dance. All rights reserved.</div></footer>
 <script>
   const menu=document.querySelector('.menu'),links=document.querySelector('.nav-links');
   if(menu&&links){menu.addEventListener('click',()=>{const open=links.classList.toggle('open');menu.setAttribute('aria-expanded',String(open));});}

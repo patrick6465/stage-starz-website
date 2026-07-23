@@ -1,0 +1,10 @@
+STAGE STARZ BRANDED HOMEPAGE PREVIEW
+
+1. Extract this ZIP.
+2. Upload index-new.html and the entire assets folder to the ROOT of your GitHub repository.
+3. Keep your current index.html in place for now.
+4. Preview:
+   https://YOUR-GITHUB-PAGES-ADDRESS/index-new.html
+5. After approval, rename index-new.html to index.html and replace the old homepage.
+
+The assets folder must remain beside index-new.html or the logo and hero photograph will not display.
