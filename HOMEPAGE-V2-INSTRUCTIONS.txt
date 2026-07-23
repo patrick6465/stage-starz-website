@@ -1,0 +1,17 @@
+STAGE STARZ HOMEPAGE VERSION 2
+
+CHANGES
+- Duplicate logo removed from the hero.
+- Stage Starz logo remains in the menu bar and footer.
+- Mobile hero rebuilt so the message sits below the dancer rather than over her legs.
+- Added the 30-second Class Finder callout.
+- Added the “Every Dancer Starts Somewhere” homepage story.
+- Refined the cinematic hero copy and mobile buttons.
+
+PREVIEW
+Upload index-new.html and the entire assets folder.
+Open:
+https://YOUR-GITHUB-PAGES-ADDRESS/index-new.html
+
+PUBLISH
+Upload index.html and the entire assets folder to replace the live homepage.

@@ -43,9 +43,8 @@
       linear-gradient(0deg,rgba(0,0,0,.48) 0%,transparent 42%,rgba(0,0,0,.16) 100%)}
     .hero:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 77% 38%,rgba(123,216,209,.12),transparent 22rem);pointer-events:none}
     .hero-inner{position:relative;z-index:2;max-width:var(--max);margin:auto;padding:130px 22px 100px;display:grid;grid-template-columns:.95fr 1.05fr;gap:52px;align-items:center;width:100%}
-    .hero-content{grid-column:2;max-width:640px;justify-self:end}
-    .hero-logo{width:min(420px,82vw);max-height:290px;object-fit:contain;object-position:left center;margin:0 0 6px;filter:drop-shadow(0 14px 26px rgba(0,0,0,.48))}
-    .hero h1{font-size:clamp(3rem,6.4vw,6.5rem);text-shadow:0 5px 28px rgba(0,0,0,.45)}
+    .hero-content{grid-column:2;max-width:660px;justify-self:end}
+    .hero h1{font-size:clamp(3rem,6.4vw,6.5rem);text-shadow:0 5px 28px rgba(0,0,0,.48);margin-bottom:22px}
     .hero-copy{text-shadow:0 3px 18px rgba(0,0,0,.65)}
     .kicker{display:inline-flex;align-items:center;gap:9px;text-transform:uppercase;letter-spacing:.14em;font-size:.78rem;font-weight:900;color:#e7ddff;margin-bottom:20px}
     .kicker:before{content:"";width:42px;height:2px;background:linear-gradient(90deg,var(--teal),var(--pink))}
@@ -63,6 +62,15 @@
     .hero-card .visual:before{width:74%;height:74%;left:13%;top:12%}.hero-card .visual:after{width:48%;height:48%;left:26%;top:25%}
     .hero-card .visual span{position:absolute;inset:auto 22px 22px;color:#fff;font-size:1.05rem;font-weight:850;background:rgba(8,5,20,.46);padding:13px 15px;border-radius:15px;backdrop-filter:blur(10px)}
     .float-note{position:absolute;left:-42px;bottom:74px;background:#fff;color:var(--ink);padding:15px 17px;border-radius:18px;box-shadow:var(--shadow);font-weight:900;max-width:190px}.float-note small{display:block;color:var(--muted);font-weight:700}
+
+    .finder-band{position:relative;z-index:3;max-width:1060px;margin:-48px auto 0;padding:0 22px}
+    .finder-card{display:grid;grid-template-columns:1fr auto;align-items:center;gap:28px;padding:30px 34px;border-radius:26px;background:#fff;box-shadow:0 24px 70px rgba(20,8,25,.18);border:1px solid var(--line)}
+    .finder-card h2{font-size:clamp(1.65rem,3.5vw,2.65rem);margin:0 0 7px}
+    .finder-card p{margin:0;color:var(--muted);font-size:1.03rem}
+    .story-intro{text-align:center;max-width:850px;margin:0 auto 38px}
+    .story-intro h2{margin-bottom:16px}
+    .story-intro .lead{max-width:760px;margin:0 auto}
+
     .trust-strip{background:#fff;border-bottom:1px solid var(--line)}
     .trust-inner{max-width:var(--max);margin:auto;padding:22px;display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
     .trust-item{display:flex;align-items:center;gap:12px;font-weight:850}.trust-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#f2ebff,#e9fcfd);color:var(--purple)}
@@ -90,21 +98,28 @@
     .reveal{opacity:0;transform:translateY(18px);transition:.7s ease}.reveal.visible{opacity:1;transform:none}
     @media(max-width:980px){.menu{display:block}.nav-links{display:none;position:absolute;left:18px;right:18px;top:72px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav-links.open{display:flex}.hero-inner,.why,.performance{grid-template-columns:1fr}.hero-card{max-width:590px}.float-note{left:18px}.trust-inner{grid-template-columns:repeat(2,1fr)}.program-grid{grid-template-columns:repeat(2,1fr)}.experience{grid-template-columns:1fr}.footer-inner{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:640px){.topbar{gap:10px;font-size:.78rem}.hero{min-height:auto}.hero-inner{padding-top:76px;padding-bottom:70px}.hero-card{padding:18px}.float-note{position:relative;left:auto;bottom:auto;margin-top:14px;max-width:none}.trust-inner,.program-grid,.feature-grid,.footer-inner{grid-template-columns:1fr}.section{padding-top:68px;padding-bottom:68px}.section-head{align-items:flex-start;flex-direction:column}.program{min-height:290px}.cta{margin-left:14px;margin-right:14px;padding:55px 22px}.performance-art{min-height:380px}}
-
     @media(max-width:860px){
-      .hero{background-position:42% center;min-height:760px}
-      .hero:before{background:linear-gradient(0deg,rgba(0,0,0,.92) 0%,rgba(0,0,0,.48) 55%,rgba(0,0,0,.16) 100%)}
-      .hero-inner{display:block;padding-top:360px;padding-bottom:70px}
+      .hero{background-position:39% center;min-height:760px;align-items:end}
+      .hero:before{background:
+        linear-gradient(0deg,rgba(0,0,0,.94) 0%,rgba(0,0,0,.78) 30%,rgba(0,0,0,.24) 64%,rgba(0,0,0,.08) 100%),
+        linear-gradient(90deg,rgba(0,0,0,.12),rgba(0,0,0,.08))}
+      .hero-inner{display:block;padding:420px 22px 72px}
       .hero-content{max-width:680px;margin:0 auto;text-align:center}
-      .hero-logo{margin-left:auto;margin-right:auto;max-height:220px}
-      .hero .actions{justify-content:center}
-      .hero .kicker{justify-content:center}
+      .hero .actions,.hero .kicker{justify-content:center}
+      .hero h1{font-size:clamp(3rem,11vw,5rem)}
+      .finder-card{grid-template-columns:1fr;text-align:center;padding:27px 24px}
+      .finder-card .btn{justify-self:center}
     }
     @media(max-width:560px){
       .logo img{width:74px;height:52px}
-      .hero{background-position:38% center;min-height:720px}
-      .hero-inner{padding-top:345px}
-      .hero-logo{width:min(340px,88vw)}
+      .hero{background-position:36% center;min-height:720px}
+      .hero-inner{padding-top:370px;padding-bottom:56px}
+      .hero h1{font-size:clamp(2.7rem,13vw,4rem)}
+      .hero-copy{font-size:1rem}
+      .hero .actions{display:grid}
+      .hero .actions .btn{width:100%}
+      .finder-band{margin-top:-30px;padding:0 15px}
+      .finder-card{border-radius:22px}
     }
 
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.btn{transition:none}}
@@ -119,14 +134,25 @@
   <section class="hero">
     <div class="hero-inner">
       <div class="hero-content">
-        <img class="hero-logo" src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance">
         <div class="kicker">Temperance, Michigan</div>
         <h1><span class="gradient-text">Where passion</span><br>meets performance.</h1>
-        <p class="hero-copy">From a dancer’s first class to the competition stage, Stage Starz nurtures confidence, technique, creativity, and a lifelong love of dance.</p>
+        <p class="hero-copy">Building confidence, inspiring creativity, and developing dancers from their very first class to the competition stage.</p>
         <div class="actions"><a class="btn primary" href="classes.html">Register Today <span>→</span></a><a class="btn outline" href="#programs">Explore Classes</a></div>
       </div>
     </div>
   </section>
+
+  <section class="finder-band reveal" aria-label="Class Finder">
+    <div class="finder-card">
+      <div>
+        <p class="eyebrow">New to Stage Starz?</p>
+        <h2>Not sure which class is right?</h2>
+        <p>Find the best starting point for your dancer in under 30 seconds.</p>
+      </div>
+      <a class="btn primary" href="class-finder.html">Start Here <span>→</span></a>
+    </div>
+  </section>
+
   <section class="trust-strip" aria-label="Studio highlights"><div class="trust-inner">
     <div class="trust-item"><span class="trust-icon">★</span><span>Over 25 years of experience</span></div>
     <div class="trust-item"><span class="trust-icon">✦</span><span>Ages 3 through pre-professional</span></div>
@@ -135,7 +161,12 @@
   </div></section>
 
   <section class="section reveal" id="programs">
-    <div class="section-head"><div><p class="eyebrow">Programs for every stage</p><h2>Find the right place to begin—and grow.</h2><p class="lead">Clear pathways help families choose an age-appropriate class, explore new styles, and progress with confidence.</p></div><a class="btn dark" href="classes.html">View all classes</a></div>
+    <div class="story-intro">
+      <p class="eyebrow">A place for every dancer</p>
+      <h2>Every dancer starts somewhere.</h2>
+      <p class="lead">Whether your child is taking a first dance class or preparing for national competition, Stage Starz offers programs designed to help every dancer grow with confidence.</p>
+    </div>
+    <div class="section-head"><div><p class="eyebrow">Explore our programs</p><h2>Choose a path built for the next step.</h2><p class="lead">Age-appropriate levels, focused instruction, and clear progression make it easier to find the right fit.</p></div><a class="btn dark" href="classes.html">View all classes</a></div>
     <div class="program-grid">
       <a class="program" href="preschool-class-registration.html"><span class="program-tag">Ages 3–4</span><h3>Preschool</h3><p>Joyful introductory combinations that build rhythm, coordination, and classroom confidence.</p><span class="program-link">View classes →</span></a>
       <a class="program" href="primary-class-registration.html"><span class="program-tag">Early level</span><h3>Primary</h3><p>Foundational training designed to develop musicality, technique, and a love of movement.</p><span class="program-link">View classes →</span></a>

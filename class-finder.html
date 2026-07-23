@@ -1,212 +1,394 @@
 <!doctype html>
-<html lang="en"><head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI Class Finder | Stage Starz</title><meta name="description" content="Class finder."><style>
-:root{--black:#080712;--ink:#171427;--muted:#6f6780;--white:#fff;--purple:#7e32ff;--teal:#24c8d8;--pink:#ec3fa9;--border:rgba(126,50,255,.18);--shadow:0 24px 70px rgba(31,18,74,.16);--radius:28px;--max:1180px}*{box-sizing:border-box}body{margin:0;color:var(--ink);font-family:Arial,Helvetica,sans-serif;line-height:1.65;background:radial-gradient(circle at 10% 0%,rgba(236,63,169,.18),transparent 32rem),radial-gradient(circle at 92% 4%,rgba(36,200,216,.24),transparent 34rem),linear-gradient(180deg,#fff8fd 0%,#fff 45%,#fff7fd 100%)}a{text-decoration:none;color:inherit}.topbar{background:var(--black);color:#fff;padding:8px 20px;display:flex;gap:22px;justify-content:center;flex-wrap:wrap;font-size:.88rem}.header{position:sticky;top:0;z-index:50;background:rgba(255,248,253,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}.nav{max-width:var(--max);margin:auto;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px}.logo{display:flex;align-items:center;gap:10px;font-weight:950;font-size:1.28rem;color:var(--black)}.logo-mark{width:40px;height:40px;border-radius:15px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink),var(--teal))}.nav-links{display:flex;align-items:center;gap:16px;font-weight:850}.menu{display:none;border:0;background:transparent;font-size:1.8rem}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;padding:13px 20px;font-weight:950;cursor:pointer}.btn.primary{color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink));box-shadow:0 16px 36px rgba(126,50,255,.25)}.btn.dark{color:#fff;background:var(--black)}.btn.ghost{background:#fff;color:var(--purple);border:2px solid var(--purple)}.btn.small{padding:9px 13px;font-size:.9rem}.hero,.page-hero,.section{max-width:var(--max);margin:auto;padding-left:22px;padding-right:22px}.hero{padding-top:84px;padding-bottom:56px;display:grid;grid-template-columns:1.25fr .75fr;gap:34px;align-items:center}.page-hero{padding-top:64px;padding-bottom:26px}.eyebrow{margin:0 0 12px;color:var(--pink);font-size:.78rem;text-transform:uppercase;letter-spacing:.11em;font-weight:950}h1,h2,h3{line-height:1.05;letter-spacing:-.04em}h1{font-size:clamp(2.5rem,6vw,5.3rem);margin:0 0 18px}h2{font-size:clamp(1.8rem,4vw,3rem);margin:0 0 20px}h3{font-size:1.28rem;margin:0 0 10px}.lead{font-size:1.15rem;color:var(--muted);max-width:760px}.section{padding-top:54px;padding-bottom:54px}.grid{display:grid;gap:20px}.grid.two{grid-template-columns:repeat(2,1fr)}.grid.three{grid-template-columns:repeat(3,1fr)}.card,.panel,.content-box,.form-card{background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px}.card h3{color:var(--purple)}.card p,.content-box p{color:var(--muted)}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.content-box h2{color:var(--purple)}.copied-content p{margin:0 0 16px}.quick-list a{display:block;padding:15px 16px;border:1px solid var(--border);border-radius:16px;background:#fff;font-weight:900;margin:10px 0}.footer{margin-top:40px;background:var(--black);color:#fff}.footer-inner{max-width:var(--max);margin:auto;padding:42px 22px;display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:28px}.footer a{display:block;color:#d8d1ff;margin:6px 0}.map{border:0;width:100%;min-height:320px;border-radius:28px;box-shadow:var(--shadow)}label{display:grid;gap:8px;font-weight:900}input,textarea{width:100%;border:1px solid var(--border);border-radius:16px;padding:13px 14px;font:inherit;background:#fff}.form-card{display:grid;gap:15px}.sticky-enroll{position:fixed;right:18px;bottom:18px;z-index:60}.portal-table{width:100%;border-collapse:collapse;background:#fff;border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}.portal-table th,.portal-table td{padding:15px;border-bottom:1px solid var(--border);text-align:left}.portal-table th{background:var(--black);color:#fff}@media(max-width:920px){.menu{display:block}.nav-links{display:none;position:absolute;left:18px;right:18px;top:72px;background:#fff;border:1px solid var(--border);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav-links.open{display:flex}.hero,.grid.two,.grid.three,.footer-inner{grid-template-columns:1fr}.sticky-enroll{display:none}}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Class Finder | Stage Starz Academy of Dance</title>
+  <meta name="description" content="Answer four simple questions to find the best Stage Starz program for your dancer.">
+  <meta name="theme-color" content="#080712">
+  <style>
+    :root{
+      --black:#080712;--ink:#171427;--muted:#6f6780;--white:#fff;
+      --purple:#8c3cac;--teal:#7bd8d1;--pink:#e91e8c;--paper:#fff9fd;
+      --border:rgba(233,30,140,.17);--shadow:0 24px 70px rgba(31,18,74,.16);
+      --radius:28px;--max:1120px
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;color:var(--ink);font-family:Arial,Helvetica,sans-serif;line-height:1.6;background:
+      radial-gradient(circle at 10% 0%,rgba(233,30,140,.16),transparent 32rem),
+      radial-gradient(circle at 92% 4%,rgba(123,216,209,.24),transparent 34rem),
+      linear-gradient(180deg,#fff8fd 0%,#fff 48%,#fff7fd 100%)}
+    a{text-decoration:none;color:inherit}
+    button,input{font:inherit}
+    .topbar{background:var(--black);color:#fff;padding:8px 20px;display:flex;gap:22px;justify-content:center;flex-wrap:wrap;font-size:.88rem}
+    .header{position:sticky;top:0;z-index:50;background:rgba(255,248,253,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+    .nav{max-width:var(--max);margin:auto;padding:11px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+    .logo img{display:block;width:92px;height:62px;object-fit:contain;filter:drop-shadow(0 7px 13px rgba(0,0,0,.13))}
+    .nav-links{display:flex;align-items:center;gap:16px;font-weight:850}
+    .menu{display:none;border:0;background:transparent;font-size:1.8rem}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:13px 21px;font-weight:950;cursor:pointer;transition:.2s transform,.2s box-shadow}
+    .btn:hover{transform:translateY(-2px)}
+    .btn.primary{color:#fff;background:linear-gradient(135deg,var(--pink),#f45faf 58%,var(--teal));box-shadow:0 16px 36px rgba(233,30,140,.25)}
+    .btn.dark{color:#fff;background:var(--black)}
+    .btn.ghost{background:#fff;color:var(--pink);border:2px solid var(--pink)}
+    .btn.small{padding:9px 14px;font-size:.9rem}
+    .page-hero{max-width:var(--max);margin:auto;padding:62px 22px 26px;text-align:center}
+    .eyebrow{margin:0 0 12px;color:var(--pink);font-size:.78rem;text-transform:uppercase;letter-spacing:.12em;font-weight:950}
+    h1,h2,h3{line-height:1.06;letter-spacing:-.04em}
+    h1{font-size:clamp(2.55rem,6vw,5rem);margin:0 0 18px}
+    h2{font-size:clamp(1.8rem,4vw,3rem);margin:0 0 16px}
+    h3{font-size:1.25rem;margin:0}
+    .lead{font-size:1.14rem;color:var(--muted);max-width:740px;margin:0 auto}
+    .finder-wrap{max-width:860px;margin:24px auto 80px;padding:0 22px}
+    .finder-card{background:rgba(255,255,255,.96);border:1px solid var(--border);border-radius:34px;box-shadow:var(--shadow);overflow:hidden}
+    .progress-shell{height:9px;background:#f2e9f0}
+    .progress-bar{height:100%;width:25%;background:linear-gradient(90deg,var(--pink),var(--purple),var(--teal));transition:width .3s ease}
+    .finder-body{padding:38px}
+    .step-count{font-size:.82rem;font-weight:950;color:var(--purple);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+    .question{margin-bottom:24px}
+    .question p{color:var(--muted);margin:8px 0 0}
+    .options{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+    .option{position:relative;display:flex;align-items:center;gap:13px;min-height:68px;padding:16px 18px;border:2px solid #ece5ef;border-radius:18px;background:#fff;cursor:pointer;font-weight:900;transition:.18s ease;text-align:left}
+    .option:hover{border-color:rgba(233,30,140,.48);transform:translateY(-1px)}
+    .option.selected{border-color:var(--pink);background:#fff4fa;box-shadow:0 9px 24px rgba(233,30,140,.12)}
+    .option input{position:absolute;opacity:0;pointer-events:none}
+    .option-icon{width:35px;height:35px;display:grid;place-items:center;border-radius:12px;background:#f5eff7;font-size:1.05rem}
+    .finder-actions{display:flex;justify-content:space-between;gap:12px;margin-top:30px}
+    .finder-actions .btn[disabled]{opacity:.42;cursor:not-allowed;transform:none;box-shadow:none}
+    .step{display:none}
+    .step.active{display:block;animation:fade .25s ease}
+    @keyframes fade{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+    .result{display:none;text-align:center}
+    .result.active{display:block;animation:fade .3s ease}
+    .result-badge{display:inline-flex;padding:8px 13px;border-radius:999px;background:#fff0f8;color:var(--pink);font-weight:950;text-transform:uppercase;letter-spacing:.08em;font-size:.76rem}
+    .result-name{font-size:clamp(2.2rem,5vw,4rem);margin:18px 0 14px}
+    .result-copy{max-width:650px;margin:0 auto;color:var(--muted);font-size:1.1rem}
+    .result-reasons{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:28px 0}
+    .reason{padding:17px;border:1px solid var(--border);border-radius:17px;background:#fff9fd;font-weight:850}
+    .result-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}
+    .note{margin-top:24px;padding:15px 18px;border-radius:16px;background:#f7f3f8;color:var(--muted);font-size:.92rem}
+    .footer{background:var(--black);color:#fff}
+    .footer-inner{max-width:var(--max);margin:auto;padding:42px 22px;display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:28px}
+    .footer .logo img{width:150px;height:112px}
+    .footer a{display:block;color:#d8d1ff;margin:6px 0}
+    @media(max-width:920px){
+      .menu{display:block}
+      .nav-links{display:none;position:absolute;left:18px;right:18px;top:76px;background:#fff;border:1px solid var(--border);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}
+      .nav-links.open{display:flex}
+      .footer-inner{grid-template-columns:1fr}
+    }
+    @media(max-width:650px){
+      .page-hero{padding-top:45px}
+      .finder-wrap{padding:0 14px;margin-top:15px}
+      .finder-body{padding:27px 20px}
+      .options{grid-template-columns:1fr}
+      .finder-actions{display:grid;grid-template-columns:1fr 1fr}
+      .result-reasons{grid-template-columns:1fr}
+      .result-actions{display:grid}
+      .result-actions .btn{width:100%}
+      .logo img{width:74px;height:52px}
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span>6800 Lewis Ave, Temperance, MI 48182</span>
+    <a href="tel:+17344973740">(734) 497-3740</a>
+    <a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a>
+  </div>
 
-/* Jackrabbit registration embed */
-.jackrabbit-section{
-  max-width:1180px;
-  margin:0 auto;
-  padding:20px 22px 70px;
-}
-.jackrabbit-card{
-  background:rgba(255,255,255,.96);
-  border:1px solid var(--border);
-  border-radius:var(--radius);
-  box-shadow:var(--shadow);
-  padding:26px;
-  overflow:hidden;
-}
-.jackrabbit-card h2{
-  margin-top:0;
-}
-.jackrabbit-help{
-  color:var(--muted);
-  margin-bottom:18px;
-}
-.jackrabbit-frame{
-  border-radius:22px;
-  background:#05040b;
-  padding:18px;
-  overflow:auto;
-}
-.jackrabbit-frame table{
-  border-collapse:collapse;
-  width:100%;
-  max-width:100%;
-  margin:0 auto;
-  background-color:#fff;
-  box-shadow:none;
-  border:1px solid #d7d2e4;
-  border-radius:16px;
-  overflow:hidden;
-}
-.jackrabbit-frame th,
-.jackrabbit-frame td{
-  padding:12px;
-  text-align:left;
-  border-bottom:1px solid #e3def0;
-}
-.jackrabbit-frame th{
-  background:#171427;
-  color:#fff;
-  text-transform:uppercase;
-  letter-spacing:.06em;
-  font-size:.82rem;
-}
-.jackrabbit-frame td{
-  background-color:#fff;
-  color:#171427;
-}
-.jackrabbit-frame tr:hover td{
-  background-color:#f7f2ff;
-}
-.jackrabbit-frame img{
-  max-width:100%;
-  height:auto;
-}
-.jackrabbit-fallback{
-  color:#fff;
-  margin-top:12px;
-  font-size:.94rem;
-}
-@media screen and (max-width:700px){
-  .jackrabbit-frame table,
-  .jackrabbit-frame thead,
-  .jackrabbit-frame tbody,
-  .jackrabbit-frame th,
-  .jackrabbit-frame td,
-  .jackrabbit-frame tr{
-    display:block;
-  }
-  .jackrabbit-frame thead{
-    display:none;
-  }
-  .jackrabbit-frame tr{
-    border:1px solid #e3def0;
-    border-radius:16px;
-    overflow:hidden;
-    margin-bottom:12px;
-    background:#fff;
-  }
-  .jackrabbit-frame td{
-    border-bottom:none;
-    position:relative;
-    padding-left:48%;
-    min-height:44px;
-  }
-  .jackrabbit-frame td:before{
-    position:absolute;
-    top:12px;
-    left:12px;
-    width:42%;
-    padding-right:10px;
-    white-space:normal;
-    text-align:left;
-    font-weight:900;
-    color:#7e32ff;
-  }
-  .jackrabbit-frame td:nth-of-type(1):before{content:"Class";}
-  .jackrabbit-frame td:nth-of-type(2):before{content:"Instructor";}
-  .jackrabbit-frame td:nth-of-type(3):before{content:"Day / Time";}
-  .jackrabbit-frame td:nth-of-type(4):before{content:"Location";}
-  .jackrabbit-frame td:nth-of-type(5):before{content:"Openings";}
-  .jackrabbit-frame td:nth-of-type(6):before{content:"Register";}
-}
+  <header class="header">
+    <nav class="nav">
+      <a class="logo" href="index.html" aria-label="Stage Starz home">
+        <img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance">
+      </a>
+      <button class="menu" aria-label="Open menu" aria-expanded="false">☰</button>
+      <div class="nav-links">
+        <a href="classes.html">Classes</a>
+        <a href="competition.html">Competition</a>
+        <a href="events.html">Events</a>
+        <a href="parent-hub.html">Parent Hub</a>
+        <a href="store.html">Shop</a>
+        <a href="portal.html">Dancer Portal</a>
+        <a class="btn small dark" href="contact.html">Contact</a>
+      </div>
+    </nav>
+  </header>
 
+  <main>
+    <section class="page-hero">
+      <p class="eyebrow">Stage Starz Class Finder</p>
+      <h1>Not sure which class is right?</h1>
+      <p class="lead">Answer four simple questions. We’ll recommend the best starting point and take you directly to the correct registration page.</p>
+    </section>
 
-/* Clean Jackrabbit boxes and blue registration buttons */
-.jackrabbit-frame{
-  background:#ffffff !important;
-  border:1px solid var(--border) !important;
-  border-radius:22px !important;
-  padding:18px !important;
-  overflow:auto !important;
-}
-.jackrabbit-frame table{
-  width:100% !important;
-  max-width:100% !important;
-  border-collapse:collapse !important;
-  background:#fff !important;
-}
-.jackrabbit-frame a,
-.jackrabbit-frame a:visited,
-.jackrabbit-frame input[type="button"],
-.jackrabbit-frame input[type="submit"],
-.jackrabbit-frame button,
-.jackrabbit-frame .button,
-.jackrabbit-frame .btn{
-  background:#007bff !important;
-  color:#ffffff !important;
-  border:none !important;
-  border-radius:10px !important;
-  padding:10px 16px !important;
-  font-weight:900 !important;
-  text-decoration:none !important;
-  display:inline-block !important;
-  line-height:1.2 !important;
-}
-.jackrabbit-frame a:hover,
-.jackrabbit-frame input[type="button"]:hover,
-.jackrabbit-frame input[type="submit"]:hover,
-.jackrabbit-frame button:hover,
-.jackrabbit-frame .button:hover,
-.jackrabbit-frame .btn:hover{
-  background:#0056d6 !important;
-  color:#ffffff !important;
-}
-.jackrabbit-fallback{
-  color:#171427 !important;
-  margin-top:14px !important;
-}
+    <section class="finder-wrap" aria-label="Class recommendation questionnaire">
+      <div class="finder-card">
+        <div class="progress-shell" aria-hidden="true"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="finder-body">
 
-.jackrabbit-fallback a{
-  background:none !important;
-  color:#007bff !important;
-  display:inline !important;
-  padding:0 !important;
-  margin:0 !important;
-  border:none !important;
-  border-radius:0 !important;
-  font-weight:900 !important;
-  text-decoration:underline !important;
-  box-shadow:none !important;
-}
-.jackrabbit-fallback a:hover{
-  color:#0056d6 !important;
-  background:none !important;
-}
+          <form id="finderForm">
+            <section class="step active" data-step="0">
+              <div class="step-count">Question 1 of 4</div>
+              <div class="question">
+                <h2>How old is your dancer?</h2>
+                <p>Choose the age range that applies now.</p>
+              </div>
+              <div class="options">
+                <label class="option"><input type="radio" name="age" value="3-4"><span class="option-icon">3</span>Ages 3–4</label>
+                <label class="option"><input type="radio" name="age" value="5-6"><span class="option-icon">5</span>Ages 5–6</label>
+                <label class="option"><input type="radio" name="age" value="7-9"><span class="option-icon">7</span>Ages 7–9</label>
+                <label class="option"><input type="radio" name="age" value="10-12"><span class="option-icon">10</span>Ages 10–12</label>
+                <label class="option"><input type="radio" name="age" value="13+"><span class="option-icon">13</span>Age 13 or older</label>
+              </div>
+            </section>
 
+            <section class="step" data-step="1">
+              <div class="step-count">Question 2 of 4</div>
+              <div class="question">
+                <h2>How much dance experience do they have?</h2>
+                <p>This helps us choose an appropriate starting level.</p>
+              </div>
+              <div class="options">
+                <label class="option"><input type="radio" name="experience" value="new"><span class="option-icon">★</span>Brand new to dance</label>
+                <label class="option"><input type="radio" name="experience" value="some"><span class="option-icon">1+</span>About 1–2 years</label>
+                <label class="option"><input type="radio" name="experience" value="experienced"><span class="option-icon">✓</span>Experienced dancer</label>
+                <label class="option"><input type="radio" name="experience" value="competitive"><span class="option-icon">🏆</span>Competition experience</label>
+              </div>
+            </section>
 
-.jackrabbit-fallback{
-    color:#171427 !important;
-    margin-top:14px !important;
-    display:block !important;
-}
-.jackrabbit-fallback a,
-.jackrabbit-frame .jackrabbit-fallback a,
-.jackrabbit-card .jackrabbit-fallback a{
-    background:none !important;
-    background-color:transparent !important;
-    color:#007bff !important;
-    display:inline !important;
-    padding:0 !important;
-    margin:0 !important;
-    border:none !important;
-    border-radius:0 !important;
-    box-shadow:none !important;
-    font-weight:700 !important;
-    text-decoration:underline !important;
-}
-.jackrabbit-fallback a:hover,
-.jackrabbit-frame .jackrabbit-fallback a:hover,
-.jackrabbit-card .jackrabbit-fallback a:hover{
-    background:none !important;
-    background-color:transparent !important;
-    color:#0056d6 !important;
-}
+            <section class="step" data-step="2">
+              <div class="step-count">Question 3 of 4</div>
+              <div class="question">
+                <h2>What interests your dancer most?</h2>
+                <p>Choose the closest match. Families can add more classes after reviewing the schedule.</p>
+              </div>
+              <div class="options">
+                <label class="option"><input type="radio" name="interest" value="foundation"><span class="option-icon">♫</span>Ballet, tap, or jazz foundations</label>
+                <label class="option"><input type="radio" name="interest" value="specialty"><span class="option-icon">✦</span>Acro, hip hop, musical theatre, or specialty styles</label>
+                <label class="option"><input type="radio" name="interest" value="variety"><span class="option-icon">+</span>A variety of dance styles</label>
+                <label class="option"><input type="radio" name="interest" value="competition"><span class="option-icon">🏆</span>Competition team training</label>
+              </div>
+            </section>
 
-</style><script type="application/ld+json">{"@context": "https://schema.org", "@type": "DanceSchool", "name": "Stage Starz Academy of Dance", "address": {"@type": "PostalAddress", "streetAddress": "6800 Lewis Ave", "addressLocality": "Temperance", "addressRegion": "MI", "postalCode": "48182", "addressCountry": "US"}, "telephone": "+1-734-497-3740", "email": "stagestarzdance@aol.com", "url": "https://www.stagestarzdance.net/"}</script></head><body>
-<div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div><header class="header"><nav class="nav"><a class="logo" href="index.html"><span class="logo-mark">★</span><span>Stage Starz</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="store.html">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="contact.html">Register</a></div></nav></header><main><section class="page-hero"><p class="eyebrow">AI Class Finder</p><h1>Find the right class for my dancer.</h1><p class="lead">This page is ready for a JavaScript or AI-powered recommendation form.</p></section><section class="section"><div class="content-box"><p>Recommended logic: ask age, prior experience, goals, preferred style, and competition interest. Then route families to Preschool, Primary, Elementary, Intermediate/Advanced, Specialized, or Competition Auditions.</p></div></section></main><a class="btn primary sticky-enroll" href="contact.html">Enroll Now</a><footer class="footer"><div class="footer-inner"><div><h3>Stage Starz Academy of Dance</h3><p>Dance classes, competition teams, recital showcases, and parent resources in Temperance, Michigan.</p></div><div><h3>Pages</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a></div><div><h3>Contact</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a></div></div></footer><script>
-const m=document.querySelector('.menu'),n=document.querySelector('.nav-links');if(m&&n){m.addEventListener('click',()=>{const o=n.classList.toggle('open');m.setAttribute('aria-expanded',String(o));});}
-</script></body></html>
+            <section class="step" data-step="3">
+              <div class="step-count">Question 4 of 4</div>
+              <div class="question">
+                <h2>What is the main goal?</h2>
+                <p>We’ll use this answer to finalize the recommendation.</p>
+              </div>
+              <div class="options">
+                <label class="option"><input type="radio" name="goal" value="recreation"><span class="option-icon">☺</span>Fun, confidence, and recreation</label>
+                <label class="option"><input type="radio" name="goal" value="technique"><span class="option-icon">◆</span>Stronger technique and progression</label>
+                <label class="option"><input type="radio" name="goal" value="performance"><span class="option-icon">★</span>Stage and performance opportunities</label>
+                <label class="option"><input type="radio" name="goal" value="competition"><span class="option-icon">🏆</span>Audition for a competition team</label>
+              </div>
+            </section>
+
+            <div class="finder-actions">
+              <button class="btn ghost" type="button" id="backBtn" disabled>← Back</button>
+              <button class="btn primary" type="button" id="nextBtn" disabled>Next →</button>
+            </div>
+          </form>
+
+          <section class="result" id="result" aria-live="polite">
+            <span class="result-badge">Recommended starting point</span>
+            <h2 class="result-name" id="resultName"></h2>
+            <p class="result-copy" id="resultCopy"></p>
+            <div class="result-reasons" id="resultReasons"></div>
+            <div class="result-actions">
+              <a class="btn primary" id="registerLink" href="#">View Classes & Register →</a>
+              <button class="btn ghost" type="button" id="restartBtn">Start Over</button>
+            </div>
+            <div class="note">This tool recommends a program pathway, not a guaranteed placement. Stage Starz can confirm the final level when needed.</div>
+          </section>
+
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div>
+        <a class="logo" href="index.html"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance"></a>
+        <p>Dance classes, competition teams, recital showcases, and parent resources in Temperance, Michigan.</p>
+      </div>
+      <div><h3>Explore</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a></div>
+      <div><h3>Contact</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a></div>
+    </div>
+  </footer>
+
+  <script>
+    const menu = document.querySelector('.menu');
+    const nav = document.querySelector('.nav-links');
+    if(menu && nav){
+      menu.addEventListener('click',()=>{
+        const open = nav.classList.toggle('open');
+        menu.setAttribute('aria-expanded', String(open));
+      });
+    }
+
+    const form = document.getElementById('finderForm');
+    const steps = [...document.querySelectorAll('.step')];
+    const nextBtn = document.getElementById('nextBtn');
+    const backBtn = document.getElementById('backBtn');
+    const progressBar = document.getElementById('progressBar');
+    const result = document.getElementById('result');
+    const restartBtn = document.getElementById('restartBtn');
+    let currentStep = 0;
+
+    const recommendations = {
+      preschool:{
+        name:'Preschool Program',
+        copy:'A playful, age-appropriate introduction to movement, rhythm, classroom confidence, and foundational dance skills.',
+        url:'preschool-class-registration.html'
+      },
+      primary:{
+        name:'Primary Program',
+        copy:'A structured next step for young dancers building ballet, tap, jazz, coordination, musicality, and confidence.',
+        url:'primary-class-registration.html'
+      },
+      elementary:{
+        name:'Elementary Program',
+        copy:'A progressive program for school-age dancers ready to strengthen technique, explore styles, and grow as performers.',
+        url:'elementary-class-registration.html'
+      },
+      advanced:{
+        name:'Intermediate & Advanced Program',
+        copy:'Focused training for older or experienced dancers who are ready for stronger technique, progression, and performance opportunities.',
+        url:'intermediate-advanced-registration.html'
+      },
+      specialty:{
+        name:'Specialized Classes',
+        copy:'The best starting place for dancers especially interested in acro, hip hop, musical theatre, or other specialty styles.',
+        url:'specialized-class-registration.html'
+      },
+      competition:{
+        name:'Competition Team Auditions',
+        copy:'A competition-focused pathway for dancers interested in auditions, intensive training, teamwork, and performance.',
+        url:'competition-auditions.html'
+      }
+    };
+
+    function selected(name){
+      return form.querySelector('input[name="'+name+'"]:checked')?.value || '';
+    }
+
+    function updateOptions(){
+      steps[currentStep].querySelectorAll('.option').forEach(label=>{
+        const input = label.querySelector('input');
+        label.classList.toggle('selected', input.checked);
+      });
+      const currentName = ['age','experience','interest','goal'][currentStep];
+      nextBtn.disabled = !selected(currentName);
+      nextBtn.textContent = currentStep === steps.length - 1 ? 'See My Recommendation →' : 'Next →';
+      backBtn.disabled = currentStep === 0;
+      progressBar.style.width = ((currentStep + 1) / steps.length * 100) + '%';
+    }
+
+    form.addEventListener('change', updateOptions);
+
+    nextBtn.addEventListener('click',()=>{
+      if(currentStep < steps.length - 1){
+        steps[currentStep].classList.remove('active');
+        currentStep++;
+        steps[currentStep].classList.add('active');
+        updateOptions();
+        steps[currentStep].scrollIntoView({behavior:'smooth', block:'center'});
+      }else{
+        showResult();
+      }
+    });
+
+    backBtn.addEventListener('click',()=>{
+      if(currentStep > 0){
+        steps[currentStep].classList.remove('active');
+        currentStep--;
+        steps[currentStep].classList.add('active');
+        updateOptions();
+      }
+    });
+
+    function getRecommendation(){
+      const age = selected('age');
+      const experience = selected('experience');
+      const interest = selected('interest');
+      const goal = selected('goal');
+
+      if(goal === 'competition' || interest === 'competition' || experience === 'competitive'){
+        return ['competition', [
+          'Competition interest selected',
+          'Audition-based pathway',
+          'Direct competition information'
+        ]];
+      }
+
+      if(interest === 'specialty'){
+        return ['specialty', [
+          'Specialty style selected',
+          'Age-appropriate options available',
+          'Direct specialty registration'
+        ]];
+      }
+
+      if(age === '3-4'){
+        return ['preschool', [
+          'Designed for ages 3–4',
+          'Beginner-friendly foundation',
+          'Confidence through movement'
+        ]];
+      }
+
+      if(age === '5-6'){
+        return ['primary', [
+          'Designed for ages 5–6',
+          experience === 'new' ? 'Welcoming first-class pathway' : 'Builds on early experience',
+          'Strong dance foundations'
+        ]];
+      }
+
+      if(age === '7-9'){
+        return ['elementary', [
+          'Designed for elementary ages',
+          experience === 'experienced' ? 'Supports continued progression' : 'Clear foundational pathway',
+          'Multiple style opportunities'
+        ]];
+      }
+
+      return ['advanced', [
+        'Best match for older dancers',
+        experience === 'new' ? 'Placement can be confirmed by staff' : 'Supports technical progression',
+        'Broader performance opportunities'
+      ]];
+    }
+
+    function showResult(){
+      const [key, reasons] = getRecommendation();
+      const recommendation = recommendations[key];
+
+      form.style.display = 'none';
+      result.classList.add('active');
+      progressBar.style.width = '100%';
+      document.getElementById('resultName').textContent = recommendation.name;
+      document.getElementById('resultCopy').textContent = recommendation.copy;
+      document.getElementById('registerLink').href = recommendation.url;
+      document.getElementById('resultReasons').innerHTML = reasons.map(reason=>'<div class="reason">'+reason+'</div>').join('');
+      result.scrollIntoView({behavior:'smooth', block:'center'});
+    }
+
+    restartBtn.addEventListener('click',()=>{
+      form.reset();
+      form.style.display = '';
+      result.classList.remove('active');
+      currentStep = 0;
+      steps.forEach((step,index)=>step.classList.toggle('active',index===0));
+      updateOptions();
+      window.scrollTo({top:document.querySelector('.finder-wrap').offsetTop - 90,behavior:'smooth'});
+    });
+
+    updateOptions();
+  </script>
+</body>
+</html>
