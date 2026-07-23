@@ -1,0 +1,16 @@
+STAGE STARZ HOMEPAGE V5
+
+REMOVED
+- Interactive Class Finder page
+- All links to the Class Finder
+- Class Finder setup guide
+
+ADDED
+- Staff-guided class recommendation call-to-action
+- Subtle hero motion and polished interactions
+- Photography-led studio showcase
+- Animated studio highlights
+- Enhanced teaching-philosophy/testimonial section
+- Performance and recital feature area
+
+The recommendation button now opens the contact page so Stage Starz staff can provide accurate placement guidance.

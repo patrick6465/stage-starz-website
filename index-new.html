@@ -123,6 +123,43 @@
     }
 
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.btn{transition:none}}
+  
+    .hero{background-size:cover;animation:heroBreath 18s ease-in-out infinite alternate}
+    @keyframes heroBreath{from{background-size:100% auto}to{background-size:106% auto}}
+    @media(max-aspect-ratio:4/3){.hero{animation:none;background-size:cover}}
+    .btn{position:relative;overflow:hidden}
+    .btn:after{content:"";position:absolute;inset:0;transform:translateX(-120%);background:linear-gradient(100deg,transparent,rgba(255,255,255,.22),transparent);transition:transform .6s ease}
+    .btn:hover:after{transform:translateX(120%)}
+    .recommendation-band{max-width:var(--max);margin:0 auto;padding:34px 22px 10px}
+    .recommendation-card{display:grid;grid-template-columns:1.4fr auto;align-items:center;gap:26px;padding:34px;border:1px solid var(--line);border-radius:var(--radius);background:radial-gradient(circle at 90% 10%,rgba(123,216,209,.24),transparent 19rem),radial-gradient(circle at 5% 100%,rgba(233,30,140,.14),transparent 20rem),#fff;box-shadow:0 20px 60px rgba(20,8,25,.10)}
+    .recommendation-card h2{margin-bottom:10px}.recommendation-card p{margin:0;color:var(--muted);max-width:760px}
+    .showcase{max-width:var(--max);margin:auto;padding:92px 22px}
+    .showcase-head{max-width:760px;margin-bottom:34px}
+    .showcase-grid{display:grid;grid-template-columns:1.2fr .8fr .8fr;grid-template-rows:260px 260px;gap:16px}
+    .showcase-card{position:relative;overflow:hidden;border-radius:26px;min-height:250px;background-image:linear-gradient(0deg,rgba(11,7,21,.92),rgba(11,7,21,.06) 68%),url("assets/images/audriana-homepage-hero.jpg");background-size:cover;color:#fff;box-shadow:var(--shadow);transition:transform .35s ease,box-shadow .35s ease}
+    .showcase-card:hover{transform:translateY(-6px);box-shadow:0 35px 90px rgba(20,8,25,.30)}
+    .showcase-card:nth-child(1){grid-row:1/3;background-position:28% center}.showcase-card:nth-child(2){background-position:55% 30%}.showcase-card:nth-child(3){background-position:80% 35%}.showcase-card:nth-child(4){grid-column:2/4;background-position:center 64%}
+    .showcase-copy{position:absolute;left:0;right:0;bottom:0;padding:26px}.showcase-copy span{display:block;color:#d8d0e5;font-size:.92rem;margin-top:7px}
+    .stats-section{background:linear-gradient(135deg,var(--night),var(--night-2));color:#fff;padding:74px 22px}
+    .stats-inner{max-width:var(--max);margin:auto}.stats-head{text-align:center;max-width:720px;margin:0 auto 36px}.stats-head .lead{color:#cfc6df}
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
+    .stat{padding:27px 20px;text-align:center;border-radius:22px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.055);backdrop-filter:blur(10px)}
+    .stat-number{display:block;font-size:clamp(2.2rem,5vw,4rem);font-weight:950;line-height:1;background:linear-gradient(90deg,#fff,#7ce7ef,#ff95c7);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .stat-label{display:block;margin-top:10px;color:#d9d0e8;font-weight:750}
+    .testimonial-section{max-width:var(--max);margin:auto;padding:92px 22px}
+    .testimonial-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+    .testimonial-main,.testimonial-side{border-radius:28px;padding:36px;border:1px solid var(--line);background:#fff;box-shadow:0 18px 55px rgba(20,8,25,.09)}
+    .testimonial-main blockquote{font-size:clamp(1.45rem,3vw,2.25rem);font-weight:850;line-height:1.25;letter-spacing:-.03em;margin:12px 0 22px}
+    .stars{letter-spacing:.2em;color:#e3b441;font-size:1.2rem}.testimonial-side{background:linear-gradient(145deg,#fff4fa,#f4ffff)}.testimonial-side p{color:var(--muted)}
+    .video-feature{max-width:var(--max);margin:0 auto;padding:20px 22px 100px}
+    .video-shell{position:relative;min-height:470px;display:grid;align-items:end;overflow:hidden;border-radius:32px;color:#fff;background:linear-gradient(90deg,rgba(5,5,5,.88),rgba(5,5,5,.24)),url("assets/images/audriana-homepage-hero.jpg") center 42%/cover no-repeat;box-shadow:var(--shadow)}
+    .video-copy{position:relative;z-index:2;max-width:650px;padding:48px}.play-link{display:inline-grid;place-items:center;width:68px;height:68px;margin-bottom:20px;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(255,255,255,.14);font-size:1.4rem;backdrop-filter:blur(10px)}
+    .reveal{opacity:0;transform:translateY(28px);transition:opacity .75s ease,transform .75s cubic-bezier(.2,.75,.2,1)}.reveal.visible{opacity:1;transform:none}
+    .program,.feature,.stat{transition:transform .28s ease,box-shadow .28s ease}.program:hover,.feature:hover,.stat:hover{transform:translateY(-5px)}
+    @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}.reveal{opacity:1;transform:none}}
+    @media(max-width:900px){.recommendation-card{grid-template-columns:1fr}.showcase-grid{grid-template-columns:1fr 1fr;grid-template-rows:auto}.showcase-card:nth-child(1),.showcase-card:nth-child(4){grid-row:auto;grid-column:1/3}.stats-grid{grid-template-columns:repeat(2,1fr)}.testimonial-grid{grid-template-columns:1fr}}
+    @media(max-width:620px){.showcase-grid{display:block}.showcase-card{margin-bottom:15px;min-height:300px}.showcase-card:nth-child(1),.showcase-card:nth-child(4){grid-column:auto}.stats-grid{grid-template-columns:1fr 1fr}.recommendation-card,.testimonial-main,.testimonial-side{padding:25px}.video-shell{min-height:520px}.video-copy{padding:28px}}
+    
   </style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
 </head>
@@ -141,24 +178,37 @@
       </div>
     </div>
   </section>
-
-  <section class="finder-band reveal" aria-label="Class Finder">
-    <div class="finder-card">
+  <section class="recommendation-band reveal" aria-label="Personalized class recommendations">
+    <div class="recommendation-card">
       <div>
         <p class="eyebrow">New to Stage Starz?</p>
         <h2>Not sure which class is right?</h2>
-        <p>Find the best starting point for your dancer in under 30 seconds.</p>
+        <p>Tell us your dancer’s age, experience, interests, and goals. Our staff will help you choose the most appropriate starting point.</p>
       </div>
-      <a class="btn primary" href="class-finder.html">Start Here <span>→</span></a>
+      <a class="btn primary" href="contact.html">Get a Recommendation <span>→</span></a>
     </div>
   </section>
 
-  <section class="trust-strip" aria-label="Studio highlights"><div class="trust-inner">
+<section class="trust-strip" aria-label="Studio highlights"><div class="trust-inner">
     <div class="trust-item"><span class="trust-icon">★</span><span>Over 25 years of experience</span></div>
     <div class="trust-item"><span class="trust-icon">✦</span><span>Ages 3 through pre-professional</span></div>
     <div class="trust-item"><span class="trust-icon">♪</span><span>Multiple dance styles</span></div>
     <div class="trust-item"><span class="trust-icon">🏆</span><span>Performance and competition paths</span></div>
   </div></section>
+
+  <section class="showcase reveal" aria-label="Welcome to Stage Starz">
+    <div class="showcase-head">
+      <p class="eyebrow">Welcome to Stage Starz</p>
+      <h2>A studio experience built around confidence, creativity, and growth.</h2>
+      <p class="lead">From first steps to advanced performance opportunities, dancers are supported through purposeful instruction and a welcoming studio community.</p>
+    </div>
+    <div class="showcase-grid">
+      <article class="showcase-card"><div class="showcase-copy"><h3>Experienced Instruction</h3><span>Teachers and choreographers committed to meaningful progress.</span></div></article>
+      <article class="showcase-card"><div class="showcase-copy"><h3>Positive Environment</h3><span>A place where dancers can feel encouraged, known, and supported.</span></div></article>
+      <article class="showcase-card"><div class="showcase-copy"><h3>Performance Opportunities</h3><span>Recitals, community appearances, and competition pathways.</span></div></article>
+      <article class="showcase-card"><div class="showcase-copy"><h3>Purposeful Progression</h3><span>Age-appropriate programs from introductory through advanced levels.</span></div></article>
+    </div>
+  </section>
 
   <section class="section reveal" id="programs">
     <div class="story-intro">
@@ -186,13 +236,23 @@
       <div class="feature"><b>Professional facilities</b><span>Dance flooring, mirrors, barres, sound systems, and parent viewing.</span></div>
     </div>
   </div></section>
+  <section class="stats-section reveal" aria-label="Stage Starz highlights">
+    <div class="stats-inner">
+      <div class="stats-head">
+        <p class="eyebrow" style="color:#ff95c7">A lasting studio tradition</p>
+        <h2>Experience families can feel.</h2>
+        <p class="lead">Clear pathways, varied training opportunities, and decades of dance education support every stage of a dancer’s journey.</p>
+      </div>
+      <div class="stats-grid">
+        <div class="stat"><span class="stat-number" data-count="25" data-suffix="+">0</span><span class="stat-label">Years of experience</span></div>
+        <div class="stat"><span class="stat-number" data-count="3" data-suffix="+">0</span><span class="stat-label">Starting age</span></div>
+        <div class="stat"><span class="stat-number" data-count="6">0</span><span class="stat-label">Program pathways</span></div>
+        <div class="stat"><span class="stat-number" data-count="2">0</span><span class="stat-label">Recreational and competitive paths</span></div>
+      </div>
+    </div>
+  </section>
 
-  <section class="section reveal"><div class="experience">
-    <div class="experience-card"><div class="big-number">25+</div><h3>Years inspiring dancers</h3><p class="lead">Stage Starz brings decades of teaching, choreography, performance, and competition experience into every classroom.</p><div class="actions"><a class="btn dark" href="about.html">Our Story</a></div></div>
-    <div class="quote-card"><blockquote>Dance education should build more than technique. It should help students discover confidence, discipline, creativity, and belonging.</blockquote><p>That philosophy guides the Stage Starz experience from the first class forward.</p></div>
-  </div></section>
-
-  <section class="section reveal"><div class="performance">
+<section class="section reveal"><div class="performance">
     <div class="performance-art" aria-label="Abstract dance performance artwork"></div>
     <div><p class="eyebrow">More than weekly classes</p><h2>Moments that move dancers forward.</h2><p class="lead">Students have opportunities to develop stage presence, celebrate progress, and share their talents with family and community.</p>
       <div class="checklist"><div class="check"><i>✓</i><div><b>Annual recital showcase</b><br><span class="lead">A polished performance experience for students and families.</span></div></div><div class="check"><i>✓</i><div><b>Community performances</b><br><span class="lead">Opportunities to perform beyond the classroom.</span></div></div><div class="check"><i>✓</i><div><b>National competition opportunities</b><br><span class="lead">An advanced pathway for dancers seeking a greater challenge.</span></div></div></div>
@@ -200,7 +260,36 @@
     </div>
   </div></section>
 
-  <section class="cta reveal"><p class="eyebrow" style="color:#fff">Your next step starts here</p><h2>Ready to dance with Stage Starz?</h2><p>Explore programs, find the best class for your dancer, and use the direct registration pages to secure your place.</p><div class="actions"><a class="btn light" href="classes.html">Register for Classes</a><a class="btn outline" href="class-finder.html">Use the Class Finder</a></div></section>
+  <section class="testimonial-section reveal" aria-label="Stage Starz philosophy">
+    <div class="section-head"><div><p class="eyebrow">The Stage Starz experience</p><h2>More than dance steps.</h2></div></div>
+    <div class="testimonial-grid">
+      <article class="testimonial-main">
+        <div class="stars" aria-label="Five stars">★★★★★</div>
+        <blockquote>“Dance education should build more than technique. It should help students discover confidence, discipline, creativity, and belonging.”</blockquote>
+        <strong>The Stage Starz teaching philosophy</strong>
+      </article>
+      <article class="testimonial-side">
+        <p class="eyebrow">What families can expect</p>
+        <h3>Supportive instruction with meaningful standards.</h3>
+        <p>Dancers are encouraged as individuals while learning the discipline, teamwork, artistry, and stage presence that help them progress.</p>
+        <a class="btn dark small" href="about.html">Learn About the Studio</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="video-feature reveal" aria-label="Performance highlights">
+    <div class="video-shell">
+      <div class="video-copy">
+        <a class="play-link" href="events.html" aria-label="Explore Stage Starz performances">▶</a>
+        <p class="eyebrow" style="color:#fff">See the experience</p>
+        <h2>From the classroom to the stage.</h2>
+        <p class="hero-copy">Explore recital information, performance opportunities, and events that give dancers a chance to celebrate their growth.</p>
+        <div class="actions"><a class="btn light" href="events.html">Explore Events</a><a class="btn outline" href="recital-2026.html">Recital Information</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta reveal"><p class="eyebrow" style="color:#fff">Your next step starts here</p><h2>Ready to dance with Stage Starz?</h2><p>Explore programs, contact our staff for placement guidance, and use the direct registration pages when you are ready.</p><div class="actions"><a class="btn light" href="classes.html">Register for Classes</a><a class="btn outline" href="contact.html">Ask About Placement</a></div></section>
 </main>
 <footer class="footer"><div class="footer-inner"><div><a class="logo" href="index-new.html" aria-label="Stage Starz Academy of Dance home"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance"></a><p>Dance classes, competition teams, performance opportunities, and parent resources in Temperance, Michigan.</p></div><div><h3>Explore</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="about.html">About</a></div><div><h3>Families</h3><a href="parent-hub.html">Parent Hub</a><a href="portal.html">Dancer Portal</a><a href="store.html">Studio Shop</a><a href="contact.html">Contact</a></div><div><h3>Connect</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">Email the Studio</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a><p>6800 Lewis Ave<br>Temperance, MI 48182</p></div></div><div class="copyright">© <span id="year"></span> Stage Starz Academy of Dance. All rights reserved.</div></footer>
 <script>
@@ -208,6 +297,26 @@
   if(menu&&links){menu.addEventListener('click',()=>{const open=links.classList.toggle('open');menu.setAttribute('aria-expanded',String(open));});}
   const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target);}}),{threshold:.12});
   document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+  const countUp=(el)=>{
+    const target=Number(el.dataset.count||0),suffix=el.dataset.suffix||"";
+    const duration=1100,start=performance.now();
+    const tick=(now)=>{
+      const progress=Math.min((now-start)/duration,1);
+      const eased=1-Math.pow(1-progress,3);
+      el.textContent=Math.round(target*eased)+suffix;
+      if(progress<1)requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  const statObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      entry.target.querySelectorAll(".stat-number").forEach(countUp);
+      statObserver.unobserve(entry.target);
+    }
+  }),{threshold:.35});
+  document.querySelectorAll(".stats-section").forEach(el=>statObserver.observe(el));
+
   document.getElementById('year').textContent=new Date().getFullYear();
 </script>
 </body>
