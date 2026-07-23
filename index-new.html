@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stage Starz Academy of Dance | Dance Classes in Temperance, Michigan</title>
+  <meta name="description" content="Discover recreational and competitive dance classes for ages 3 and up at Stage Starz Academy of Dance in Temperance, Michigan.">
+  <meta name="theme-color" content="#100b22">
+  <style>
+    :root{
+      --night:#0b0715;--night-2:#17102a;--ink:#191226;--muted:#706780;
+      --white:#fff;--paper:#fffafd;--purple:#7c3aed;--pink:#ec4899;--teal:#20c9d8;
+      --gold:#f4c95d;--line:rgba(124,58,237,.16);--shadow:0 28px 80px rgba(32,19,63,.18);
+      --radius:28px;--max:1180px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--paper);line-height:1.6}
+    a{text-decoration:none;color:inherit}
+    img{display:block;max-width:100%}
+    button{font:inherit}
+    .skip{position:absolute;left:-999px}.skip:focus{left:12px;top:12px;background:#fff;padding:10px 14px;z-index:9999}
+    .topbar{background:var(--night);color:#eee7ff;padding:8px 20px;display:flex;justify-content:center;gap:24px;flex-wrap:wrap;font-size:.88rem}
+    .header{position:sticky;top:0;z-index:100;background:rgba(255,250,253,.9);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+    .nav{max-width:var(--max);margin:auto;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+    .logo{display:flex;align-items:center;gap:11px;font-weight:950;letter-spacing:-.03em;font-size:1.28rem}
+    .logo-mark{width:42px;height:42px;border-radius:15px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink) 58%,var(--teal));box-shadow:0 12px 26px rgba(124,58,237,.26)}
+    .nav-links{display:flex;align-items:center;gap:18px;font-weight:800;font-size:.95rem}
+    .nav-links>a:not(.btn):hover{color:var(--purple)}
+    .menu{display:none;border:0;background:none;font-size:1.8rem;cursor:pointer}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:13px 20px;font-weight:900;transition:.25s ease;cursor:pointer}
+    .btn:hover{transform:translateY(-2px)}
+    .btn.primary{color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink));box-shadow:0 15px 35px rgba(124,58,237,.28)}
+    .btn.light{background:#fff;color:var(--night);box-shadow:0 12px 30px rgba(0,0,0,.18)}
+    .btn.outline{border:2px solid rgba(255,255,255,.72);color:#fff;background:rgba(255,255,255,.08)}
+    .btn.dark{background:var(--night);color:#fff}.btn.small{padding:10px 15px;font-size:.9rem}
+    .hero{position:relative;min-height:760px;display:grid;align-items:center;overflow:hidden;color:#fff;background:
+      radial-gradient(circle at 15% 20%,rgba(236,72,153,.36),transparent 24rem),
+      radial-gradient(circle at 85% 25%,rgba(32,201,216,.28),transparent 28rem),
+      linear-gradient(115deg,rgba(8,5,20,.97) 10%,rgba(18,10,38,.9) 50%,rgba(31,16,57,.78) 100%)}
+    .hero:before{content:"";position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:52px 52px;mask-image:linear-gradient(to bottom,black,transparent 88%)}
+    .hero:after{content:"★";position:absolute;right:-4vw;top:7%;font-size:min(46vw,620px);line-height:1;color:rgba(255,255,255,.035);transform:rotate(10deg)}
+    .hero-inner{position:relative;z-index:2;max-width:var(--max);margin:auto;padding:110px 22px 100px;display:grid;grid-template-columns:1.14fr .86fr;gap:64px;align-items:center;width:100%}
+    .kicker{display:inline-flex;align-items:center;gap:9px;text-transform:uppercase;letter-spacing:.14em;font-size:.78rem;font-weight:900;color:#e7ddff;margin-bottom:20px}
+    .kicker:before{content:"";width:42px;height:2px;background:linear-gradient(90deg,var(--teal),var(--pink))}
+    h1,h2,h3{line-height:1.04;letter-spacing:-.045em;margin-top:0}
+    h1{font-size:clamp(3.3rem,7.8vw,7.3rem);margin-bottom:22px;max-width:900px}
+    .gradient-text{background:linear-gradient(90deg,#fff 0%,#d7c3ff 34%,#7ce7ef 70%,#ff95c7 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+    .hero-copy{font-size:clamp(1.05rem,2vw,1.28rem);color:#d8d0e5;max-width:710px;margin:0 0 30px}
+    .actions{display:flex;gap:13px;flex-wrap:wrap}
+    .hero-card{position:relative;border:1px solid rgba(255,255,255,.16);background:linear-gradient(160deg,rgba(255,255,255,.13),rgba(255,255,255,.035));backdrop-filter:blur(16px);border-radius:34px;padding:28px;box-shadow:0 30px 80px rgba(0,0,0,.28)}
+    .hero-card .visual{aspect-ratio:4/5;border-radius:24px;position:relative;overflow:hidden;background:
+      radial-gradient(circle at 50% 28%,rgba(255,255,255,.9) 0 6%,transparent 6.5%),
+      radial-gradient(ellipse at 50% 45%,rgba(255,255,255,.5) 0 10%,transparent 10.5%),
+      linear-gradient(145deg,#5425b6 0%,#e6469f 48%,#1bc4d2 100%)}
+    .hero-card .visual:before,.hero-card .visual:after{content:"";position:absolute;border-radius:50%;border:2px solid rgba(255,255,255,.48)}
+    .hero-card .visual:before{width:74%;height:74%;left:13%;top:12%}.hero-card .visual:after{width:48%;height:48%;left:26%;top:25%}
+    .hero-card .visual span{position:absolute;inset:auto 22px 22px;color:#fff;font-size:1.05rem;font-weight:850;background:rgba(8,5,20,.46);padding:13px 15px;border-radius:15px;backdrop-filter:blur(10px)}
+    .float-note{position:absolute;left:-42px;bottom:74px;background:#fff;color:var(--ink);padding:15px 17px;border-radius:18px;box-shadow:var(--shadow);font-weight:900;max-width:190px}.float-note small{display:block;color:var(--muted);font-weight:700}
+    .trust-strip{background:#fff;border-bottom:1px solid var(--line)}
+    .trust-inner{max-width:var(--max);margin:auto;padding:22px;display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+    .trust-item{display:flex;align-items:center;gap:12px;font-weight:850}.trust-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#f2ebff,#e9fcfd);color:var(--purple)}
+    .section{max-width:var(--max);margin:auto;padding:90px 22px}
+    .section-head{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:34px}.section-head>div{max-width:760px}
+    .eyebrow{color:var(--pink);text-transform:uppercase;letter-spacing:.13em;font-weight:950;font-size:.78rem;margin:0 0 11px}
+    h2{font-size:clamp(2.15rem,4.6vw,4rem);margin-bottom:14px}.lead{font-size:1.12rem;color:var(--muted);margin:0}
+    .program-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+    .program{position:relative;min-height:330px;border-radius:var(--radius);overflow:hidden;color:#fff;padding:28px;display:flex;flex-direction:column;justify-content:flex-end;box-shadow:var(--shadow);isolation:isolate}
+    .program:before{content:"";position:absolute;inset:0;z-index:-2;background:var(--bg)}
+    .program:after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(to top,rgba(7,4,15,.9) 0%,rgba(7,4,15,.25) 72%)}
+    .program:nth-child(1){--bg:linear-gradient(145deg,#ff77b5,#7043d5)}.program:nth-child(2){--bg:linear-gradient(145deg,#7052ea,#1bc4d2)}.program:nth-child(3){--bg:linear-gradient(145deg,#fa5f9c,#9a4dff)}.program:nth-child(4){--bg:linear-gradient(145deg,#1c214c,#713bc7)}.program:nth-child(5){--bg:linear-gradient(145deg,#0f8894,#682bd5)}.program:nth-child(6){--bg:linear-gradient(145deg,#33194d,#ef3d91)}
+    .program-tag{align-self:flex-start;background:rgba(255,255,255,.16);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.24);padding:6px 10px;border-radius:999px;font-size:.75rem;font-weight:900;text-transform:uppercase;letter-spacing:.08em;margin-bottom:auto}
+    .program h3{font-size:1.75rem;margin:0 0 8px}.program p{margin:0 0 16px;color:#eee8f5}.program-link{font-weight:900;display:inline-flex;gap:8px;align-items:center}
+    .why-wrap{background:var(--night);color:#fff;position:relative;overflow:hidden}.why-wrap:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 15% 0,rgba(124,58,237,.3),transparent 28rem),radial-gradient(circle at 90% 80%,rgba(32,201,216,.18),transparent 30rem)}
+    .why{position:relative;max-width:var(--max);margin:auto;padding:95px 22px;display:grid;grid-template-columns:.9fr 1.1fr;gap:62px;align-items:center}
+    .why .lead{color:#cfc4de}.feature-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+    .feature{padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:22px;background:rgba(255,255,255,.06)}.feature b{display:block;font-size:1.08rem;margin-bottom:6px}.feature span{color:#cfc4de;font-size:.94rem}
+    .experience{display:grid;grid-template-columns:1.05fr .95fr;gap:24px;align-items:stretch}.experience-card,.quote-card{border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);background:#fff;padding:34px}
+    .experience-card{background:linear-gradient(145deg,#fff,#f8f2ff)}.big-number{font-size:clamp(4.5rem,10vw,8rem);line-height:.8;font-weight:950;letter-spacing:-.08em;background:linear-gradient(135deg,var(--purple),var(--pink),var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}.experience-card h3{font-size:1.6rem;margin:24px 0 10px}.quote-card{background:linear-gradient(145deg,var(--night-2),#2a144a);color:#fff;display:flex;flex-direction:column;justify-content:center}.quote-card blockquote{font-size:clamp(1.35rem,2.8vw,2.05rem);line-height:1.35;margin:0 0 20px;font-weight:700}.quote-card p{color:#cfc4de;margin:0}
+    .performance{display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:center}.performance-art{min-height:500px;border-radius:34px;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.65) 0 7%,transparent 7.5%),linear-gradient(145deg,#47208c,#e44497 54%,#16b7c6);box-shadow:var(--shadow);position:relative;overflow:hidden}.performance-art:before{content:"";position:absolute;width:76%;aspect-ratio:1;border:2px solid rgba(255,255,255,.38);border-radius:50%;left:12%;top:13%}.performance-art:after{content:"Competition • Recital • Community Performances";position:absolute;left:25px;right:25px;bottom:25px;background:rgba(9,5,20,.52);color:#fff;padding:17px 18px;border-radius:18px;font-weight:900;backdrop-filter:blur(12px)}
+    .checklist{display:grid;gap:13px;margin:25px 0}.check{display:flex;align-items:flex-start;gap:12px}.check i{font-style:normal;color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink));width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;font-size:.8rem}
+    .cta{max-width:var(--max);margin:20px auto 90px;padding:70px 48px;border-radius:38px;color:#fff;text-align:center;background:radial-gradient(circle at 20% 0,rgba(255,255,255,.18),transparent 20rem),linear-gradient(120deg,#5f27ce,#dd3f94 58%,#13afbc);box-shadow:var(--shadow)}.cta h2{margin-bottom:14px}.cta p{max-width:700px;margin:0 auto 28px;color:#f6eefa;font-size:1.08rem}.cta .actions{justify-content:center}
+    .footer{background:var(--night);color:#fff}.footer-inner{max-width:var(--max);margin:auto;padding:55px 22px;display:grid;grid-template-columns:1.3fr .7fr .7fr .8fr;gap:30px}.footer h3{font-size:1.12rem}.footer p,.footer a{color:#cfc4de}.footer a{display:block;margin:8px 0}.footer a:hover{color:#fff}.copyright{border-top:1px solid rgba(255,255,255,.1);max-width:var(--max);margin:auto;padding:18px 22px;color:#9d93ad;font-size:.88rem}
+    .reveal{opacity:0;transform:translateY(18px);transition:.7s ease}.reveal.visible{opacity:1;transform:none}
+    @media(max-width:980px){.menu{display:block}.nav-links{display:none;position:absolute;left:18px;right:18px;top:72px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav-links.open{display:flex}.hero-inner,.why,.performance{grid-template-columns:1fr}.hero-card{max-width:590px}.float-note{left:18px}.trust-inner{grid-template-columns:repeat(2,1fr)}.program-grid{grid-template-columns:repeat(2,1fr)}.experience{grid-template-columns:1fr}.footer-inner{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:640px){.topbar{gap:10px;font-size:.78rem}.hero{min-height:auto}.hero-inner{padding-top:76px;padding-bottom:70px}.hero-card{padding:18px}.float-note{position:relative;left:auto;bottom:auto;margin-top:14px;max-width:none}.trust-inner,.program-grid,.feature-grid,.footer-inner{grid-template-columns:1fr}.section{padding-top:68px;padding-bottom:68px}.section-head{align-items:flex-start;flex-direction:column}.program{min-height:290px}.cta{margin-left:14px;margin-right:14px;padding:55px 22px}.performance-art{min-height:380px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.btn{transition:none}}
+  </style>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">Call or text: (734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div>
+<header class="header"><nav class="nav" aria-label="Main navigation"><a class="logo" href="index-new.html"><span class="logo-mark">★</span><span>Stage Starz</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="store.html">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="classes.html">Register</a></div></nav></header>
+<main id="main">
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <div class="kicker">Temperance, Michigan</div>
+        <h1><span class="gradient-text">Where passion</span><br>meets performance.</h1>
+        <p class="hero-copy">From a dancer’s first class to the competition stage, Stage Starz nurtures confidence, technique, creativity, and a lifelong love of dance.</p>
+        <div class="actions"><a class="btn primary" href="classes.html">Explore Classes <span>→</span></a><a class="btn outline" href="class-finder.html">Find My Perfect Class</a></div>
+      </div>
+      <aside class="hero-card" aria-label="Stage Starz program highlight">
+        <div class="visual"><span>Recreational and competitive programs for ages 3 and up</span></div>
+        <div class="float-note">A place to grow.<small>Technique, artistry, confidence, and community.</small></div>
+      </aside>
+    </div>
+  </section>
+  <section class="trust-strip" aria-label="Studio highlights"><div class="trust-inner">
+    <div class="trust-item"><span class="trust-icon">★</span><span>Over 25 years of experience</span></div>
+    <div class="trust-item"><span class="trust-icon">✦</span><span>Ages 3 through pre-professional</span></div>
+    <div class="trust-item"><span class="trust-icon">♪</span><span>Multiple dance styles</span></div>
+    <div class="trust-item"><span class="trust-icon">🏆</span><span>Performance and competition paths</span></div>
+  </div></section>
+
+  <section class="section reveal" id="programs">
+    <div class="section-head"><div><p class="eyebrow">Programs for every stage</p><h2>Find the right place to begin—and grow.</h2><p class="lead">Clear pathways help families choose an age-appropriate class, explore new styles, and progress with confidence.</p></div><a class="btn dark" href="classes.html">View all classes</a></div>
+    <div class="program-grid">
+      <a class="program" href="preschool-class-registration.html"><span class="program-tag">Ages 3–4</span><h3>Preschool</h3><p>Joyful introductory combinations that build rhythm, coordination, and classroom confidence.</p><span class="program-link">View classes →</span></a>
+      <a class="program" href="primary-class-registration.html"><span class="program-tag">Early level</span><h3>Primary</h3><p>Foundational training designed to develop musicality, technique, and a love of movement.</p><span class="program-link">View classes →</span></a>
+      <a class="program" href="elementary-class-registration.html"><span class="program-tag">Developing dancers</span><h3>Elementary</h3><p>Progressive instruction in core styles with added technique-building opportunities.</p><span class="program-link">View classes →</span></a>
+      <a class="program" href="intermediate-advanced-registration.html"><span class="program-tag">Experienced dancers</span><h3>Intermediate & Advanced</h3><p>Focused training for dancers ready for stronger technique, artistry, and performance demands.</p><span class="program-link">View classes →</span></a>
+      <a class="program" href="specialized-class-registration.html"><span class="program-tag">Focused training</span><h3>Specialized Classes</h3><p>Private, semi-private, duet, and trio options for personalized instruction and choreography.</p><span class="program-link">View classes →</span></a>
+      <a class="program" href="competition.html"><span class="program-tag">Audition pathway</span><h3>Competition Teams</h3><p>Structured team opportunities for dedicated dancers ready to train, perform, and compete.</p><span class="program-link">Explore teams →</span></a>
+    </div>
+  </section>
+
+  <section class="why-wrap"><div class="why reveal">
+    <div><p class="eyebrow">Why Stage Starz</p><h2>Professional instruction with a warm, encouraging spirit.</h2><p class="lead">Students are challenged to improve while being supported as individuals. The result is a studio environment built around respect, creativity, and meaningful progress.</p><div class="actions"><a class="btn primary" href="about.html">Meet Stage Starz</a><a class="btn outline" href="contact.html">Contact the Studio</a></div></div>
+    <div class="feature-grid">
+      <div class="feature"><b>Experienced faculty</b><span>Dedicated teachers, choreographers, and artistic leaders.</span></div>
+      <div class="feature"><b>Purposeful progression</b><span>Age-appropriate pathways from beginner through advanced levels.</span></div>
+      <div class="feature"><b>Family-friendly environment</b><span>A welcoming atmosphere where dancers can feel known and supported.</span></div>
+      <div class="feature"><b>Professional facilities</b><span>Dance flooring, mirrors, barres, sound systems, and parent viewing.</span></div>
+    </div>
+  </div></section>
+
+  <section class="section reveal"><div class="experience">
+    <div class="experience-card"><div class="big-number">25+</div><h3>Years inspiring dancers</h3><p class="lead">Stage Starz brings decades of teaching, choreography, performance, and competition experience into every classroom.</p><div class="actions"><a class="btn dark" href="about.html">Our Story</a></div></div>
+    <div class="quote-card"><blockquote>Dance education should build more than technique. It should help students discover confidence, discipline, creativity, and belonging.</blockquote><p>That philosophy guides the Stage Starz experience from the first class forward.</p></div>
+  </div></section>
+
+  <section class="section reveal"><div class="performance">
+    <div class="performance-art" aria-label="Abstract dance performance artwork"></div>
+    <div><p class="eyebrow">More than weekly classes</p><h2>Moments that move dancers forward.</h2><p class="lead">Students have opportunities to develop stage presence, celebrate progress, and share their talents with family and community.</p>
+      <div class="checklist"><div class="check"><i>✓</i><div><b>Annual recital showcase</b><br><span class="lead">A polished performance experience for students and families.</span></div></div><div class="check"><i>✓</i><div><b>Community performances</b><br><span class="lead">Opportunities to perform beyond the classroom.</span></div></div><div class="check"><i>✓</i><div><b>National competition opportunities</b><br><span class="lead">An advanced pathway for dancers seeking a greater challenge.</span></div></div></div>
+      <div class="actions"><a class="btn primary" href="events.html">Upcoming Events</a><a class="btn dark" href="competition.html">Competition Program</a></div>
+    </div>
+  </div></section>
+
+  <section class="cta reveal"><p class="eyebrow" style="color:#fff">Your next step starts here</p><h2>Ready to dance with Stage Starz?</h2><p>Explore programs, find the best class for your dancer, and use the direct registration pages to secure your place.</p><div class="actions"><a class="btn light" href="classes.html">Register for Classes</a><a class="btn outline" href="class-finder.html">Use the Class Finder</a></div></section>
+</main>
+<footer class="footer"><div class="footer-inner"><div><a class="logo" href="index-new.html" style="color:#fff"><span class="logo-mark">★</span><span>Stage Starz</span></a><p>Dance classes, competition teams, performance opportunities, and parent resources in Temperance, Michigan.</p></div><div><h3>Explore</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="about.html">About</a></div><div><h3>Families</h3><a href="parent-hub.html">Parent Hub</a><a href="portal.html">Dancer Portal</a><a href="store.html">Studio Shop</a><a href="contact.html">Contact</a></div><div><h3>Connect</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">Email the Studio</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a><p>6800 Lewis Ave<br>Temperance, MI 48182</p></div></div><div class="copyright">© <span id="year"></span> Stage Starz Academy of Dance. All rights reserved.</div></footer>
+<script>
+  const menu=document.querySelector('.menu'),links=document.querySelector('.nav-links');
+  if(menu&&links){menu.addEventListener('click',()=>{const open=links.classList.toggle('open');menu.setAttribute('aria-expanded',String(open));});}
+  const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target);}}),{threshold:.12});
+  document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+  document.getElementById('year').textContent=new Date().getFullYear();
+</script>
+</body>
+</html>
