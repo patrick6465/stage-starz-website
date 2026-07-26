@@ -133,17 +133,24 @@ a{text-decoration:none;color:inherit}
 .hero-inner{
   position:relative;
   z-index:2;
-  width:min(calc(100% - 44px),var(--max));
+  width:min(calc(100% - 44px),1540px);
   margin:auto;
-  padding:78px 0 86px;
-  display:grid;
-  grid-template-columns:minmax(0,.88fr) minmax(520px,1.12fr);
+  padding:58px 0 82px;
+  display:flex;
+  flex-direction:column;
   align-items:center;
-  gap:46px;
+  gap:42px;
 }
-.hero-copy{max-width:650px}
+.hero-copy{
+  width:100%;
+  max-width:1220px;
+  margin:auto;
+  text-align:center;
+}
 .hero-photo{
   position:relative;
+  width:100%;
+  margin:0;
   padding:10px;
   border:1px solid rgba(255,255,255,.14);
   border-radius:30px;
@@ -172,6 +179,7 @@ a{text-decoration:none;color:inherit}
 .eyebrow{
   display:inline-flex;
   align-items:center;
+  justify-content:center;
   gap:10px;
   margin:0 0 18px;
   color:var(--teal);
@@ -192,26 +200,28 @@ h1,h2,h3{
   letter-spacing:-.035em;
 }
 h1{
-  margin:0 0 20px;
-  font-size:clamp(3.25rem,7vw,6.7rem);
+  margin:0 auto 20px;
+  max-width:1220px;
+  font-size:clamp(3.15rem,6.4vw,6.4rem);
   text-wrap:balance;
 }
 h1 span{
-  display:block;
+  display:inline;
   background:linear-gradient(100deg,#fff 8%,#d889e7 55%,#63e1da 96%);
   -webkit-background-clip:text;
   background-clip:text;
   color:transparent;
 }
 .hero-lead{
-  max-width:680px;
-  margin:0;
+  max-width:900px;
+  margin:0 auto;
   color:#d6cedd;
   font-size:clamp(1.03rem,2vw,1.22rem);
 }
-.hero-actions{display:flex;gap:13px;flex-wrap:wrap;margin-top:30px}
+.hero-actions{display:flex;justify-content:center;gap:13px;flex-wrap:wrap;margin-top:30px}
 .hero-note{
   display:flex;
+  justify-content:center;
   gap:24px;
   flex-wrap:wrap;
   margin-top:30px;
@@ -444,14 +454,10 @@ h1 span{
   }
   .nav-links.open{display:flex}
   .nav-links a{padding:10px 12px}
-  .hero-inner{
-    grid-template-columns:1fr;
-    gap:34px;
-    padding:64px 0 66px;
-  }
-  .hero-copy{max-width:760px}
-  .hero-photo{order:2;max-width:900px;width:100%;margin:auto}
-  h1{font-size:clamp(3rem,13vw,5rem)}
+  .hero-inner{gap:34px;padding:48px 0 66px}
+  .hero-copy{max-width:100%}
+  .hero-photo{width:100%;margin:0}
+  h1{font-size:clamp(3rem,10vw,5rem)}
   .audition{grid-template-columns:1fr}
   .audition-actions{justify-content:flex-start}
   .expect-grid,.footer-inner{grid-template-columns:1fr}
@@ -460,12 +466,15 @@ h1 span{
   .nav{padding-left:16px;padding-right:16px}
   .logo span{display:none}
   .hero-inner,.section,.footer-inner{width:min(calc(100% - 30px),var(--max))}
-  .hero-inner{padding:50px 0 52px;gap:28px}
-  .hero-photo{padding:6px;border-radius:22px}
+  .hero-inner{padding:28px 0 52px;gap:28px}
+  .hero-photo{width:100%;padding:5px;border-radius:22px}
   .hero-photo:before{border-radius:22px}
   .hero-photo img{border-radius:17px}
   .hero-actions .btn{width:100%}
   .hero-note{gap:10px;flex-direction:column}
+  .hero-copy{text-align:center}
+  .hero-lead{max-width:34rem}
+  h1 span{display:block}
   .section{padding:68px 0}
   .section-heading{text-align:left}
   .benefit-grid{grid-template-columns:1fr}
@@ -517,6 +526,9 @@ h1 span{
 <main>
   <section class="competition-hero">
     <div class="hero-inner">
+      <figure class="hero-photo">
+        <img src="assets/images/full-team-picture.jpg" alt="Stage Starz competition dancers and instructors holding their Studio of Excellence award">
+      </figure>
       <div class="hero-copy">
         <p class="eyebrow">Stage Starz Competition Team</p>
         <h1>Train with purpose. Perform with confidence. <span>Compete as one.</span></h1>
@@ -531,9 +543,6 @@ h1 span{
           <span>Performance experience</span>
         </div>
       </div>
-      <figure class="hero-photo">
-        <img src="assets/images/full-team-picture.jpg" alt="Stage Starz competition dancers and instructors holding their Studio of Excellence award">
-      </figure>
     </div>
   </section>
 
