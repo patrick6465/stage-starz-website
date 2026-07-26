@@ -1,0 +1,15 @@
+STAGE STARZ WHY SECTION UPDATE
+
+Changes:
+- Added the supplied faculty photograph to the Why Stage Starz section.
+- The faculty photograph appears to the left of the text on desktop.
+- The text, feature cards, and buttons are grouped together on the right.
+- On phones, the photograph stacks above the text.
+- The transparent background is preserved.
+- A subtle teal and purple glow was added behind the faculty.
+
+Upload:
+- index-new.html to preview
+- index.html to make the change live
+- the complete assets folder, including:
+  assets/images/stage-starz-teachers.png
