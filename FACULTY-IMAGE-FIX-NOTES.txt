@@ -1,0 +1,10 @@
+FACULTY IMAGE FIX
+
+- Reduced the faculty picture size on desktop, tablet, and mobile.
+- Preserved bottom alignment so the feet remain on the section baseline.
+- Added safe space above the heads.
+- Constrained the image inside the Why Stage Starz section.
+- Prevented the image from expanding outside the section boundaries.
+
+Preview: index-new.html
+Publish: index.html

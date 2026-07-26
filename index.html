@@ -1490,6 +1490,99 @@
   }
 }
 
+
+/* =========================================================
+   FACULTY IMAGE SIZE AND SECTION-BOUNDARY FIX
+   ========================================================= */
+
+/* Keep all faculty artwork contained within the Why Stage Starz section. */
+.approved-why{
+  overflow:hidden !important;
+}
+
+.approved-why-inner{
+  grid-template-columns:minmax(0,1.12fr) minmax(380px,.88fr) !important;
+  min-height:680px !important;
+  overflow:visible !important;
+}
+
+.approved-why-photo{
+  position:relative !important;
+  align-self:stretch !important;
+  min-height:680px !important;
+  height:auto !important;
+  overflow:hidden !important;
+}
+
+/* Smaller image, bottom-aligned, with safe space above the heads. */
+.approved-why-photo img{
+  position:absolute !important;
+  left:50% !important;
+  right:auto !important;
+  bottom:0 !important;
+  top:auto !important;
+  transform:translateX(-50%) !important;
+  width:min(105%,680px) !important;
+  max-width:680px !important;
+  max-height:94% !important;
+  height:auto !important;
+  object-fit:contain !important;
+  object-position:center bottom !important;
+  margin:0 !important;
+}
+
+/* Medium screens */
+@media(max-width:1100px){
+  .approved-why-inner{
+    grid-template-columns:minmax(0,1fr) minmax(340px,.78fr) !important;
+    min-height:650px !important;
+  }
+
+  .approved-why-photo{
+    min-height:650px !important;
+  }
+
+  .approved-why-photo img{
+    width:min(100%,610px) !important;
+    max-width:610px !important;
+    max-height:92% !important;
+  }
+}
+
+/* Tablet and mobile */
+@media(max-width:860px){
+  .approved-why-inner{
+    grid-template-columns:1fr !important;
+    min-height:0 !important;
+  }
+
+  .approved-why-photo{
+    min-height:480px !important;
+    height:480px !important;
+    overflow:hidden !important;
+  }
+
+  .approved-why-photo img{
+    width:min(92%,560px) !important;
+    max-width:560px !important;
+    max-height:94% !important;
+    bottom:0 !important;
+  }
+}
+
+@media(max-width:520px){
+  .approved-why-photo{
+    min-height:390px !important;
+    height:390px !important;
+  }
+
+  .approved-why-photo img{
+    width:min(94%,460px) !important;
+    max-width:460px !important;
+    max-height:93% !important;
+  }
+}
+
 </style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
 </head>
