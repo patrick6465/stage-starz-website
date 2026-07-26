@@ -230,7 +230,45 @@
       }
     }
 
-  </style>
+  
+    @media (max-width:860px){
+      .hero-content{
+        position:absolute;
+        top:90px;
+        left:50%;
+        transform:translateX(-50%);
+        width:min(92%,520px);
+        text-align:center;
+        z-index:5;
+      }
+      .hero .kicker{
+        color:#ffffff;
+        text-shadow:0 2px 10px rgba(0,0,0,.8);
+        font-size:1rem;
+        margin-bottom:8px;
+      }
+      .hero h1{
+        color:#fff;
+        text-shadow:0 3px 14px rgba(0,0,0,.9);
+        font-size:clamp(2rem,7vw,2.8rem);
+        margin:0;
+      }
+      .hero p{
+        text-shadow:0 2px 10px rgba(0,0,0,.85);
+      }
+      .hero .actions{
+        margin-top:18px;
+      }
+      .hero-inner{
+        position:relative;
+        align-items:flex-end;
+      }
+    }
+    @media (max-width:560px){
+      .hero-content{top:72px;}
+    }
+    
+</style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
 </head>
 <body>
