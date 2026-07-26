@@ -1,0 +1,13 @@
+ANIMATED SHIP-IT-SHOP HOMEPAGE UPDATE
+
+The homepage preview now includes the animated Stardust Ship-it-Shop GIF.
+
+Upload:
+- index-new.html
+- the complete assets folder
+
+Preview:
+https://YOUR-GITHUB-PAGES-ADDRESS/index-new.html
+
+The entire animated banner links to store.html.
+After approval, rename index-new.html to index.html.
