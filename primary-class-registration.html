@@ -268,23 +268,19 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
 }
 
 </style>
-<style id="parent-portal-override">
-/* Stage Starz Parent Portal button */
-a[href*="parent"], a[href*="portal"].parent-portal-btn,
-.parent-portal-btn{
-  background:linear-gradient(135deg,#6fe8df,#20C8C7)!important;
-  color:#081112!important;
-  font-weight:800!important;
-  padding:12px 22px!important;
-  border-radius:999px!important;
-  display:inline-block!important;
-  text-decoration:none!important;
-  box-shadow:0 10px 24px rgba(32,200,199,.35)!important;
+
+<style id="registration-parent-portal-style">
+/* Only the Parent Portal button beneath the live registration box */
+.registration-parent-portal-btn{
+  background:linear-gradient(135deg,#7026c8,#b53bd4)!important;
+  color:#ffffff!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+  box-shadow:0 12px 28px rgba(112,38,200,.35)!important;
 }
-a[href*="parent"]:hover,
-.parent-portal-btn:hover{
+.registration-parent-portal-btn:hover{
+  background:linear-gradient(135deg,#8433dc,#c14be0)!important;
+  color:#ffffff!important;
   transform:translateY(-2px);
-  filter:brightness(1.05);
 }
 </style>
 
@@ -312,7 +308,7 @@ a[href*="parent"]:hover,
     </div>
     <div class="jackrabbit-direct-actions">
       <a class="btn teal" href="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Primary%20Level%20Fall&hidecols=Description&showcols=Instructors" target="_blank" rel="noopener">Open Live Registration in a New Window</a>
-      <a class="btn ghost" href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgID=520608" target="_blank" rel="noopener">Existing Family Parent Portal</a>
+      <a class="btn ghost registration-parent-portal-btn" href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgID=520608" target="_blank" rel="noopener">Existing Family Parent Portal</a>
     </div>
     <noscript><p><a href="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Primary%20Level%20Fall&hidecols=Description&showcols=Instructors" target="_blank" rel="noopener">Open the Stage Starz live class-registration table.</a></p></noscript>
   </div>
