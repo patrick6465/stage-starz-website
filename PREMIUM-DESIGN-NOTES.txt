@@ -1,0 +1,22 @@
+STAGE STARZ PREMIUM HOME PAGE UPDATE
+
+Updated sections:
+1. Stardust Ship-it-Shop
+   - Dark premium framed banner
+   - Teal border and gold accent
+   - Stronger animated shimmer and star sweep
+   - Elevated hover effect
+   - Entire banner links to store.html
+
+2. Why Stage Starz
+   - Rich purple, teal, and black color treatment
+   - Editorial split layout inspired by the approved concept
+   - Text and feature cards on the left
+   - Corrected transparent faculty photograph on the right
+   - Responsive mobile stacking
+   - Premium gradients, glows, borders, and shadows
+
+Upload index-new.html to preview.
+Upload index.html to make it live.
+Upload the complete assets folder, including:
+assets/images/stage-starz-teachers.png
