@@ -1,0 +1,12 @@
+STAGE STARZ MOBILE HERO REVISION
+
+Changes:
+- Restored the original full-screen dancer photograph on phones.
+- Removed the large Stage Starz hero logo on phones only.
+- The desktop version still shows the hero logo.
+- Headline, buttons, and shimmering shop section remain in place.
+- The shop section still links to store.html.
+
+UPLOAD:
+- index-new.html for preview, or index.html to make it live
+- the complete assets folder

@@ -189,6 +189,47 @@
       .ship-shop-link::before{animation:none;opacity:.18}
     }
 
+  
+    /* Mobile hero revision: restore the original full-screen dancer image
+       and remove the large hero logo so it cannot cover the dancer. */
+    @media(max-width:860px){
+      .hero{
+        min-height:100svh;
+        background-size:cover;
+        background-position:center top;
+        background-repeat:no-repeat;
+        background-color:#050505;
+      }
+      .hero:before{
+        background:
+          linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,.10) 38%,rgba(0,0,0,.62) 100%);
+      }
+      .hero-inner{
+        min-height:100svh;
+        display:flex;
+        align-items:flex-end;
+        padding:110px 20px 54px;
+      }
+      .hero-content{
+        max-width:680px;
+        margin:0 auto;
+        text-align:center;
+      }
+      .hero-logo{
+        display:none !important;
+      }
+      .hero .actions,
+      .hero .kicker{
+        justify-content:center;
+      }
+    }
+    @media(max-width:560px){
+      .hero-inner{
+        min-height:100svh;
+        padding:96px 18px 42px;
+      }
+    }
+
   </style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
 </head>
