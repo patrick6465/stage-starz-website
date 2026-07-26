@@ -1,0 +1,11 @@
+WHY STAGE STARZ SECTION REBUILT
+
+- The section bottom padding was removed so the faculty image can meet the true section edge.
+- The faculty image is now absolutely anchored to bottom: 0 inside its grid column.
+- The text column keeps its own bottom spacing, so readability is preserved.
+- The faculty image remains large and fully visible.
+- Mobile uses its own fixed image stage with the picture anchored to the bottom.
+- Feature cards received a subtle hover lift and refined glass treatment.
+
+Preview with index-new.html.
+Use index.html when ready to publish.
