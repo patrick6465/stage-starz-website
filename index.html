@@ -119,6 +119,76 @@
     }
 
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.btn{transition:none}}
+  
+    /* Animated shimmer added because the supplied .gif contains one static frame. */
+    .ship-shop-link::before{
+      content:"";
+      position:absolute;
+      z-index:2;
+      inset:-30%;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 22% 45%,rgba(255,255,255,.95) 0 2px,transparent 4px),
+        radial-gradient(circle at 48% 24%,rgba(255,255,255,.85) 0 1.5px,transparent 4px),
+        radial-gradient(circle at 73% 56%,rgba(255,255,255,.92) 0 2px,transparent 5px),
+        linear-gradient(112deg,transparent 38%,rgba(255,255,255,.10) 45%,rgba(255,255,255,.72) 50%,rgba(255,255,255,.10) 55%,transparent 62%);
+      background-size:240px 180px,310px 220px,360px 250px,100% 100%;
+      mix-blend-mode:screen;
+      opacity:.22;
+      transform:translateX(-65%);
+      animation:shopShimmer 3.8s ease-in-out infinite;
+    }
+    @keyframes shopShimmer{
+      0%{transform:translateX(-65%);opacity:.12}
+      42%{opacity:.58}
+      70%{transform:translateX(65%);opacity:.24}
+      100%{transform:translateX(65%);opacity:.12}
+    }
+
+    /* On phones, the photograph occupies its own top area and the logo/content
+       begins below it instead of covering the dancer's legs. */
+    @media(max-width:860px){
+      .hero{
+        min-height:0;
+        background-size:100% auto;
+        background-position:center top;
+        background-repeat:no-repeat;
+        background-color:#050505;
+      }
+      .hero:before{
+        background:linear-gradient(
+          180deg,
+          rgba(0,0,0,.02) 0%,
+          rgba(0,0,0,.08) 52vw,
+          rgba(5,5,5,.94) 68vw,
+          #050505 82vw
+        );
+      }
+      .hero-inner{
+        display:block;
+        padding:72vw 20px 64px;
+      }
+      .hero-content{
+        max-width:680px;
+        margin:0 auto;
+        text-align:center;
+      }
+      .hero-logo{
+        width:min(300px,76vw);
+        max-height:170px;
+        margin:0 auto 8px;
+      }
+      .hero .actions,
+      .hero .kicker{justify-content:center}
+    }
+    @media(max-width:560px){
+      .hero-inner{padding-top:74vw}
+      .hero-logo{width:min(270px,74vw);max-height:150px}
+    }
+    @media(prefers-reduced-motion:reduce){
+      .ship-shop-link::before{animation:none;opacity:.18}
+    }
+
   </style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
 </head>

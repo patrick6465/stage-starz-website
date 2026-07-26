@@ -1,0 +1,15 @@
+STAGE STARZ HOMEPAGE FIX
+
+1. The supplied file named "Stardust Shiop-it Shop.gif" contains only one frame,
+   so browsers correctly display it as a still image. A CSS shimmer animation
+   has now been added over the artwork.
+
+2. The phone hero layout has been changed so the dancer photograph appears
+   first and the Stage Starz logo/content begins below the photograph rather
+   than covering the dancer's legs.
+
+UPLOAD:
+- index-new.html for preview, or index.html to make it live
+- the complete assets folder
+
+The shop graphic still links to store.html.
