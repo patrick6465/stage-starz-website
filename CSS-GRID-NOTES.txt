@@ -1,0 +1,23 @@
+STAGE STARZ MOBILE CSS GRID HERO
+
+The mobile hero now uses CSS Grid instead of fixed margin spacing.
+
+Grid structure:
+1. Temperance, Michigan
+2. Where Passion Meets Performance
+3. Flexible open area over the dancer
+4. Descriptive paragraph below the dancer's waist
+5. Register Today and Explore Classes buttons
+
+The layout automatically adjusts for:
+- Standard phones
+- Narrow phones
+- Shorter phone screens
+- Tablets up to 860px wide
+
+The desktop layout remains unchanged.
+
+UPLOAD:
+- index-new.html to preview
+- index.html to make the design live
+- Keep the complete assets folder in the repository
