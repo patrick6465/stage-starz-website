@@ -1,0 +1,8 @@
+PRESCHOOL PAGE PHOTO UPDATE
+
+- Added the exact uploaded image: Preschoolers as Sharks in Aquaman.
+- The image is used as the Preschool page hero background behind:
+  "Preschool Dance Classes / First steps. Big confidence."
+- Added desktop and mobile gradient treatments for text readability.
+- Added mobile-specific positioning to keep the preschool dancers visible.
+- No other pages or Jackrabbit registration URLs were changed.
