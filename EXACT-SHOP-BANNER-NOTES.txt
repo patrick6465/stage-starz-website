@@ -1,0 +1,12 @@
+EXACT STARDUST SHIP-IT-SHOP DESIGN
+
+The previous GIF-based shop section has been removed.
+
+The homepage now uses the exact Ship-it-Shop banner artwork from the approved
+design concept. The complete banner is clickable and opens store.html.
+
+Upload:
+- index-new.html to preview
+- index.html to make it live
+- the full assets folder, including:
+  assets/images/stardust-ship-it-shop-premium.jpg
