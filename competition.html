@@ -499,6 +499,26 @@ h1 span{
   .audition-actions .btn{width:100%}
 }
 
+/* Desktop-only correction for the longer Mini and Petite team labels.
+   Keep the label in normal document flow so it can never overlap the title. */
+@media (min-width:641px){
+  .team-card.long-label-card{
+    justify-content:flex-start;
+  }
+  .team-card.long-label-card .team-label{
+    position:static;
+    align-self:flex-start;
+    margin:0 0 28px;
+    white-space:nowrap;
+  }
+  .team-card.long-label-card h3{
+    margin:0 0 12px;
+  }
+  .team-card.long-label-card .card-link{
+    margin-top:auto;
+  }
+}
+
 /* Shared Stage Starz header logo and competition registration actions */
 .header .logo{display:flex!important;align-items:center!important;gap:12px!important;color:#fff!important;font-weight:900!important}
 .header .logo img{width:92px!important;height:62px!important;object-fit:contain!important;object-position:center!important;filter:drop-shadow(0 7px 13px rgba(0,0,0,.34))!important}
