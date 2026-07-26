@@ -17,6 +17,211 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
 .sticky-enroll{display:none}
 @media(max-width:920px){.topbar{display:none}.menu{display:grid;place-items:center}.nav{min-height:72px}.logo img{width:48px;height:48px}.nav-links{display:none;position:absolute;top:72px;left:15px;right:15px;padding:20px;flex-direction:column;align-items:stretch;gap:6px;border:1px solid var(--border);border-radius:22px;background:rgba(8,6,13,.98);box-shadow:var(--shadow)}.nav-links.open{display:flex}.nav-links a{padding:10px 12px}.hero{min-height:640px}.hero:before{background:linear-gradient(180deg,rgba(5,5,12,.88),rgba(5,5,12,.58) 35%,rgba(5,5,12,.9) 75%,#05050c),url("assets/images/audriana-homepage-hero.jpg") 58% center/cover no-repeat}.hero-inner{align-self:end;padding:150px 0 58px}.intro-grid{grid-template-columns:1fr}.side-card{position:relative;top:auto}.next-grid,.footer-inner{grid-template-columns:1fr}}
 @media(max-width:640px){.nav{padding-left:16px;padding-right:16px}.logo span{display:none}.hero-inner,.section,.footer-inner{width:min(calc(100% - 30px),var(--max))}.hero{min-height:680px}.hero-inner{padding-bottom:44px}h1{font-size:clamp(2.8rem,13vw,4.7rem)}.actions .btn{width:100%}.section{padding:60px 0}.content-card,.jackrabbit-card,.side-card{padding:24px;border-radius:24px}.sticky-enroll{display:flex;position:fixed;z-index:80;left:15px;right:15px;bottom:14px;box-shadow:0 15px 40px rgba(0,0,0,.6)}body{padding-bottom:78px}}
+
+/* Jackrabbit registration embed */
+.jackrabbit-section{
+  max-width:1180px;
+  margin:0 auto;
+  padding:20px 22px 70px;
+}
+.jackrabbit-card{
+  background:rgba(255,255,255,.96);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:26px;
+  overflow:hidden;
+}
+.jackrabbit-card h2{
+  margin-top:0;
+}
+.jackrabbit-help{
+  color:var(--muted);
+  margin-bottom:18px;
+}
+.jackrabbit-frame{
+  border-radius:22px;
+  background:#05040b;
+  padding:18px;
+  overflow:auto;
+}
+.jackrabbit-frame table{
+  border-collapse:collapse;
+  width:100%;
+  max-width:100%;
+  margin:0 auto;
+  background-color:#fff;
+  box-shadow:none;
+  border:1px solid #d7d2e4;
+  border-radius:16px;
+  overflow:hidden;
+}
+.jackrabbit-frame th,
+.jackrabbit-frame td{
+  padding:12px;
+  text-align:left;
+  border-bottom:1px solid #e3def0;
+}
+.jackrabbit-frame th{
+  background:#171427;
+  color:#fff;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-size:.82rem;
+}
+.jackrabbit-frame td{
+  background-color:#fff;
+  color:#171427;
+}
+.jackrabbit-frame tr:hover td{
+  background-color:#f7f2ff;
+}
+.jackrabbit-frame img{
+  max-width:100%;
+  height:auto;
+}
+.jackrabbit-fallback{
+  color:#fff;
+  margin-top:12px;
+  font-size:.94rem;
+}
+@media screen and (max-width:700px){
+  .jackrabbit-frame table,
+  .jackrabbit-frame thead,
+  .jackrabbit-frame tbody,
+  .jackrabbit-frame th,
+  .jackrabbit-frame td,
+  .jackrabbit-frame tr{
+    display:block;
+  }
+  .jackrabbit-frame thead{
+    display:none;
+  }
+  .jackrabbit-frame tr{
+    border:1px solid #e3def0;
+    border-radius:16px;
+    overflow:hidden;
+    margin-bottom:12px;
+    background:#fff;
+  }
+  .jackrabbit-frame td{
+    border-bottom:none;
+    position:relative;
+    padding-left:48%;
+    min-height:44px;
+  }
+  .jackrabbit-frame td:before{
+    position:absolute;
+    top:12px;
+    left:12px;
+    width:42%;
+    padding-right:10px;
+    white-space:normal;
+    text-align:left;
+    font-weight:900;
+    color:#7e32ff;
+  }
+  .jackrabbit-frame td:nth-of-type(1):before{content:"Class";}
+  .jackrabbit-frame td:nth-of-type(2):before{content:"Instructor";}
+  .jackrabbit-frame td:nth-of-type(3):before{content:"Day / Time";}
+  .jackrabbit-frame td:nth-of-type(4):before{content:"Location";}
+  .jackrabbit-frame td:nth-of-type(5):before{content:"Openings";}
+  .jackrabbit-frame td:nth-of-type(6):before{content:"Register";}
+}
+
+
+/* Clean Jackrabbit boxes and blue registration buttons */
+.jackrabbit-frame{
+  background:#ffffff !important;
+  border:1px solid var(--border) !important;
+  border-radius:22px !important;
+  padding:18px !important;
+  overflow:auto !important;
+}
+.jackrabbit-frame table{
+  width:100% !important;
+  max-width:100% !important;
+  border-collapse:collapse !important;
+  background:#fff !important;
+}
+.jackrabbit-frame a,
+.jackrabbit-frame a:visited,
+.jackrabbit-frame input[type="button"],
+.jackrabbit-frame input[type="submit"],
+.jackrabbit-frame button,
+.jackrabbit-frame .button,
+.jackrabbit-frame .btn{
+  background:#007bff !important;
+  color:#ffffff !important;
+  border:none !important;
+  border-radius:10px !important;
+  padding:10px 16px !important;
+  font-weight:900 !important;
+  text-decoration:none !important;
+  display:inline-block !important;
+  line-height:1.2 !important;
+}
+.jackrabbit-frame a:hover,
+.jackrabbit-frame input[type="button"]:hover,
+.jackrabbit-frame input[type="submit"]:hover,
+.jackrabbit-frame button:hover,
+.jackrabbit-frame .button:hover,
+.jackrabbit-frame .btn:hover{
+  background:#0056d6 !important;
+  color:#ffffff !important;
+}
+.jackrabbit-fallback{
+  color:#171427 !important;
+  margin-top:14px !important;
+}
+
+.jackrabbit-fallback a{
+  background:none !important;
+  color:#007bff !important;
+  display:inline !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:none !important;
+  border-radius:0 !important;
+  font-weight:900 !important;
+  text-decoration:underline !important;
+  box-shadow:none !important;
+}
+.jackrabbit-fallback a:hover{
+  color:#0056d6 !important;
+  background:none !important;
+}
+
+
+.jackrabbit-fallback{
+    color:#171427 !important;
+    margin-top:14px !important;
+    display:block !important;
+}
+.jackrabbit-fallback a,
+.jackrabbit-frame .jackrabbit-fallback a,
+.jackrabbit-card .jackrabbit-fallback a{
+    background:none !important;
+    background-color:transparent !important;
+    color:#007bff !important;
+    display:inline !important;
+    padding:0 !important;
+    margin:0 !important;
+    border:none !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    font-weight:700 !important;
+    text-decoration:underline !important;
+}
+.jackrabbit-fallback a:hover,
+.jackrabbit-frame .jackrabbit-fallback a:hover,
+.jackrabbit-card .jackrabbit-fallback a:hover{
+    background:none !important;
+    background-color:transparent !important;
+    color:#0056d6 !important;
+}
+
+
 </style></head><body>
 
 <div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div>
@@ -31,8 +236,8 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
 <p>60-minute weekly Ballet, Jazz, and Tap preschool combination: $69 monthly.</p>
 <p>Class times posted early in registration are tentative and subject to change closer to class start date.</p>
 <p>A $25.00 one-time yearly family registration fee is required with the first class enrollment per family.</p></div></article></div></section>
-<div id="openings"><section class="section openings" aria-labelledby="jr-preschool-openings-heading">
-  <div class="jackrabbit-card"><p class="eyebrow">Live schedule and openings</p>
+<div id="openings"><section class="jackrabbit-section" aria-labelledby="jr-preschool-openings-heading">
+  <div class="jackrabbit-card">
     <h2 id="jr-preschool-openings-heading">Preschool Classes 2026-27</h2>
     <p class="jackrabbit-help">Live class openings and registration are provided through Jackrabbit.</p>
 

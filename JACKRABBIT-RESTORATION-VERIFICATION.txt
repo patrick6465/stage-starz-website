@@ -1,0 +1,23 @@
+JACKRABBIT REGISTRATION RESTORATION
+
+The complete working Jackrabbit sections and their CSS were restored verbatim from the last working website package.
+
+preschool-class-registration.html
+  OpeningsJS: https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsJS?OrgID=520608&cat1=preschool fall&InstructorID=&hidecols=Description&showcols=Instructors
+  Portal links: 1
+
+primary-class-registration.html
+  OpeningsJS: https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsJS?OrgID=520608&cat1=Primary Level Fall&InstructorID=&hidecols=Description&showcols=Instructors
+  Portal links: 1
+
+elementary-class-registration.html
+  OpeningsJS: https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsJS?OrgID=520608&cat1=Elementary Fall&InstructorID=&hidecols=Description&showcols=Instructors
+  Portal links: 1
+
+intermediate-advanced-registration.html
+  OpeningsJS: https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsJS?OrgID=520608&cat1=Competition Fall&InstructorID=&hidecols=Description&showcols=Instructors
+  Portal links: 1
+
+specialized-class-registration.html
+  OpeningsJS: https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsJS?OrgID=520608&cat1=Specialty Fall&InstructorID=&hidecols=Description&showcols=Instructors
+  Portal links: 1
