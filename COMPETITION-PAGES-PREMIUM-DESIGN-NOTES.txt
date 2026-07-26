@@ -1,0 +1,21 @@
+Stage Starz Competition Pages Premium Design Update
+
+Updated pages:
+- Competition Auditions
+- Minis Competition Team
+- Petites Competition Team
+- Juniors Competition Team
+- Juniorettes Competition Team
+- Teens / Senior Competition Team
+- Team-Only Competition Pages
+
+Changes:
+- Dark luxury visual system matching the approved website
+- Purple glow, teal accents, and gold highlights
+- Premium serif headings and refined typography
+- Full-width dramatic hero sections
+- Dark glass content cards and improved spacing
+- Responsive mobile navigation, hero, buttons, and content
+- Existing wording, links, JavaScript, and Jackrabbit registration functionality preserved
+
+The already-premium main Competition landing page was retained.
