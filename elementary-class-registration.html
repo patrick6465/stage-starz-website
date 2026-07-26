@@ -387,6 +387,67 @@ url("elementary-hiphop-stage.jpg") 58% 8%/cover no-repeat;
 }
 </style>
 
+
+<style id="elementary-jackrabbit-premium-test">
+/* Elementary test: premium branded shell around the Jackrabbit iframe.
+   Jackrabbit's internal white table is hosted on another domain, so the
+   surrounding frame is redesigned without risking registration functions. */
+#openings .jackrabbit-card{
+  position:relative;
+  overflow:hidden;
+  padding:clamp(24px,4vw,48px);
+  border:1px solid rgba(180,92,255,.30);
+  border-radius:30px;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(130,62,230,.22),transparent 34%),
+    radial-gradient(circle at 92% 8%,rgba(38,210,201,.13),transparent 28%),
+    linear-gradient(145deg,rgba(18,14,31,.97),rgba(8,8,17,.98));
+  box-shadow:0 30px 80px rgba(0,0,0,.48),0 0 44px rgba(117,48,205,.12);
+}
+#openings .jackrabbit-card:before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(120deg,rgba(255,255,255,.07),transparent 20%,transparent 78%,rgba(38,210,201,.04));
+}
+#openings .jackrabbit-card>.eyebrow,#openings .jackrabbit-card>h2,#openings .jackrabbit-help,
+#openings .jackrabbit-premium-shell,#openings .jackrabbit-direct-actions{position:relative;z-index:1}
+#openings .jackrabbit-card>h2{font-size:clamp(2rem,4vw,3.2rem);margin-bottom:10px}
+#openings .jackrabbit-help{max-width:780px;color:rgba(255,255,255,.72);margin-bottom:24px}
+.jackrabbit-premium-shell{
+  padding:1px;
+  border-radius:24px;
+  background:linear-gradient(135deg,rgba(179,79,255,.92),rgba(35,215,204,.55) 52%,rgba(220,175,71,.52));
+  box-shadow:0 22px 60px rgba(0,0,0,.48),0 0 30px rgba(145,59,231,.18);
+}
+.jackrabbit-shell-bar,.jackrabbit-shell-footer{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;
+  background:linear-gradient(135deg,#171225,#0d111d);
+  color:rgba(255,255,255,.76);
+}
+.jackrabbit-shell-bar{padding:16px 20px;border-radius:23px 23px 0 0;border-bottom:1px solid rgba(255,255,255,.10)}
+.jackrabbit-shell-title{display:flex;align-items:center;gap:10px;color:#fff;font-weight:850;letter-spacing:.01em}
+.jackrabbit-status-dot{width:10px;height:10px;border-radius:50%;background:#29d7c8;box-shadow:0 0 0 5px rgba(41,215,200,.10),0 0 18px rgba(41,215,200,.72)}
+.jackrabbit-secure-label{font-size:.8rem;text-transform:uppercase;letter-spacing:.10em;color:rgba(255,255,255,.58)}
+.jackrabbit-premium-shell .jackrabbit-direct-wrap{
+  border:0;border-radius:0;background:#f7f5fb;padding:12px;overflow:hidden;
+}
+.jackrabbit-premium-shell .jackrabbit-direct-frame{
+  border-radius:14px;background:#fff;box-shadow:inset 0 0 0 1px rgba(52,32,80,.12);
+}
+.jackrabbit-shell-footer{padding:13px 20px;border-radius:0 0 23px 23px;border-top:1px solid rgba(255,255,255,.08);font-size:.84rem}
+.jackrabbit-shell-footer a{color:#41ddd0;font-weight:800;text-decoration:none}
+#openings .registration-action-row{width:100%;margin-top:8px}
+@media(max-width:700px){
+  #openings .jackrabbit-card{padding:20px 14px;border-radius:22px}
+  .jackrabbit-shell-bar,.jackrabbit-shell-footer{align-items:flex-start;flex-direction:column;gap:7px}
+  .jackrabbit-shell-bar{padding:15px;border-radius:19px 19px 0 0}
+  .jackrabbit-shell-footer{padding:13px 15px;border-radius:0 0 19px 19px}
+  .jackrabbit-secure-label{font-size:.68rem}
+  .jackrabbit-premium-shell{border-radius:20px}
+  .jackrabbit-premium-shell .jackrabbit-direct-wrap{padding:7px}
+  .jackrabbit-premium-shell .jackrabbit-direct-frame{border-radius:10px}
+}
+</style>
+
 </head><body class="elementary-photo-page">
 
 <div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div>
@@ -405,8 +466,15 @@ url("elementary-hiphop-stage.jpg") 58% 8%/cover no-repeat;
     <p class="eyebrow">Live schedule and registration</p>
     <h2>Current Classes &amp; Openings</h2>
     <p class="jackrabbit-help">The live registration table below is provided directly by Jackrabbit. Select a class and use its Register button to begin enrollment.</p>
-    <div class="jackrabbit-direct-wrap">
-      <iframe class="jackrabbit-direct-frame" src="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Elementary%20Fall&hidecols=Description&showcols=Instructors" title="Stage Starz live class registration" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    <div class="jackrabbit-premium-shell">
+      <div class="jackrabbit-shell-bar">
+        <div class="jackrabbit-shell-title"><span class="jackrabbit-status-dot"></span><span>Stage Starz Live Class Openings</span></div>
+        <span class="jackrabbit-secure-label">Secure registration through Jackrabbit</span>
+      </div>
+      <div class="jackrabbit-direct-wrap">
+        <iframe class="jackrabbit-direct-frame" src="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Elementary%20Fall&hidecols=Description&showcols=Instructors" title="Stage Starz live class registration" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
+      <div class="jackrabbit-shell-footer"><span>Class availability updates directly from the studio schedule.</span><span>Need help? Call <a href="tel:+17344973740">(734) 497-3740</a></span></div>
     </div>
     <div class="jackrabbit-direct-actions">
       <div class="registration-action-row"><a class="btn teal" href="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Elementary%20Fall&hidecols=Description&showcols=Instructors" target="_blank" rel="noopener">Open Live Registration in a New Window</a>
