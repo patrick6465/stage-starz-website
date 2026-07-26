@@ -1,0 +1,18 @@
+JACKRABBIT REGISTRATION FIX
+
+The class-registration pages now use Jackrabbit's official OpeningsDirect iframe method instead of the OpeningsJS script method.
+
+Updated pages:
+- preschool-class-registration.html
+- primary-class-registration.html
+- elementary-class-registration.html
+- intermediate-advanced-registration.html
+- specialized-class-registration.html
+
+Each page includes:
+- A live Jackrabbit OpeningsDirect iframe
+- URL-encoded class category filters
+- A direct button that opens the same live table in a new window
+- A separate Parent Portal button for existing families
+
+Organization ID: 520608
