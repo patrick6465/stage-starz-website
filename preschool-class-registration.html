@@ -246,7 +246,28 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
   .hero{min-height:720px}
   .hero:before{background-position:center 28%}
 }
-</style></head><body>
+</style>
+<style id="parent-portal-override">
+/* Stage Starz Parent Portal button */
+a[href*="parent"], a[href*="portal"].parent-portal-btn,
+.parent-portal-btn{
+  background:linear-gradient(135deg,#6fe8df,#20C8C7)!important;
+  color:#081112!important;
+  font-weight:800!important;
+  padding:12px 22px!important;
+  border-radius:999px!important;
+  display:inline-block!important;
+  text-decoration:none!important;
+  box-shadow:0 10px 24px rgba(32,200,199,.35)!important;
+}
+a[href*="parent"]:hover,
+.parent-portal-btn:hover{
+  transform:translateY(-2px);
+  filter:brightness(1.05);
+}
+</style>
+
+</head><body>
 
 <div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div>
 <header class="header"><nav class="nav"><a class="logo" href="index.html"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance logo"><span>Stage Starz Academy of Dance</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="store.html">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small primary" href="contact.html">Register</a></div></nav></header>
