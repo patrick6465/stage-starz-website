@@ -1,0 +1,15 @@
+MOBILE WHY STAGE STARZ UPDATE
+
+Desktop:
+- No design changes.
+
+Mobile and tablet:
+- Faculty photo moved behind the Why Stage Starz content.
+- Image is enlarged and centered inside the section.
+- Dark gradient overlay fades the image for readability.
+- Heading, paragraph, cards, and buttons remain above the photo.
+- Feature cards use stronger translucent glass backgrounds.
+- The image no longer sits alone beneath the content.
+
+Preview with index-new.html.
+Publish with index.html.
