@@ -244,6 +244,86 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
 }
 </style>
 
+
+<style id="registration-area-polish">
+/* Premium registration-area refinements */
+.registration-heading-block{
+  text-align:center;
+  max-width:720px;
+  margin:0 auto 24px;
+}
+.registration-heading-block .eyebrow{
+  display:inline-block;
+  margin-bottom:8px;
+  font-size:.78rem;
+  font-weight:800;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:#66e4dd;
+}
+.registration-heading-block h2{
+  margin:0 0 10px;
+  font-size:clamp(2rem,4vw,3.25rem);
+  line-height:1.05;
+}
+.registration-heading-block p{
+  margin:0;
+  color:rgba(255,255,255,.72);
+  line-height:1.7;
+}
+
+.registration-polished-card{
+  padding:clamp(18px,3vw,30px)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:24px!important;
+  background:
+    linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.025))!important;
+  box-shadow:
+    0 24px 70px rgba(0,0,0,.34),
+    inset 0 1px 0 rgba(255,255,255,.08)!important;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+
+.registration-action-row{
+  display:flex!important;
+  align-items:stretch!important;
+  justify-content:center!important;
+  gap:14px!important;
+  margin-top:24px!important;
+  flex-wrap:wrap!important;
+}
+.registration-action-row .btn{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-height:52px!important;
+  min-width:270px!important;
+  padding:13px 22px!important;
+  text-align:center!important;
+  line-height:1.25!important;
+}
+
+@media(max-width:700px){
+  .registration-heading-block{
+    margin-bottom:18px;
+  }
+  .registration-polished-card{
+    padding:16px!important;
+    border-radius:20px!important;
+  }
+  .registration-action-row{
+    flex-direction:column!important;
+    gap:12px!important;
+    margin-top:20px!important;
+  }
+  .registration-action-row .btn{
+    width:100%!important;
+    min-width:0!important;
+  }
+}
+</style>
+
 </head><body>
 
 <div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div>
@@ -251,7 +331,7 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
 
 <main>
 <section class="hero"><div class="hero-inner"><div class="hero-copy"><p class="eyebrow">Approximately ages 8/9–11</p><h1>Elementary Dance Classes<span>Grow in technique and artistry.</span></h1><p class="lead">Progressive training for growing dancers ready to strengthen technique, explore more styles, and perform with confidence.</p><div class="actions"><a class="btn primary" href="#openings">View Class Openings</a><a class="btn ghost" href="class-finder.html">Use Class Finder</a></div></div></div></section>
-<section class="section"><div class="intro-grid"><aside class="side-card"><p class="mini">Stage Starz class program</p><h2>Elementary</h2><p>Review the program information and current live openings. Registration is completed through the embedded Jackrabbit schedule below.</p><a class="btn teal" href="#openings">See Available Classes</a><a class="btn ghost" href="contact.html">Ask the Studio</a></aside><article class="content-card"><p class="eyebrow">Program details</p><h2>About this program</h2><div class="copied-content"><p>ELEMENTARY LEVEL: ages (8) 9-11 with limited experience.</p>
+<section class="section"><div class="intro-grid"><aside class="side-card registration-polished-card"><p class="mini">Stage Starz class program</p><h2>Elementary</h2><p>Review the program information and current live openings. Registration is completed through the embedded Jackrabbit schedule below.</p><a class="btn teal" href="#openings">See Available Classes</a><a class="btn ghost" href="contact.html">Ask the Studio</a></aside><article class="content-card"><p class="eyebrow">Program details</p><h2>About this program</h2><div class="copied-content"><p>ELEMENTARY LEVEL: ages (8) 9-11 with limited experience.</p>
 <p>Elementary Tap, Jazz, Ballet, and Hip Hop 30-minute weekly group classes: $38 monthly.</p>
 <p>Elementary Flexibility & Conditioning Tech Class: $35 monthly.</p>
 <p>Elementary Turns, Leaps, & Jumps Tech Class: $35 monthly.</p>
@@ -266,8 +346,8 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
       <iframe class="jackrabbit-direct-frame" src="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Elementary%20Fall&hidecols=Description&showcols=Instructors" title="Stage Starz live class registration" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe>
     </div>
     <div class="jackrabbit-direct-actions">
-      <a class="btn teal" href="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Elementary%20Fall&hidecols=Description&showcols=Instructors" target="_blank" rel="noopener">Open Live Registration in a New Window</a>
-      <a class="btn ghost registration-parent-portal-btn" href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgID=520608" target="_blank" rel="noopener">Existing Family Parent Portal</a>
+      <div class="registration-action-row"><a class="btn teal" href="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Elementary%20Fall&hidecols=Description&showcols=Instructors" target="_blank" rel="noopener">Open Live Registration in a New Window</a>
+      <a class="btn ghost registration-parent-portal-btn" href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgID=520608" target="_blank" rel="noopener">Existing Family Parent Portal</a></div>
     </div>
     <noscript><p><a href="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&Cat1=Elementary%20Fall&hidecols=Description&showcols=Instructors" target="_blank" rel="noopener">Open the Stage Starz live class-registration table.</a></p></noscript>
   </div>
