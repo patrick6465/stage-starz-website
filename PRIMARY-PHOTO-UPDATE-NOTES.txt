@@ -1,0 +1,9 @@
+PRIMARY PAGE PHOTO ADDED
+
+- Added the exact uploaded image "Primary Ballet.jpg" to the Primary class page.
+- The image is now used as the Primary page hero background.
+- Added a dark desktop gradient so the page heading remains readable.
+- Added separate tablet and mobile positioning to keep the dancers visible.
+- Preschool and all other pages were left unchanged.
+- Jackrabbit registration areas and links were left unchanged.
+- Floating View Openings buttons remain removed.
