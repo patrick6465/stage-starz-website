@@ -519,6 +519,27 @@ h1 span{
   }
 }
 
+
+/* Desktop-only correction for Junior and Teen labels.
+   Keep these labels in normal flow so they cannot overlap their titles. */
+@media (min-width:641px){
+  .team-card.desktop-label-fix{
+    justify-content:flex-start;
+  }
+  .team-card.desktop-label-fix .team-label{
+    position:static;
+    align-self:flex-start;
+    margin:0 0 28px;
+    white-space:nowrap;
+  }
+  .team-card.desktop-label-fix h3{
+    margin:0 0 12px;
+  }
+  .team-card.desktop-label-fix .card-link{
+    margin-top:auto;
+  }
+}
+
 /* Shared Stage Starz header logo and competition registration actions */
 .header .logo{display:flex!important;align-items:center!important;gap:12px!important;color:#fff!important;font-weight:900!important}
 .header .logo img{width:92px!important;height:62px!important;object-fit:contain!important;object-position:center!important;filter:drop-shadow(0 7px 13px rgba(0,0,0,.34))!important}
@@ -639,14 +660,14 @@ h1 span{
         <span class="card-link">Explore Juniorettes <span>→</span></span>
       </a>
 
-      <a class="team-card standard" href="junior-competition-team.html">
+      <a class="team-card standard desktop-label-fix" href="junior-competition-team.html">
         <span class="team-label">Focused training</span>
         <h3>Junior Competition Team</h3>
         <p>More advanced expectations, stronger technical demands, and expanded performance responsibilities.</p>
         <span class="card-link">Explore Junior Team <span>→</span></span>
       </a>
 
-      <a class="team-card standard" href="teen-competition-team.html">
+      <a class="team-card standard desktop-label-fix" href="teen-competition-team.html">
         <span class="team-label">Advanced performers</span>
         <h3>Teen Competition Team</h3>
         <p>High-level training and performance opportunities for experienced dancers prepared for greater commitment.</p>
