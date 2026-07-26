@@ -1,0 +1,10 @@
+PREMIUM COMPETITION PAGE REDESIGN
+
+- Rebuilt competition.html to match the approved homepage and Classes page.
+- Added a full-width competition hero section.
+- Added benefits of competitive dance.
+- Added premium team cards for Mini, Petite, Juniorettes, Junior, and Teen.
+- Preserved links to all existing competition-team pages.
+- Added an audition callout and commitment expectations.
+- Added responsive mobile navigation and mobile card layouts.
+- No changes were made to the approved homepage or Classes page.
