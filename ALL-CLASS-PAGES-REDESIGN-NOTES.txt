@@ -1,0 +1,17 @@
+ALL CLASS PAGES REDESIGNED
+
+Updated:
+- preschool-class-registration.html
+- primary-class-registration.html
+- elementary-class-registration.html
+- intermediate-advanced-registration.html
+- specialized-class-registration.html
+- class-finder.html
+
+Key work:
+- Preserved original class descriptions.
+- Preserved live Jackrabbit OpeningsJS registration scripts and category parameters.
+- Added a consistent premium hero, program-information layout, live openings card,
+  enrollment steps, footer, mobile navigation, and mobile enrollment button.
+- Rebuilt the Class Finder as a working age/experience/goal recommendation tool.
+- Preserved the approved homepage, Classes page, and Competition page.
