@@ -1,0 +1,10 @@
+PREMIUM CLASSES PAGE REDESIGN
+
+- Rebuilt classes.html to match the premium homepage design.
+- Added a full-width page hero using an existing Stage Starz dancer image.
+- Added premium program cards for Preschool, Primary, Elementary,
+  Intermediate & Advanced, and Specialized Classes.
+- Preserved all existing registration-page links.
+- Added a Class Finder callout and a three-step enrollment section.
+- Added a fully responsive mobile layout and navigation.
+- No changes were made to the approved homepage.
