@@ -1,0 +1,16 @@
+STAGE STARZ HOME PAGE FIXES
+
+1. Ship-it-Shop banner
+- Removed the extra CSS gold border.
+- The banner artwork now shows only its built-in gold trim.
+- Mobile now displays the complete banner without cropping.
+- The banner scales proportionally to the phone width.
+
+2. Why Stage Starz
+- Faculty photograph is larger on desktop.
+- Faculty photograph is also larger on mobile.
+- Responsive stacking remains intact.
+
+Upload index-new.html to preview.
+Upload index.html to make the changes live.
+Upload the complete assets folder.

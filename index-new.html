@@ -1236,6 +1236,89 @@
   }
 }
 
+
+/* =========================================================
+   FINAL SHOP BANNER + FACULTY PHOTO FIXES
+   ========================================================= */
+
+/* The approved banner artwork already contains its own gold trim.
+   Remove the extra CSS border so only one gold trim is visible. */
+.approved-shop-link{
+  border:none !important;
+  box-shadow:0 20px 46px rgba(0,0,0,.42) !important;
+}
+
+/* Keep the complete banner visible at every screen size. */
+.approved-shop-link img{
+  display:block !important;
+  width:100% !important;
+  height:auto !important;
+  min-height:0 !important;
+  object-fit:contain !important;
+  object-position:center !important;
+}
+
+/* Make the faculty group more prominent on desktop. */
+.approved-why-inner{
+  grid-template-columns:minmax(0,1.05fr) minmax(430px,.95fr) !important;
+}
+
+.approved-why-photo{
+  min-height:640px !important;
+}
+
+.approved-why-photo img{
+  width:min(118%,760px) !important;
+  max-width:none !important;
+  max-height:760px !important;
+}
+
+/* Mobile banner: preserve the full aspect ratio instead of cropping it. */
+@media(max-width:860px){
+  .approved-shop{
+    padding:0 8px 20px !important;
+  }
+
+  .approved-shop-link{
+    width:100% !important;
+    border-radius:12px !important;
+  }
+
+  .approved-shop-link img{
+    width:100% !important;
+    height:auto !important;
+    min-height:0 !important;
+    object-fit:contain !important;
+  }
+
+  .approved-why-inner{
+    grid-template-columns:1fr !important;
+  }
+
+  .approved-why-photo{
+    min-height:0 !important;
+    margin-top:8px !important;
+  }
+
+  .approved-why-photo img{
+    width:min(112%,650px) !important;
+    max-width:none !important;
+    max-height:680px !important;
+  }
+}
+
+@media(max-width:520px){
+  .approved-shop-link img{
+    min-height:0 !important;
+    object-fit:contain !important;
+  }
+
+  .approved-why-photo img{
+    width:min(118%,590px) !important;
+    max-height:620px !important;
+  }
+}
+
 </style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
 </head>
