@@ -227,6 +227,26 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
 .jackrabbit-direct-frame{display:block;width:100%;height:920px;border:0;background:#fff}
 .jackrabbit-direct-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:20px}
 @media(max-width:640px){.jackrabbit-direct-frame{height:1100px}.jackrabbit-direct-actions .btn{width:100%}}
+
+/* Elementary hero photo */
+.elementary-photo-page .hero:before{
+background:
+linear-gradient(90deg,
+rgba(5,5,12,.98) 0%,
+rgba(5,5,12,.92) 38%,
+rgba(5,5,12,.62) 62%,
+rgba(5,5,12,.28) 82%,
+rgba(5,5,12,.52) 100%),
+linear-gradient(0deg,rgba(5,5,12,.82),transparent 52%),
+url("elementary-hiphop-stage.jpg") 64% center/cover no-repeat;
+}
+@media(max-width:920px){
+.elementary-photo-page .hero:before{
+background:
+linear-gradient(180deg,rgba(5,5,12,.82),rgba(5,5,12,.45) 35%,rgba(5,5,12,.86) 72%,#05050c),
+url("elementary-hiphop-stage.jpg") 58% center/cover no-repeat;
+}}
+
 </style>
 
 <style id="registration-parent-portal-style">
@@ -324,7 +344,7 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
 }
 </style>
 
-</head><body>
+</head><body class="elementary-photo-page">
 
 <div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div>
 <header class="header"><nav class="nav"><a class="logo" href="index.html"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance logo"><span>Stage Starz Academy of Dance</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="store.html">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small primary" href="contact.html">Register</a></div></nav></header>
