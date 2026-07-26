@@ -111,20 +111,12 @@ a{text-decoration:none;color:inherit}
 /* HERO */
 .competition-hero{
   position:relative;
-  min-height:650px;
-  display:grid;
-  align-items:center;
   overflow:hidden;
   border-bottom:1px solid rgba(255,255,255,.08);
-}
-.competition-hero:before{
-  content:"";
-  position:absolute;
-  inset:0;
   background:
-    linear-gradient(90deg,rgba(5,5,12,.98) 0%,rgba(5,5,12,.92) 42%,rgba(5,5,12,.48) 73%,rgba(5,5,12,.78) 100%),
-    linear-gradient(0deg,rgba(5,5,12,.88),transparent 46%),
-    url("competition-full-team.jpg") center 42%/cover no-repeat;
+    radial-gradient(circle at 12% 18%,rgba(181,59,212,.22),transparent 30rem),
+    radial-gradient(circle at 92% 22%,rgba(32,200,199,.13),transparent 28rem),
+    linear-gradient(135deg,#05050c 0%,#0a0712 58%,#05050c 100%);
 }
 .competition-hero:after{
   content:"";
@@ -134,17 +126,49 @@ a{text-decoration:none;color:inherit}
   right:-120px;
   top:-120px;
   border-radius:50%;
-  background:radial-gradient(circle,rgba(181,59,212,.26),transparent 68%);
+  background:radial-gradient(circle,rgba(181,59,212,.22),transparent 68%);
   filter:blur(8px);
+  pointer-events:none;
 }
 .hero-inner{
   position:relative;
   z-index:2;
   width:min(calc(100% - 44px),var(--max));
   margin:auto;
-  padding:90px 0 100px;
+  padding:78px 0 86px;
+  display:grid;
+  grid-template-columns:minmax(0,.88fr) minmax(520px,1.12fr);
+  align-items:center;
+  gap:46px;
 }
-.hero-copy{max-width:760px}
+.hero-copy{max-width:650px}
+.hero-photo{
+  position:relative;
+  padding:10px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:30px;
+  background:linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.025));
+  box-shadow:0 30px 90px rgba(0,0,0,.48),0 0 44px rgba(181,59,212,.16);
+}
+.hero-photo:before{
+  content:"";
+  position:absolute;
+  inset:-1px;
+  border-radius:30px;
+  padding:1px;
+  background:linear-gradient(135deg,rgba(32,200,199,.72),rgba(181,59,212,.60),rgba(217,177,95,.55));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  pointer-events:none;
+}
+.hero-photo img{
+  display:block;
+  width:100%;
+  height:auto;
+  object-fit:contain;
+  border-radius:22px;
+}
 .eyebrow{
   display:inline-flex;
   align-items:center;
@@ -420,13 +444,13 @@ h1 span{
   }
   .nav-links.open{display:flex}
   .nav-links a{padding:10px 12px}
-  .competition-hero{min-height:700px}
-  .competition-hero:before{
-    background:
-      linear-gradient(180deg,rgba(5,5,12,.90) 0%,rgba(5,5,12,.58) 34%,rgba(5,5,12,.88) 73%,#05050c 100%),
-      url("competition-full-team.jpg") 52% center/cover no-repeat;
+  .hero-inner{
+    grid-template-columns:1fr;
+    gap:34px;
+    padding:64px 0 66px;
   }
-  .hero-inner{align-self:end;padding:160px 0 62px}
+  .hero-copy{max-width:760px}
+  .hero-photo{order:2;max-width:900px;width:100%;margin:auto}
   h1{font-size:clamp(3rem,13vw,5rem)}
   .audition{grid-template-columns:1fr}
   .audition-actions{justify-content:flex-start}
@@ -435,9 +459,11 @@ h1 span{
 @media(max-width:640px){
   .nav{padding-left:16px;padding-right:16px}
   .logo span{display:none}
-  .competition-hero{min-height:735px}
   .hero-inner,.section,.footer-inner{width:min(calc(100% - 30px),var(--max))}
-  .hero-inner{padding-bottom:48px}
+  .hero-inner{padding:50px 0 52px;gap:28px}
+  .hero-photo{padding:6px;border-radius:22px}
+  .hero-photo:before{border-radius:22px}
+  .hero-photo img{border-radius:17px}
   .hero-actions .btn{width:100%}
   .hero-note{gap:10px;flex-direction:column}
   .section{padding:68px 0}
@@ -505,6 +531,9 @@ h1 span{
           <span>Performance experience</span>
         </div>
       </div>
+      <figure class="hero-photo">
+        <img src="assets/images/full-team-picture.jpg" alt="Stage Starz competition dancers and instructors holding their Studio of Excellence award">
+      </figure>
     </div>
   </section>
 
