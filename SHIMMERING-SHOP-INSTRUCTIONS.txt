@@ -1,0 +1,15 @@
+STAGE STARZ SHIMMERING SHOP HOMEPAGE
+
+Updated:
+- The original animated GIF is directly below the dancer hero.
+- The GIF is displayed without a dark overlay or glass text panel.
+- Its original shimmer remains visible.
+- The full GIF is clickable and opens store.html.
+- A small Shop label appears in the lower-right corner.
+
+Upload index-new.html and the complete assets folder.
+
+Preview:
+https://YOUR-GITHUB-PAGES-ADDRESS/index-new.html
+
+After approval, rename index-new.html to index.html.

@@ -87,23 +87,14 @@
     .checklist{display:grid;gap:13px;margin:25px 0}.check{display:flex;align-items:flex-start;gap:12px}.check i{font-style:normal;color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink));width:26px;height:26px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;font-size:.8rem}
     .cta{max-width:var(--max);margin:20px auto 90px;padding:70px 48px;border-radius:38px;color:#fff;text-align:center;background:radial-gradient(circle at 20% 0,rgba(255,255,255,.18),transparent 20rem),linear-gradient(120deg,#5f27ce,#dd3f94 58%,#13afbc);box-shadow:var(--shadow)}.cta h2{margin-bottom:14px}.cta p{max-width:700px;margin:0 auto 28px;color:#f6eefa;font-size:1.08rem}.cta .actions{justify-content:center}
 
-    .ship-shop{padding:38px 22px 92px;background:linear-gradient(180deg,var(--paper),#fff)}
-    .ship-shop-link{position:relative;display:block;max-width:var(--max);margin:auto;overflow:hidden;border-radius:34px;border:1px solid rgba(233,30,140,.22);box-shadow:0 28px 75px rgba(113,19,82,.22);isolation:isolate;transition:transform .28s ease,box-shadow .28s ease}
-    .ship-shop-link:hover{transform:translateY(-6px);box-shadow:0 36px 90px rgba(113,19,82,.30)}
-    .ship-shop-link:focus-visible{outline:4px solid var(--teal);outline-offset:5px}
-    .ship-shop-link img{display:block;width:100%;height:clamp(300px,42vw,540px);object-fit:cover}
-    .ship-shop-link:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(26,4,28,.72),rgba(26,4,28,.18) 58%,rgba(26,4,28,.38));z-index:1}
-    .ship-shop-copy{position:absolute;z-index:2;left:clamp(24px,6vw,78px);top:50%;transform:translateY(-50%);width:min(520px,82%);padding:28px 30px;border:1px solid rgba(255,255,255,.26);border-radius:24px;background:rgba(20,8,25,.52);backdrop-filter:blur(12px);color:#fff}
-    .ship-shop-copy .eyebrow{color:#9df0e8}
-    .ship-shop-copy h2{margin:.25rem 0 .65rem;font-size:clamp(2.2rem,5vw,4.8rem);line-height:.98}
-    .ship-shop-copy p{margin:0 0 1.15rem;color:#f4eaf3;font-size:1.05rem}
-    .ship-shop-button{display:inline-flex;align-items:center;gap:10px;padding:14px 20px;border-radius:999px;background:#fff;color:#241027;font-weight:950;box-shadow:0 12px 30px rgba(0,0,0,.24);transition:transform .25s ease}
-    .ship-shop-link:hover .ship-shop-button{transform:translateX(4px)}
+    .ship-shop{padding:0;background:#050505}
+    .ship-shop-link{display:block;width:100%;overflow:hidden;position:relative;background:#e91e8c;line-height:0}
+    .ship-shop-link img{display:block;width:100%;height:auto;object-fit:cover;object-position:center}
+    .ship-shop-link:focus-visible{outline:5px solid var(--teal);outline-offset:-5px}
+    .ship-shop-link:after{content:"Shop the Stardust Ship-it-Shop →";position:absolute;right:clamp(16px,3vw,42px);bottom:clamp(14px,2.5vw,30px);padding:13px 19px;border-radius:999px;background:rgba(10,5,14,.68);border:1px solid rgba(255,255,255,.42);color:#fff;font-size:clamp(.78rem,1.25vw,1rem);font-weight:950;letter-spacing:.035em;line-height:1.2;backdrop-filter:blur(8px);box-shadow:0 10px 28px rgba(0,0,0,.28);transition:transform .25s ease,background .25s ease}
+    .ship-shop-link:hover:after{transform:translateY(-3px);background:rgba(10,5,14,.86)}
     @media(max-width:700px){
-      .ship-shop{padding:20px 14px 70px}
-      .ship-shop-link img{height:500px;object-position:center}
-      .ship-shop-link:after{background:linear-gradient(0deg,rgba(20,8,25,.88),rgba(20,8,25,.12) 70%)}
-      .ship-shop-copy{left:18px;right:18px;top:auto;bottom:18px;transform:none;width:auto;padding:22px}
+      .ship-shop-link:after{right:12px;bottom:12px;padding:10px 14px}
     }
 
     .footer{background:var(--night);color:#fff}.footer-inner{max-width:var(--max);margin:auto;padding:55px 22px;display:grid;grid-template-columns:1.3fr .7fr .7fr .8fr;gap:30px}.footer h3{font-size:1.12rem}.footer p,.footer a{color:#cfc4de}.footer a{display:block;margin:8px 0}.footer a:hover{color:#fff}.copyright{border-top:1px solid rgba(255,255,255,.1);max-width:var(--max);margin:auto;padding:18px 22px;color:#9d93ad;font-size:.88rem}
@@ -147,6 +138,14 @@
       </div>
     </div>
   </section>
+
+
+  <section class="ship-shop" aria-label="Stardust Ship-it-Shop">
+    <a class="ship-shop-link" href="store.html" aria-label="Open the Stage Starz Stardust Ship-it-Shop">
+      <img src="assets/images/stardust-ship-it-shop.gif" alt="Animated shimmering pink and teal stars for the Stage Starz Stardust Ship-it-Shop">
+    </a>
+  </section>
+
   <section class="trust-strip" aria-label="Studio highlights"><div class="trust-inner">
     <div class="trust-item"><span class="trust-icon">★</span><span>Over 25 years of experience</span></div>
     <div class="trust-item"><span class="trust-icon">✦</span><span>Ages 3 through pre-professional</span></div>
@@ -177,17 +176,6 @@
   </div></section>
 
 
-  <section class="ship-shop reveal" aria-labelledby="ship-shop-title">
-    <a class="ship-shop-link" href="store.html" aria-label="Enter the Stage Starz Stardust Ship-it-Shop">
-      <img src="assets/images/stardust-ship-it-shop.gif" alt="Animated pink and teal stars for the Stage Starz Stardust Ship-it-Shop">
-      <span class="ship-shop-copy">
-        <span class="eyebrow">Stage Starz Spirit Wear</span>
-        <h2 id="ship-shop-title">Enter the Stardust Ship-it-Shop</h2>
-        <p>Shop dancewear, apparel, gifts, accessories, and studio spirit wear.</p>
-        <span class="ship-shop-button">Shop Now <span aria-hidden="true">→</span></span>
-      </span>
-    </a>
-  </section>
 
   <section class="section reveal"><div class="experience">
     <div class="experience-card"><div class="big-number">25+</div><h3>Years inspiring dancers</h3><p class="lead">Stage Starz brings decades of teaching, choreography, performance, and competition experience into every classroom.</p><div class="actions"><a class="btn dark" href="about.html">Our Story</a></div></div>
