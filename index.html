@@ -959,6 +959,283 @@
  .exact-shop-link{width:100% !important;border-radius:16px;}
 }
 
+
+/* =========================================================
+   APPROVED SHIP-IT-SHOP + WHY STAGE STARZ DESIGN
+   ========================================================= */
+
+.approved-shop{
+  padding:0 2.8vw 28px;
+  background:#05050c;
+}
+
+.approved-shop-link{
+  display:block;
+  width:100%;
+  max-width:1560px;
+  margin:0 auto;
+  overflow:hidden;
+  border-radius:17px;
+  border:1px solid rgba(255,190,59,.9);
+  background:#080713;
+  line-height:0;
+  box-shadow:0 20px 46px rgba(0,0,0,.42);
+  transition:transform .3s ease,box-shadow .3s ease;
+}
+
+.approved-shop-link:hover{
+  transform:translateY(-4px);
+  box-shadow:0 28px 66px rgba(0,0,0,.54);
+}
+
+.approved-shop-link img{
+  display:block;
+  width:100%;
+  height:auto;
+  object-fit:cover;
+}
+
+.approved-why{
+  position:relative;
+  overflow:hidden;
+  padding:28px 0 68px;
+  background:
+    radial-gradient(circle at 78% 55%,rgba(10,155,170,.20),transparent 28rem),
+    radial-gradient(circle at 18% 30%,rgba(143,25,142,.15),transparent 24rem),
+    #05050c;
+}
+
+.approved-why-inner{
+  width:min(1450px,92%);
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:minmax(0,1.22fr) minmax(360px,.78fr);
+  gap:clamp(28px,4vw,64px);
+  align-items:end;
+}
+
+.approved-why-copy{
+  min-width:0;
+  padding:20px 0 8px;
+}
+
+.approved-why-copy .eyebrow{
+  display:none;
+}
+
+.approved-why-copy h2{
+  margin:0;
+  color:#d965e2;
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:clamp(2.6rem,4.6vw,4.2rem);
+  font-weight:500;
+  line-height:1.05;
+  text-shadow:0 0 24px rgba(217,101,226,.16);
+}
+
+.approved-rule{
+  width:68px;
+  height:2px;
+  margin:18px 0 18px;
+  background:linear-gradient(90deg,#18d5d8,transparent);
+}
+
+.approved-lead{
+  max-width:720px;
+  margin:0 0 26px;
+  color:rgba(255,255,255,.78);
+  font-size:clamp(1rem,1.2vw,1.12rem);
+  line-height:1.65;
+}
+
+.approved-feature-grid{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:11px;
+}
+
+.approved-feature{
+  min-height:180px;
+  padding:13px 11px 15px;
+  text-align:center;
+  border:1px solid rgba(217,101,226,.26);
+  border-radius:9px;
+  background:
+    linear-gradient(160deg,rgba(126,18,126,.16),rgba(0,126,140,.10)),
+    rgba(255,255,255,.018);
+  box-shadow:0 14px 30px rgba(0,0,0,.22);
+}
+
+.approved-feature:nth-child(even){
+  border-color:rgba(24,213,216,.24);
+}
+
+.approved-icon{
+  width:50px;
+  height:50px;
+  margin:0 auto 10px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  color:#fff;
+  font-size:1.55rem;
+  background:
+    radial-gradient(circle at 35% 30%,rgba(255,255,255,.13),transparent 40%),
+    rgba(122,18,124,.35);
+  border:1px solid rgba(217,101,226,.24);
+}
+
+.approved-feature:nth-child(even) .approved-icon{
+  background:
+    radial-gradient(circle at 35% 30%,rgba(255,255,255,.13),transparent 40%),
+    rgba(0,112,126,.34);
+  border-color:rgba(24,213,216,.24);
+}
+
+.approved-feature h3{
+  margin:0 0 8px;
+  color:#fff;
+  font-size:.96rem;
+  line-height:1.25;
+}
+
+.approved-feature p{
+  margin:0;
+  color:rgba(255,255,255,.65);
+  font-size:.78rem;
+  line-height:1.45;
+}
+
+.approved-actions{
+  margin-top:20px;
+}
+
+.approved-actions .btn.primary{
+  background:linear-gradient(135deg,#89147f,#4f125e);
+  border-color:rgba(217,101,226,.46);
+}
+
+.approved-actions .btn.outline{
+  background:rgba(0,118,130,.22);
+  border-color:rgba(24,213,216,.44);
+  color:#fff;
+}
+
+.approved-why-photo{
+  position:relative;
+  min-height:540px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+}
+
+.approved-why-photo:before{
+  content:"";
+  position:absolute;
+  width:118%;
+  aspect-ratio:1;
+  left:51%;
+  bottom:-7%;
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:
+    radial-gradient(circle,rgba(24,213,216,.27) 0,rgba(92,38,137,.18) 48%,transparent 72%);
+  filter:blur(10px);
+}
+
+.approved-why-photo img{
+  position:relative;
+  z-index:1;
+  display:block;
+  width:min(100%,620px);
+  max-height:650px;
+  object-fit:contain;
+  object-position:center bottom;
+  filter:drop-shadow(0 26px 32px rgba(0,0,0,.48));
+}
+
+@media(max-width:1180px){
+  .approved-feature-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+
+  .approved-feature{
+    min-height:160px;
+  }
+}
+
+@media(max-width:860px){
+  .approved-shop{
+    padding:0 10px 20px;
+  }
+
+  .approved-shop-link{
+    border-radius:13px;
+  }
+
+  .approved-why{
+    padding-top:36px;
+  }
+
+  .approved-why-inner{
+    grid-template-columns:1fr;
+    width:min(94%,720px);
+  }
+
+  .approved-why-copy{
+    text-align:center;
+  }
+
+  .approved-rule{
+    margin-right:auto;
+    margin-left:auto;
+  }
+
+  .approved-lead{
+    margin-right:auto;
+    margin-left:auto;
+  }
+
+  .approved-feature-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    text-align:left;
+  }
+
+  .approved-feature{
+    text-align:center;
+  }
+
+  .approved-actions{
+    justify-content:center;
+  }
+
+  .approved-why-photo{
+    min-height:0;
+    margin-top:12px;
+  }
+
+  .approved-why-photo img{
+    width:min(100%,540px);
+    max-height:600px;
+  }
+}
+
+@media(max-width:520px){
+  .approved-feature-grid{
+    grid-template-columns:1fr;
+  }
+
+  .approved-feature{
+    min-height:0;
+  }
+
+  .approved-shop-link img{
+    min-height:124px;
+    object-fit:cover;
+    object-position:center;
+  }
+}
+
 </style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}</script>
 </head>
@@ -980,9 +1257,9 @@
   </section>
 
 
-  <section class="ship-shop exact-shop" aria-label="Stardust Ship-it-Shop">
-    <a class="ship-shop-link exact-shop-link" href="store.html" aria-label="Open the Stage Starz Stardust Ship-it-Shop">
-      <img src="assets/images/stardust-ship-it-shop-premium.jpg" alt="Stardust Ship-it-Shop spirit wear banner">
+  <section class="approved-shop" aria-label="Stardust Ship-it-Shop">
+    <a href="store.html" class="approved-shop-link" aria-label="Shop Stage Starz spirit wear">
+      <img src="assets/images/stardust-ship-it-shop-approved.jpg" alt="Stardust Ship-it-Shop spirit wear banner">
     </a>
   </section>
 
@@ -1005,28 +1282,55 @@
     </div>
   </section>
 
-  <section class="why-wrap">
-    <div class="why why-with-photo reveal">
-      <div class="why-photo">
-        <img src="assets/images/stage-starz-teachers.png" alt="Three Stage Starz faculty members">
+  <section class="approved-why" id="why-stage-starz">
+    <div class="approved-why-inner reveal">
+      <div class="approved-why-copy">
+        <p class="eyebrow">Why Stage Starz</p>
+        <h2>Why Stage Starz</h2>
+        <div class="approved-rule" aria-hidden="true"></div>
+        <p class="approved-lead">At Stage Starz, we believe every dancer deserves to shine. Our award-winning studio offers expert instruction, a positive atmosphere, and meaningful opportunities to grow both on and off the stage.</p>
+
+        <div class="approved-feature-grid">
+          <article class="approved-feature">
+            <div class="approved-icon">🏆</div>
+            <h3>Award-Winning Studio</h3>
+            <p>Recognized for excellence in dance education.</p>
+          </article>
+          <article class="approved-feature">
+            <div class="approved-icon">👥</div>
+            <h3>Experienced Instructors</h3>
+            <p>Passionate teachers dedicated to every dancer.</p>
+          </article>
+          <article class="approved-feature">
+            <div class="approved-icon">♡</div>
+            <h3>Supportive Community</h3>
+            <p>A positive environment where dancers thrive.</p>
+          </article>
+          <article class="approved-feature">
+            <div class="approved-icon">☆</div>
+            <h3>Competition Opportunities</h3>
+            <p>Compete, grow, and achieve meaningful goals.</p>
+          </article>
+          <article class="approved-feature">
+            <div class="approved-icon">★</div>
+            <h3>All Ages &amp; Levels</h3>
+            <p>Classes for dancers of every age and experience level.</p>
+          </article>
+          <article class="approved-feature">
+            <div class="approved-icon">◉</div>
+            <h3>Building Confidence That Lasts</h3>
+            <p>Develop life skills through the art of dance.</p>
+          </article>
+        </div>
+
+        <div class="actions approved-actions">
+          <a class="btn primary" href="classes.html">Register Today</a>
+          <a class="btn outline" href="class-finder.html">Explore Classes</a>
+        </div>
       </div>
 
-      <div class="why-content">
-        <p class="eyebrow">Why Stage Starz</p>
-        <h2>Professional instruction with a warm, encouraging spirit.</h2>
-        <p class="lead">Students are challenged to improve while being supported as individuals. The result is a studio environment built around respect, creativity, and meaningful progress.</p>
-
-        <div class="feature-grid">
-          <div class="feature"><b>Experienced faculty</b><span>Dedicated teachers, choreographers, and artistic leaders.</span></div>
-          <div class="feature"><b>Purposeful progression</b><span>Age-appropriate pathways from beginner through advanced levels.</span></div>
-          <div class="feature"><b>Family-friendly environment</b><span>A welcoming atmosphere where dancers can feel known and supported.</span></div>
-          <div class="feature"><b>Professional facilities</b><span>Dance flooring, mirrors, barres, sound systems, and parent viewing.</span></div>
-        </div>
-
-        <div class="actions">
-          <a class="btn primary" href="about.html">Meet Stage Starz</a>
-          <a class="btn outline" href="contact.html">Contact the Studio</a>
-        </div>
+      <div class="approved-why-photo">
+        <img src="assets/images/stage-starz-teachers.png" alt="Stage Starz faculty members">
       </div>
     </div>
   </section>

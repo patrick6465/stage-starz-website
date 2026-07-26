@@ -1,0 +1,27 @@
+APPROVED HOME PAGE DESIGN UPDATE
+
+The homepage now follows the latest approved visual concept.
+
+Order:
+1. Hero
+2. Stardust Ship-it-Shop
+3. Why Stage Starz
+4. Remaining homepage sections
+
+Ship-it-Shop:
+- Uses the approved gold-outline banner artwork
+- No decorative shimmer above the banner
+- Nearly full-page width
+- Entire banner links to store.html
+
+Why Stage Starz:
+- Purple editorial heading
+- Teal accent rule
+- Six compact feature cards
+- Corrected transparent faculty photo on the right
+- Dark purple/teal illuminated background
+- Responsive mobile stacking
+
+Upload index-new.html to preview.
+Upload index.html to make it live.
+Upload the complete assets folder.
