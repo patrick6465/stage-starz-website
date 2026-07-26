@@ -346,6 +346,16 @@ h1 span{
   text-transform:uppercase;
   letter-spacing:.11em;
 }
+/* Keep the two longer team labels clear of their card titles. */
+.team-card.long-label-card{min-height:370px}
+.team-card.long-label-card .team-label{
+  white-space:nowrap;
+  line-height:1;
+}
+.team-card.long-label-card h3{
+  margin-top:42px;
+}
+
 .team-card h3{
   margin:0 0 12px;
   font-size:clamp(1.85rem,3vw,2.55rem);
@@ -481,6 +491,10 @@ h1 span{
   .team-grid{display:grid;grid-template-columns:1fr}
   .team-card.featured,.team-card.standard{grid-column:auto}
   .team-card{min-height:290px;padding:26px}
+  .team-card.long-label-card{min-height:335px}
+  .team-card.long-label-card .team-label{left:22px;right:auto;max-width:calc(100% - 44px);white-space:nowrap;font-size:.68rem;letter-spacing:.08em}
+  .team-card.long-label-card h3{margin-top:48px}
+
   .audition{padding:31px 23px;border-radius:27px}
   .audition-actions .btn{width:100%}
 }
@@ -584,14 +598,14 @@ h1 span{
     </div>
 
     <div class="team-grid">
-      <a class="team-card featured" href="mini-competition-team.html">
+      <a class="team-card featured long-label-card" href="mini-competition-team.html">
         <span class="team-label">Beginning team experience</span>
         <h3>Mini Competition Team</h3>
         <p>An encouraging introduction to competitive dance for younger performers ready to build confidence and learn team responsibility.</p>
         <span class="card-link">Explore Mini Team <span>→</span></span>
       </a>
 
-      <a class="team-card featured" href="petite-competition-team.html">
+      <a class="team-card featured long-label-card" href="petite-competition-team.html">
         <span class="team-label">Developing performers</span>
         <h3>Petite Competition Team</h3>
         <p>Progressive training for dancers strengthening technique, performance quality, and their understanding of team commitment.</p>
