@@ -35,7 +35,7 @@ button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text
 
   <section class="card">
     <h2>Add New Product</h2>
-    <p class="small">Use commas between sizes and colors.</p>
+    <p class="small">Use commas between sizes and colors. Uncheck “Offer color selection” for pre-designed products that do not need a customer color choice.</p>
     <form method="post" action="/admin/product/save">
       <div class="grid">
         <div><label>Product name</label><input name="name" required></div>
@@ -49,6 +49,7 @@ button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text
         <div><label>Colors</label><input name="colors" value="Default"></div>
         <div><label>Image URL</label><input name="image_url"></div>
         <div><label>Fallback emoji</label><input name="emoji" value="⭐"></div>
+        <div class="check"><input name="show_color" type="checkbox" checked><label>Offer color selection</label></div>
         <div class="check"><input name="allow_name" type="checkbox"><label>Offer Add-a-Name option</label></div>
         <div class="check"><input name="active" type="checkbox" checked><label>Show in store</label></div>
       </div>
@@ -73,6 +74,7 @@ button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text
         <div><label>Colors</label><input name="colors" value="{{ p.colors|join(',') }}"></div>
         <div><label>Image URL</label><input name="image_url" value="{{ p.image_url }}"></div>
         <div><label>Fallback emoji</label><input name="emoji" value="{{ p.emoji }}"></div>
+        <div class="check"><input name="show_color" type="checkbox" {% if p.show_color %}checked{% endif %}><label>Offer color selection</label></div>
         <div class="check"><input name="allow_name" type="checkbox" {% if p.allow_name %}checked{% endif %}><label>Offer Add-a-Name option</label></div>
         <div class="check"><input name="active" type="checkbox" {% if p.active %}checked{% endif %}><label>Show in store</label></div>
       </div>
