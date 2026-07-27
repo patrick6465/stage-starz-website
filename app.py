@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "StageStarz123!")
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_PRODUCT_IMAGES = 6
+ORDER_STATUSES = {"New", "Awaiting Payment", "Paid", "Processing", "Ready", "Completed", "Cancelled"}
 
 
 def get_db() -> sqlite3.Connection:
@@ -51,20 +53,38 @@ def init_db() -> None:
     for column, statement in upgrades.items():
         if column not in columns:
             cursor.execute(statement)
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS product_images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_id INTEGER NOT NULL,
-            image_data BLOB NOT NULL,
-            image_mime TEXT NOT NULL,
-            sort_order INTEGER NOT NULL DEFAULT 0,
-            is_primary INTEGER NOT NULL DEFAULT 0,
+            id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL,
+            image_data BLOB NOT NULL, image_mime TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0, is_primary INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE
         )
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id, sort_order, id)")
     cursor.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, order_number TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL,
+            customer_name TEXT NOT NULL, customer_email TEXT NOT NULL, customer_phone TEXT NOT NULL DEFAULT '',
+            fulfillment_method TEXT NOT NULL DEFAULT 'shipping', address1 TEXT NOT NULL DEFAULT '', address2 TEXT NOT NULL DEFAULT '',
+            city TEXT NOT NULL DEFAULT '', state TEXT NOT NULL DEFAULT '', postal_code TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+            payment_method TEXT NOT NULL DEFAULT 'Venmo', payment_status TEXT NOT NULL DEFAULT 'Unpaid', status TEXT NOT NULL DEFAULT 'New',
+            subtotal REAL NOT NULL DEFAULT 0, name_fees REAL NOT NULL DEFAULT 0, fulfillment_fees REAL NOT NULL DEFAULT 0,
+            shipping REAL NOT NULL DEFAULT 0, tax REAL NOT NULL DEFAULT 0, total REAL NOT NULL DEFAULT 0
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, product_id INTEGER,
+            product_name TEXT NOT NULL, size TEXT NOT NULL DEFAULT '', color TEXT NOT NULL DEFAULT '', requested_name TEXT NOT NULL DEFAULT '',
+            quantity INTEGER NOT NULL DEFAULT 1, unit_price REAL NOT NULL DEFAULT 0, name_fee REAL NOT NULL DEFAULT 0,
+            fulfillment_fee REAL NOT NULL DEFAULT 0, line_total REAL NOT NULL DEFAULT 0,
+            FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at DESC)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id)")
     cursor.execute("SELECT COUNT(*) AS count FROM products")
     if cursor.fetchone()["count"] == 0:
         starter_products = [
@@ -72,11 +92,7 @@ def init_db() -> None:
             ("Signature Dance Jacket", "Apparel", "Form-fitting four-way stretch jacket for dancers and team members.", 55.00, None, 5.00, 9, "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL", "Black,Purple", 1, 1, 1, "", "🧥"),
             ("Stage Starz Duffle Bag", "Bags", "Durable dance bag with shoulder strap and room for shoes and apparel.", 38.00, None, 6.00, 6, "One Size", "Black,Purple,Teal", 1, 1, 1, "", "👜"),
         ]
-        cursor.executemany("""
-            INSERT INTO products (name,category,description,price,sale_price,fulfillment_fee,stock,sizes,colors,show_color,allow_name,active,image_url,emoji)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, starter_products)
-
+        cursor.executemany("INSERT INTO products (name,category,description,price,sale_price,fulfillment_fee,stock,sizes,colors,show_color,allow_name,active,image_url,emoji) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", starter_products)
     cursor.execute("""
         INSERT INTO product_images (product_id,image_data,image_mime,sort_order,is_primary)
         SELECT p.id,p.image_data,p.image_mime,0,1 FROM products p
@@ -92,8 +108,7 @@ def init_db() -> None:
     }
     for key, value in defaults.items():
         cursor.execute("INSERT OR IGNORE INTO settings (key,value) VALUES (?,?)", (key, value))
-    connection.commit()
-    connection.close()
+    connection.commit(); connection.close()
 
 
 def login_required(view):
@@ -120,219 +135,186 @@ def rows_to_products(rows: list[sqlite3.Row], connection: sqlite3.Connection) ->
     galleries = image_rows_for_products(connection, [row["id"] for row in rows])
     products = []
     for row in rows:
-        item = dict(row)
-        item.pop("image_data", None)
-        item.pop("image_mime", None)
+        item = dict(row); item.pop("image_data", None); item.pop("image_mime", None)
         item["external_image_url"] = item.get("image_url", "")
         item["images"] = galleries.get(item["id"], [])
         item["has_uploaded_image"] = bool(item["images"])
-        if item["images"]:
-            item["image_url"] = item["images"][0]["url"]
+        if item["images"]: item["image_url"] = item["images"][0]["url"]
         item["sizes"] = [x.strip() for x in item["sizes"].split(",") if x.strip()]
         item["colors"] = [x.strip() for x in item["colors"].split(",") if x.strip()]
-        item["show_color"] = bool(item["show_color"])
-        item["allow_name"] = bool(item["allow_name"])
-        item["active"] = bool(item["active"])
+        item["show_color"] = bool(item["show_color"]); item["allow_name"] = bool(item["allow_name"]); item["active"] = bool(item["active"])
         products.append(item)
     return products
 
 
 def get_settings(connection: sqlite3.Connection | None = None) -> dict[str, str]:
-    own = connection is None
-    connection = connection or get_db()
+    own = connection is None; connection = connection or get_db()
     rows = connection.execute("SELECT key,value FROM settings").fetchall()
-    if own:
-        connection.close()
+    if own: connection.close()
     return {row["key"]: row["value"] for row in rows}
 
 
 def build_dashboard(products: list[dict[str, Any]], settings: dict[str, str]) -> dict[str, Any]:
-    try:
-        threshold = max(0, int(settings.get("low_stock_threshold", "5")))
-    except ValueError:
-        threshold = 5
+    try: threshold = max(0, int(settings.get("low_stock_threshold", "5")))
+    except ValueError: threshold = 5
     low_stock = sorted([p for p in products if 0 < p["stock"] <= threshold], key=lambda p: (p["stock"], p["name"].lower()))
     out_of_stock = sorted([p for p in products if p["stock"] <= 0], key=lambda p: p["name"].lower())
     categories: dict[str, dict[str, Any]] = {}
     for p in products:
         current_price = float(p["sale_price"] if p["sale_price"] is not None else p["price"])
         category = categories.setdefault(p["category"] or "Uncategorized", {"name": p["category"] or "Uncategorized", "products": 0, "units": 0, "value": 0.0})
-        category["products"] += 1
-        category["units"] += max(0, int(p["stock"]))
-        category["value"] += max(0, int(p["stock"])) * current_price
-    return {
-        "total_products": len(products),
-        "active_products": sum(1 for p in products if p["active"]),
-        "hidden_products": sum(1 for p in products if not p["active"]),
-        "inventory_units": sum(max(0, int(p["stock"])) for p in products),
-        "inventory_value": sum(max(0, int(p["stock"])) * float(p["sale_price"] if p["sale_price"] is not None else p["price"]) for p in products),
-        "low_stock": low_stock,
-        "out_of_stock": out_of_stock,
-        "categories": sorted(categories.values(), key=lambda x: x["name"].lower()),
-        "threshold": threshold,
-    }
+        category["products"] += 1; category["units"] += max(0, int(p["stock"])); category["value"] += max(0, int(p["stock"])) * current_price
+    return {"total_products": len(products), "active_products": sum(1 for p in products if p["active"]), "hidden_products": sum(1 for p in products if not p["active"]), "inventory_units": sum(max(0, int(p["stock"])) for p in products), "inventory_value": sum(max(0, int(p["stock"])) * float(p["sale_price"] if p["sale_price"] is not None else p["price"]) for p in products), "low_stock": low_stock, "out_of_stock": out_of_stock, "categories": sorted(categories.values(), key=lambda x: x["name"].lower()), "threshold": threshold}
+
+
+def shipping_amount(settings: dict[str, str], subtotal: float, quantity: int, fulfillment_method: str) -> float:
+    if fulfillment_method == "pickup" or settings.get("allow_customer_shipping") == "0": return 0.0
+    mode = settings.get("shipping_mode", "per_item"); rate = float(settings.get("shipping_rate", "0") or 0); threshold = float(settings.get("free_shipping_threshold", "0") or 0)
+    if mode == "none": return 0.0
+    if mode == "flat": return rate
+    if mode == "free_over": return 0.0 if subtotal >= threshold else rate
+    return quantity * rate
 
 
 @app.route("/")
-def website_home():
-    return send_from_directory(BASE_DIR / "site", "index.html")
-
+def website_home(): return send_from_directory(BASE_DIR / "site", "index.html")
 
 @app.route("/health")
-def health_check():
-    return jsonify({"status": "ok"})
-
+def health_check(): return jsonify({"status": "ok"})
 
 @app.route("/store")
-def storefront():
-    return render_template("store.html")
-
+def storefront(): return render_template("store.html")
 
 @app.route("/product-image/<int:image_id>")
 def product_image(image_id: int):
-    connection = get_db()
-    row = connection.execute("SELECT image_data,image_mime FROM product_images WHERE id=?", (image_id,)).fetchone()
-    connection.close()
-    if not row:
-        abort(404)
+    connection = get_db(); row = connection.execute("SELECT image_data,image_mime FROM product_images WHERE id=?", (image_id,)).fetchone(); connection.close()
+    if not row: abort(404)
     return Response(row["image_data"], mimetype=row["image_mime"] or "application/octet-stream", headers={"Cache-Control": "public, max-age=3600"})
-
-
-@app.route("/<path:filename>")
-def website_file(filename: str):
-    requested = BASE_DIR / "site" / filename
-    if requested.exists() and requested.is_file():
-        return send_from_directory(BASE_DIR / "site", filename)
-    return ("Page not found", 404)
-
 
 @app.route("/api/products")
 def api_products():
-    connection = get_db()
-    rows = connection.execute("SELECT * FROM products WHERE active=1 ORDER BY category,name").fetchall()
-    products = rows_to_products(rows, connection)
-    connection.close()
-    return jsonify(products)
-
+    connection = get_db(); rows = connection.execute("SELECT * FROM products WHERE active=1 ORDER BY category,name").fetchall(); products = rows_to_products(rows, connection); connection.close(); return jsonify(products)
 
 @app.route("/api/settings")
-def api_settings():
-    return jsonify(get_settings())
+def api_settings(): return jsonify(get_settings())
 
+@app.route("/api/orders", methods=["POST"])
+def create_order():
+    payload = request.get_json(silent=True) or {}; customer = payload.get("customer") or {}; raw_items = payload.get("items") or []
+    name = str(customer.get("name", "")).strip(); email = str(customer.get("email", "")).strip(); phone = str(customer.get("phone", "")).strip(); method = str(customer.get("fulfillment_method", "shipping")).strip()
+    if method not in {"shipping", "pickup"}: method = "shipping"
+    if not name or not email or not raw_items: return jsonify({"error": "Name, email, and at least one cart item are required."}), 400
+    connection = get_db(); settings = get_settings(connection); validated = []; subtotal = name_fees = fulfillment_fees = 0.0; total_quantity = 0
+    try:
+        for raw in raw_items:
+            product_id = int(raw.get("id")); quantity = max(1, min(20, int(raw.get("quantity", 1))))
+            product = connection.execute("SELECT * FROM products WHERE id=? AND active=1", (product_id,)).fetchone()
+            if not product: raise ValueError("A product in the cart is no longer available.")
+            if int(product["stock"]) < quantity: raise ValueError(f"Not enough stock is available for {product['name']}.")
+            sizes = [x.strip() for x in product["sizes"].split(",") if x.strip()]; colors = [x.strip() for x in product["colors"].split(",") if x.strip()]
+            size = str(raw.get("size", "")).strip(); color = str(raw.get("color", "")).strip(); requested_name = str(raw.get("requestedName", "")).strip()
+            if size not in sizes: size = sizes[0] if sizes else "One Size"
+            if product["show_color"] and color not in colors: color = colors[0] if colors else "Default"
+            if not product["show_color"]: color = ""
+            max_chars = max(1, int(settings.get("name_max_chars", "20") or 20))
+            if not product["allow_name"]: requested_name = ""
+            requested_name = requested_name[:max_chars]
+            price = float(product["sale_price"] if product["sale_price"] is not None else product["price"])
+            name_fee = float(settings.get("name_fee", "10") or 0) if requested_name else 0.0; fulfillment_fee = float(product["fulfillment_fee"] or 0); line_total = quantity * (price + name_fee + fulfillment_fee)
+            validated.append((product_id, product["name"], size, color, requested_name, quantity, price, name_fee, fulfillment_fee, line_total))
+            subtotal += quantity * price; name_fees += quantity * name_fee; fulfillment_fees += quantity * fulfillment_fee; total_quantity += quantity
+        shipping = shipping_amount(settings, subtotal, total_quantity, method); tax = subtotal * float(settings.get("sales_tax_rate", "0") or 0); total = subtotal + name_fees + fulfillment_fees + shipping + tax; created_at = datetime.now(timezone.utc).isoformat()
+        cursor = connection.execute("""INSERT INTO orders (order_number,created_at,customer_name,customer_email,customer_phone,fulfillment_method,address1,address2,city,state,postal_code,notes,payment_method,payment_status,status,subtotal,name_fees,fulfillment_fees,shipping,tax,total) VALUES ('PENDING',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", (created_at,name,email,phone,method,str(customer.get("address1","")).strip(),str(customer.get("address2","")).strip(),str(customer.get("city","")).strip(),str(customer.get("state","")).strip(),str(customer.get("postal_code","")).strip(),str(customer.get("notes","")).strip(),str(customer.get("payment_method","Venmo")).strip() or "Venmo","Unpaid","New",round(subtotal,2),round(name_fees,2),round(fulfillment_fees,2),round(shipping,2),round(tax,2),round(total,2)))
+        order_id = int(cursor.lastrowid); order_number = f"SS-{datetime.now().strftime('%y%m%d')}-{order_id:04d}"; connection.execute("UPDATE orders SET order_number=? WHERE id=?", (order_number, order_id))
+        connection.executemany("INSERT INTO order_items (order_id,product_id,product_name,size,color,requested_name,quantity,unit_price,name_fee,fulfillment_fee,line_total) VALUES (?,?,?,?,?,?,?,?,?,?,?)", [(order_id,) + item for item in validated])
+        for item in validated: connection.execute("UPDATE products SET stock=MAX(0,stock-?) WHERE id=?", (item[5], item[0]))
+        connection.commit()
+    except (ValueError, TypeError) as exc:
+        connection.rollback(); connection.close(); return jsonify({"error": str(exc)}), 400
+    except Exception:
+        connection.rollback(); connection.close(); return jsonify({"error": "The order could not be saved. Please try again."}), 500
+    connection.close(); return jsonify({"ok": True, "order_number": order_number, "total": round(total, 2), "venmo_username": settings.get("venmo_username", "")})
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     error = ""
     if request.method == "POST":
         if request.form.get("username", "") == ADMIN_USERNAME and request.form.get("password", "") == ADMIN_PASSWORD:
-            session["admin_logged_in"] = True
-            return redirect(url_for("admin_dashboard"))
+            session["admin_logged_in"] = True; return redirect(url_for("admin_dashboard"))
         error = "Invalid username or password."
     return render_template("login.html", error=error)
 
-
 @app.route("/admin/logout")
-def admin_logout():
-    session.clear()
-    return redirect(url_for("admin_login"))
-
+def admin_logout(): session.clear(); return redirect(url_for("admin_login"))
 
 @app.route("/admin")
 @login_required
 def admin_dashboard():
-    connection = get_db()
-    rows = connection.execute("SELECT * FROM products ORDER BY category,name").fetchall()
-    products = rows_to_products(rows, connection)
-    settings = get_settings(connection)
-    dashboard = build_dashboard(products, settings)
-    connection.close()
-    return render_template("admin.html", products=products, settings=settings, dashboard=dashboard, max_product_images=MAX_PRODUCT_IMAGES)
+    connection = get_db(); rows = connection.execute("SELECT * FROM products ORDER BY category,name").fetchall(); products = rows_to_products(rows, connection); settings = get_settings(connection); dashboard = build_dashboard(products, settings); connection.close(); return render_template("admin.html", products=products, settings=settings, dashboard=dashboard, max_product_images=MAX_PRODUCT_IMAGES)
 
+@app.route("/admin/orders")
+@login_required
+def admin_orders():
+    connection = get_db(); orders = [dict(row) for row in connection.execute("SELECT * FROM orders ORDER BY id DESC").fetchall()]
+    for order in orders: order["items"] = [dict(row) for row in connection.execute("SELECT * FROM order_items WHERE order_id=? ORDER BY id", (order["id"],)).fetchall()]
+    summary = dict(connection.execute("SELECT COUNT(*) AS total_orders,SUM(CASE WHEN status NOT IN ('Completed','Cancelled') THEN 1 ELSE 0 END) AS open_orders,SUM(CASE WHEN payment_status='Paid' THEN total ELSE 0 END) AS paid_revenue,SUM(CASE WHEN payment_status!='Paid' AND status!='Cancelled' THEN total ELSE 0 END) AS unpaid_total FROM orders").fetchone()); connection.close()
+    return render_template("orders.html", orders=orders, summary=summary, statuses=sorted(ORDER_STATUSES))
+
+@app.route("/admin/order/<int:order_id>/update", methods=["POST"])
+@login_required
+def update_order(order_id: int):
+    status = request.form.get("status", "New"); status = status if status in ORDER_STATUSES else "New"; payment_status = "Paid" if request.form.get("payment_status") == "Paid" else "Unpaid"
+    connection = get_db(); connection.execute("UPDATE orders SET status=?,payment_status=? WHERE id=?", (status, payment_status, order_id)); connection.commit(); connection.close(); return redirect(url_for("admin_orders"))
 
 @app.route("/admin/product/save", methods=["POST"])
 @login_required
 def save_product():
-    form = request.form
-    product_id = form.get("id", "").strip()
-    values = (
-        form.get("name", "").strip(), form.get("category", "").strip(), form.get("description", "").strip(),
-        float(form.get("price") or 0), float(form["sale_price"]) if form.get("sale_price", "").strip() else None,
-        float(form.get("fulfillment_fee") or 0), int(form.get("stock") or 0),
-        form.get("sizes", "One Size").strip(), form.get("colors", "Default").strip(),
-        1 if form.get("show_color") == "on" else 0, 1 if form.get("allow_name") == "on" else 0,
-        1 if form.get("active") == "on" else 0, form.get("image_url", "").strip(), form.get("emoji", "⭐").strip() or "⭐",
-    )
+    form = request.form; product_id = form.get("id", "").strip()
+    values = (form.get("name", "").strip(),form.get("category", "").strip(),form.get("description", "").strip(),float(form.get("price") or 0),float(form["sale_price"]) if form.get("sale_price", "").strip() else None,float(form.get("fulfillment_fee") or 0),int(form.get("stock") or 0),form.get("sizes", "One Size").strip(),form.get("colors", "Default").strip(),1 if form.get("show_color") == "on" else 0,1 if form.get("allow_name") == "on" else 0,1 if form.get("active") == "on" else 0,form.get("image_url", "").strip(),form.get("emoji", "⭐").strip() or "⭐")
     connection = get_db()
     if product_id:
-        connection.execute("""UPDATE products SET name=?,category=?,description=?,price=?,sale_price=?,fulfillment_fee=?,stock=?,sizes=?,colors=?,show_color=?,allow_name=?,active=?,image_url=?,emoji=? WHERE id=?""", values + (int(product_id),))
-        saved_id = int(product_id)
+        connection.execute("UPDATE products SET name=?,category=?,description=?,price=?,sale_price=?,fulfillment_fee=?,stock=?,sizes=?,colors=?,show_color=?,allow_name=?,active=?,image_url=?,emoji=? WHERE id=?", values + (int(product_id),)); saved_id = int(product_id)
     else:
-        cursor = connection.execute("""INSERT INTO products (name,category,description,price,sale_price,fulfillment_fee,stock,sizes,colors,show_color,allow_name,active,image_url,emoji) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", values)
-        saved_id = int(cursor.lastrowid)
-
-    existing = connection.execute("SELECT id FROM product_images WHERE product_id=?", (saved_id,)).fetchall()
-    existing_ids = {row["id"] for row in existing}
-    remove_ids = {int(x) for x in form.getlist("remove_image") if x.isdigit()} & existing_ids
-    for image_id in remove_ids:
-        connection.execute("DELETE FROM product_images WHERE id=? AND product_id=?", (image_id, saved_id))
+        cursor = connection.execute("INSERT INTO products (name,category,description,price,sale_price,fulfillment_fee,stock,sizes,colors,show_color,allow_name,active,image_url,emoji) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", values); saved_id = int(cursor.lastrowid)
+    existing = connection.execute("SELECT id FROM product_images WHERE product_id=?", (saved_id,)).fetchall(); existing_ids = {row["id"] for row in existing}; remove_ids = {int(x) for x in form.getlist("remove_image") if x.isdigit()} & existing_ids
+    for image_id in remove_ids: connection.execute("DELETE FROM product_images WHERE id=? AND product_id=?", (image_id, saved_id))
     for image_id in existing_ids - remove_ids:
-        try:
-            order = max(0, int(form.get(f"image_order_{image_id}", "0")))
-        except ValueError:
-            order = 0
+        try: order = max(0, int(form.get(f"image_order_{image_id}", "0")))
+        except ValueError: order = 0
         connection.execute("UPDATE product_images SET sort_order=? WHERE id=? AND product_id=?", (order, image_id, saved_id))
-
-    remaining_count = connection.execute("SELECT COUNT(*) AS count FROM product_images WHERE product_id=?", (saved_id,)).fetchone()["count"]
-    uploads = [file for file in request.files.getlist("image_uploads") if file and file.filename]
-    if remaining_count + len(uploads) > MAX_PRODUCT_IMAGES:
-        connection.rollback(); connection.close()
-        return (f"Each product may have up to {MAX_PRODUCT_IMAGES} uploaded images.", 400)
+    remaining_count = connection.execute("SELECT COUNT(*) AS count FROM product_images WHERE product_id=?", (saved_id,)).fetchone()["count"]; uploads = [file for file in request.files.getlist("image_uploads") if file and file.filename]
+    if remaining_count + len(uploads) > MAX_PRODUCT_IMAGES: connection.rollback(); connection.close(); return (f"Each product may have up to {MAX_PRODUCT_IMAGES} uploaded images.", 400)
     next_order = connection.execute("SELECT COALESCE(MAX(sort_order),-1)+1 AS next_order FROM product_images WHERE product_id=?", (saved_id,)).fetchone()["next_order"]
     for upload in uploads:
-        if upload.mimetype not in ALLOWED_IMAGE_TYPES:
-            connection.rollback(); connection.close()
-            return ("Unsupported image type. Please upload JPG, PNG, WebP, or GIF.", 400)
+        if upload.mimetype not in ALLOWED_IMAGE_TYPES: connection.rollback(); connection.close(); return ("Unsupported image type. Please upload JPG, PNG, WebP, or GIF.", 400)
         image_bytes = upload.read()
-        if image_bytes:
-            connection.execute("INSERT INTO product_images (product_id,image_data,image_mime,sort_order,is_primary) VALUES (?,?,?,?,0)", (saved_id, sqlite3.Binary(image_bytes), upload.mimetype, next_order))
-            next_order += 1
-
-    primary_raw = form.get("primary_image", "")
-    primary_id = int(primary_raw) if primary_raw.isdigit() else None
-    valid_ids = {row["id"] for row in connection.execute("SELECT id FROM product_images WHERE product_id=?", (saved_id,)).fetchall()}
-    if primary_id not in valid_ids:
-        primary_id = min(valid_ids) if valid_ids else None
+        if image_bytes: connection.execute("INSERT INTO product_images (product_id,image_data,image_mime,sort_order,is_primary) VALUES (?,?,?,?,0)", (saved_id, sqlite3.Binary(image_bytes), upload.mimetype, next_order)); next_order += 1
+    primary_raw = form.get("primary_image", ""); primary_id = int(primary_raw) if primary_raw.isdigit() else None; valid_ids = {row["id"] for row in connection.execute("SELECT id FROM product_images WHERE product_id=?", (saved_id,)).fetchall()}
+    if primary_id not in valid_ids: primary_id = min(valid_ids) if valid_ids else None
     connection.execute("UPDATE product_images SET is_primary=0 WHERE product_id=?", (saved_id,))
-    if primary_id:
-        connection.execute("UPDATE product_images SET is_primary=1 WHERE id=? AND product_id=?", (primary_id, saved_id))
-    connection.execute("UPDATE products SET image_data=NULL,image_mime='' WHERE id=?", (saved_id,))
-    connection.commit(); connection.close()
-    return redirect(url_for("admin_dashboard"))
-
+    if primary_id: connection.execute("UPDATE product_images SET is_primary=1 WHERE id=? AND product_id=?", (primary_id, saved_id))
+    connection.execute("UPDATE products SET image_data=NULL,image_mime='' WHERE id=?", (saved_id,)); connection.commit(); connection.close(); return redirect(url_for("admin_dashboard"))
 
 @app.route("/admin/product/<int:product_id>/delete", methods=["POST"])
 @login_required
 def delete_product(product_id: int):
-    connection = get_db()
-    connection.execute("DELETE FROM product_images WHERE product_id=?", (product_id,))
-    connection.execute("DELETE FROM products WHERE id=?", (product_id,))
-    connection.commit(); connection.close()
-    return redirect(url_for("admin_dashboard"))
-
+    connection = get_db(); connection.execute("DELETE FROM product_images WHERE product_id=?", (product_id,)); connection.execute("DELETE FROM products WHERE id=?", (product_id,)); connection.commit(); connection.close(); return redirect(url_for("admin_dashboard"))
 
 @app.route("/admin/settings/save", methods=["POST"])
 @login_required
 def save_settings():
-    allowed = {"store_name","order_email","venmo_username","name_fee","name_max_chars","name_instructions","sales_tax_rate","shipping_mode","shipping_rate","free_shipping_threshold","allow_customer_shipping","customer_shipping_fee","low_stock_threshold"}
-    connection = get_db()
+    allowed = {"store_name","order_email","venmo_username","name_fee","name_max_chars","name_instructions","sales_tax_rate","shipping_mode","shipping_rate","free_shipping_threshold","allow_customer_shipping","customer_shipping_fee","low_stock_threshold"}; connection = get_db()
     for key in allowed:
         value = request.form.get(key, "")
-        if key == "allow_customer_shipping":
-            value = "1" if request.form.get(key) == "on" else "0"
+        if key == "allow_customer_shipping": value = "1" if request.form.get(key) == "on" else "0"
         connection.execute("INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (key, value))
-    connection.commit(); connection.close()
-    return redirect(url_for("admin_dashboard"))
+    connection.commit(); connection.close(); return redirect(url_for("admin_dashboard"))
 
+@app.route("/<path:filename>")
+def website_file(filename: str):
+    requested = BASE_DIR / "site" / filename
+    if requested.exists() and requested.is_file(): return send_from_directory(BASE_DIR / "site", filename)
+    return ("Page not found", 404)
 
 init_db()
 
