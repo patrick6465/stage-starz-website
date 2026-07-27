@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Store Admin</title>
+<style>
+:root{--purple:#6f35c5;--teal:#16a4b8;--bg:#f6f3fa;--border:#ded7e8}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#202234}
+header{padding:16px 4vw;background:linear-gradient(115deg,#4d1f91,var(--purple),var(--teal));color:white;display:flex;justify-content:space-between;align-items:center;gap:16px}
+header a{color:white}.wrap{width:min(1200px,calc(100% - 28px));margin:26px auto 60px}.card{background:white;border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:22px;box-shadow:0 8px 22px rgba(40,25,70,.07)}
+h1,h2{margin-top:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.full{grid-column:1/-1}
+label{display:block;font-size:.85rem;font-weight:800;margin-bottom:5px}input,textarea,select{width:100%;padding:10px;border:1px solid #cbc3d6;border-radius:8px}
+.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text-decoration:none;cursor:pointer}.primary{background:var(--purple);color:white}.secondary{background:#ece8f2;color:#222}.danger{background:#be3144;color:white}
+.product{border-top:1px solid var(--border);padding-top:20px;margin-top:20px}.small{color:#6d7180;font-size:.9rem}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+</style></head>
+<body>
+<header><div><strong>Stardust Store Admin</strong></div><div><a href="/" target="_blank">View Store</a> &nbsp; <a href="/admin/logout">Log Out</a></div></header>
+<div class="wrap">
+  <section class="card">
+    <h2>Store Settings</h2>
+    <form method="post" action="/admin/settings/save">
+      <div class="grid">
+        <div><label>Store name</label><input name="store_name" value="{{ settings.store_name }}"></div>
+        <div><label>Order email</label><input name="order_email" type="email" value="{{ settings.order_email }}"></div>
+        <div><label>Venmo username</label><input name="venmo_username" value="{{ settings.venmo_username }}"></div>
+        <div><label>Name charge</label><input name="name_fee" type="number" step="0.01" value="{{ settings.name_fee }}"></div>
+        <div><label>Sales tax rate</label><input name="sales_tax_rate" type="number" step="0.001" value="{{ settings.sales_tax_rate }}"></div>
+        <div><label>Customer shipping fee</label><input name="customer_shipping_fee" type="number" step="0.01" value="{{ settings.customer_shipping_fee }}"></div>
+        <div class="check"><input name="allow_customer_shipping" type="checkbox" {% if settings.allow_customer_shipping == '1' %}checked{% endif %}><label>Allow shipping to customer</label></div>
+      </div>
+      <div class="actions"><button class="primary">Save Settings</button></div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Add New Product</h2>
+    <p class="small">Use commas between sizes and colors.</p>
+    <form method="post" action="/admin/product/save">
+      <div class="grid">
+        <div><label>Product name</label><input name="name" required></div>
+        <div><label>Category</label><input name="category" required></div>
+        <div class="full"><label>Description</label><textarea name="description" rows="3"></textarea></div>
+        <div><label>Regular price</label><input name="price" type="number" step="0.01" required></div>
+        <div><label>Sale price</label><input name="sale_price" type="number" step="0.01"></div>
+        <div><label>Fulfillment fee per item</label><input name="fulfillment_fee" type="number" step="0.01" value="0"></div>
+        <div><label>Stock quantity</label><input name="stock" type="number" value="0"></div>
+        <div><label>Sizes</label><input name="sizes" value="One Size"></div>
+        <div><label>Colors</label><input name="colors" value="Default"></div>
+        <div><label>Image URL</label><input name="image_url"></div>
+        <div><label>Fallback emoji</label><input name="emoji" value="⭐"></div>
+        <div class="check"><input name="allow_name" type="checkbox"><label>Offer Add-a-Name option</label></div>
+        <div class="check"><input name="active" type="checkbox" checked><label>Show in store</label></div>
+      </div>
+      <div class="actions"><button class="primary">Add Product</button></div>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Existing Products</h2>
+    {% for p in products %}
+    <form class="product" method="post" action="/admin/product/save">
+      <input type="hidden" name="id" value="{{ p.id }}">
+      <div class="grid">
+        <div><label>Product name</label><input name="name" value="{{ p.name }}" required></div>
+        <div><label>Category</label><input name="category" value="{{ p.category }}" required></div>
+        <div class="full"><label>Description</label><textarea name="description" rows="3">{{ p.description }}</textarea></div>
+        <div><label>Regular price</label><input name="price" type="number" step="0.01" value="{{ p.price }}"></div>
+        <div><label>Sale price</label><input name="sale_price" type="number" step="0.01" value="{{ p.sale_price or '' }}"></div>
+        <div><label>Fulfillment fee per item</label><input name="fulfillment_fee" type="number" step="0.01" value="{{ p.fulfillment_fee }}"></div>
+        <div><label>Stock quantity</label><input name="stock" type="number" value="{{ p.stock }}"></div>
+        <div><label>Sizes</label><input name="sizes" value="{{ p.sizes|join(',') }}"></div>
+        <div><label>Colors</label><input name="colors" value="{{ p.colors|join(',') }}"></div>
+        <div><label>Image URL</label><input name="image_url" value="{{ p.image_url }}"></div>
+        <div><label>Fallback emoji</label><input name="emoji" value="{{ p.emoji }}"></div>
+        <div class="check"><input name="allow_name" type="checkbox" {% if p.allow_name %}checked{% endif %}><label>Offer Add-a-Name option</label></div>
+        <div class="check"><input name="active" type="checkbox" {% if p.active %}checked{% endif %}><label>Show in store</label></div>
+      </div>
+      <div class="actions"><button class="primary">Save Product</button></div>
+    </form>
+    <form method="post" action="/admin/product/{{ p.id }}/delete" onsubmit="return confirm('Delete this product?')">
+      <button class="danger">Delete Product</button>
+    </form>
+    {% endfor %}
+  </section>
+</div>
+</body>
+</html>

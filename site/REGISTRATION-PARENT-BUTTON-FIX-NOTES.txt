@@ -1,0 +1,8 @@
+REGISTRATION BOX PARENT PORTAL BUTTON FIX
+
+Corrected all five class-registration pages.
+
+- Restored the Parent Hub navigation link to the normal menu styling.
+- Left "Open Live Registration in a New Window" teal.
+- Changed only "Existing Family Parent Portal" beneath the registration box to purple.
+- Used a dedicated CSS class so no other Parent Portal or menu links are affected.

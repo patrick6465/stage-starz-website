@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Competition Team | Stage Starz Academy of Dance</title>
+<meta name="description" content="Explore the Stage Starz competition team program in Temperance, Michigan, including Mini, Petite, Junior, Juniorette, and Teen teams.">
+<style>
+:root{
+  --black:#05050c;
+  --panel:rgba(18,12,30,.78);
+  --text:#f8f4ff;
+  --muted:#c8bed4;
+  --purple:#b53bd4;
+  --purple-2:#7026c8;
+  --teal:#20c8c7;
+  --gold:#d9b15f;
+  --border:rgba(255,255,255,.12);
+  --shadow:0 28px 80px rgba(0,0,0,.46);
+  --radius:28px;
+  --max:1200px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+  line-height:1.65;
+  background:
+    radial-gradient(circle at 14% 8%,rgba(181,59,212,.18),transparent 30rem),
+    radial-gradient(circle at 90% 20%,rgba(32,200,199,.13),transparent 34rem),
+    linear-gradient(180deg,#05050c 0%,#0a0710 55%,#05050c 100%);
+}
+a{text-decoration:none;color:inherit}
+.topbar{
+  display:flex;
+  justify-content:center;
+  gap:24px;
+  flex-wrap:wrap;
+  padding:8px 20px;
+  background:#030307;
+  color:#d9d1e2;
+  font-size:.85rem;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.header{
+  position:sticky;
+  top:0;
+  z-index:60;
+  background:rgba(5,5,12,.84);
+  border-bottom:1px solid rgba(255,255,255,.09);
+  -webkit-backdrop-filter:blur(18px);
+  backdrop-filter:blur(18px);
+}
+.nav{
+  max-width:var(--max);
+  min-height:78px;
+  margin:auto;
+  padding:12px 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:22px;
+}
+.logo{display:flex;align-items:center;gap:12px;font-weight:900}
+.logo img{width:54px;height:54px;object-fit:contain}
+.logo span{font-size:1.08rem}
+.nav-links{display:flex;align-items:center;gap:20px;font-weight:800;font-size:.94rem}
+.nav-links>a:not(.btn){color:#e9e2ee;transition:.2s}
+.nav-links>a:not(.btn):hover{color:var(--teal)}
+.menu{
+  display:none;
+  color:#fff;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.06);
+  border-radius:13px;
+  width:46px;
+  height:43px;
+  font-size:1.45rem;
+}
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:48px;
+  padding:12px 21px;
+  border-radius:999px;
+  border:1px solid transparent;
+  font-weight:900;
+  transition:transform .2s ease,box-shadow .2s ease;
+}
+.btn:hover{transform:translateY(-2px)}
+.btn.primary{
+  color:#fff;
+  background:linear-gradient(135deg,var(--purple-2),var(--purple));
+  box-shadow:0 14px 34px rgba(133,35,176,.35);
+}
+.btn.teal{
+  color:#041011;
+  background:linear-gradient(135deg,#70e7dd,var(--teal));
+}
+.btn.ghost{
+  color:#fff;
+  border-color:rgba(255,255,255,.25);
+  background:rgba(255,255,255,.05);
+}
+.btn.small{min-height:42px;padding:10px 17px;font-size:.9rem}
+
+/* HERO */
+.competition-hero{
+  position:relative;
+  overflow:hidden;
+  border-bottom:1px solid rgba(255,255,255,.08);
+  background:
+    radial-gradient(circle at 12% 18%,rgba(181,59,212,.22),transparent 30rem),
+    radial-gradient(circle at 92% 22%,rgba(32,200,199,.13),transparent 28rem),
+    linear-gradient(135deg,#05050c 0%,#0a0712 58%,#05050c 100%);
+}
+.competition-hero:after{
+  content:"";
+  position:absolute;
+  width:560px;
+  height:560px;
+  right:-120px;
+  top:-120px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(181,59,212,.22),transparent 68%);
+  filter:blur(8px);
+  pointer-events:none;
+}
+.hero-inner{
+  position:relative;
+  z-index:2;
+  width:min(calc(100% - 44px),1540px);
+  margin:auto;
+  padding:58px 0 82px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:42px;
+}
+.hero-copy{
+  width:100%;
+  max-width:1220px;
+  margin:auto;
+  text-align:center;
+}
+.hero-photo{
+  position:relative;
+  width:100%;
+  margin:0;
+  padding:10px;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:30px;
+  background:linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.025));
+  box-shadow:0 30px 90px rgba(0,0,0,.48),0 0 44px rgba(181,59,212,.16);
+}
+.hero-photo:before{
+  content:"";
+  position:absolute;
+  inset:-1px;
+  border-radius:30px;
+  padding:1px;
+  background:linear-gradient(135deg,rgba(32,200,199,.72),rgba(181,59,212,.60),rgba(217,177,95,.55));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  pointer-events:none;
+}
+.hero-photo img{
+  display:block;
+  width:100%;
+  height:auto;
+  object-fit:contain;
+  border-radius:22px;
+}
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  margin:0 0 18px;
+  color:var(--teal);
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  font-size:.76rem;
+  font-weight:950;
+}
+.eyebrow:before{
+  content:"";
+  width:44px;
+  height:2px;
+  background:linear-gradient(90deg,var(--gold),var(--teal));
+}
+h1,h2,h3{
+  font-family:Georgia,"Times New Roman",serif;
+  line-height:1.04;
+  letter-spacing:-.035em;
+}
+h1{
+  margin:0 auto 20px;
+  max-width:1220px;
+  font-size:clamp(3.15rem,6.4vw,6.4rem);
+  text-wrap:balance;
+}
+h1 span{
+  display:inline;
+  background:linear-gradient(100deg,#fff 8%,#d889e7 55%,#63e1da 96%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.hero-lead{
+  max-width:900px;
+  margin:0 auto;
+  color:#d6cedd;
+  font-size:clamp(1.03rem,2vw,1.22rem);
+}
+.hero-actions{display:flex;justify-content:center;gap:13px;flex-wrap:wrap;margin-top:30px}
+.hero-note{
+  display:flex;
+  justify-content:center;
+  gap:24px;
+  flex-wrap:wrap;
+  margin-top:30px;
+  color:#ded6e5;
+  font-size:.92rem;
+  font-weight:800;
+}
+.hero-note span:before{content:"✦";margin-right:8px;color:var(--gold)}
+
+/* SHARED */
+.section{
+  width:min(calc(100% - 44px),var(--max));
+  margin:auto;
+  padding:88px 0;
+}
+.section-heading{
+  max-width:790px;
+  margin:0 auto 40px;
+  text-align:center;
+}
+.kicker{
+  margin:0 0 10px;
+  color:var(--gold);
+  font-size:.76rem;
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  font-weight:950;
+}
+.section-heading h2{
+  margin:0 0 16px;
+  font-size:clamp(2.35rem,5vw,4.25rem);
+}
+.section-heading p{
+  margin:0;
+  color:var(--muted);
+  font-size:1.06rem;
+}
+
+/* BENEFITS */
+.benefit-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:18px;
+}
+.benefit{
+  padding:26px;
+  border:1px solid var(--border);
+  border-radius:24px;
+  background:linear-gradient(160deg,rgba(79,24,96,.34),rgba(0,73,78,.24)),rgba(255,255,255,.035);
+  box-shadow:0 18px 45px rgba(0,0,0,.24);
+}
+.benefit-icon{
+  width:50px;
+  height:50px;
+  margin-bottom:18px;
+  display:grid;
+  place-items:center;
+  border-radius:16px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.14);
+  color:var(--teal);
+  font-size:1.35rem;
+}
+.benefit h3{margin:0 0 9px;font-size:1.45rem}
+.benefit p{margin:0;color:var(--muted)}
+
+/* TEAM CARDS */
+.team-grid{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  gap:20px;
+}
+.team-card{
+  position:relative;
+  min-height:330px;
+  padding:30px;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:
+    linear-gradient(160deg,rgba(66,22,84,.62),rgba(7,52,56,.42)),
+    var(--panel);
+  box-shadow:var(--shadow);
+  isolation:isolate;
+  transition:transform .25s ease,border-color .25s ease;
+}
+.team-card:hover{transform:translateY(-7px);border-color:rgba(91,225,216,.45)}
+.team-card:before{
+  content:"";
+  position:absolute;
+  width:280px;
+  height:280px;
+  right:-100px;
+  top:-100px;
+  border-radius:50%;
+  z-index:-1;
+  background:radial-gradient(circle,rgba(181,59,212,.34),transparent 68%);
+}
+.team-card:after{
+  content:"";
+  position:absolute;
+  inset:auto 0 0;
+  height:5px;
+  background:linear-gradient(90deg,var(--purple),var(--teal),var(--gold));
+}
+.team-card.featured{grid-column:span 6}
+.team-card.standard{grid-column:span 4}
+.team-label{
+  position:absolute;
+  top:24px;
+  left:26px;
+  padding:7px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.07);
+  border:1px solid rgba(255,255,255,.14);
+  color:#73ddd8;
+  font-size:.74rem;
+  font-weight:950;
+  text-transform:uppercase;
+  letter-spacing:.11em;
+}
+/* Keep the two longer team labels clear of their card titles. */
+.team-card.long-label-card{min-height:370px}
+.team-card.long-label-card .team-label{
+  white-space:nowrap;
+  line-height:1;
+}
+.team-card.long-label-card h3{
+  margin-top:42px;
+}
+
+.team-card h3{
+  margin:0 0 12px;
+  font-size:clamp(1.85rem,3vw,2.55rem);
+}
+.team-card p{margin:0 0 24px;color:#d0c7d7}
+.card-link{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  color:#fff;
+  font-weight:950;
+}
+.card-link span{color:var(--gold);transition:transform .2s}
+.team-card:hover .card-link span{transform:translateX(5px)}
+
+/* AUDITIONS CTA */
+.audition{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:34px;
+  padding:44px;
+  display:grid;
+  grid-template-columns:1.25fr .75fr;
+  gap:34px;
+  align-items:center;
+  background:
+    radial-gradient(circle at 12% 20%,rgba(181,59,212,.28),transparent 25rem),
+    radial-gradient(circle at 88% 80%,rgba(32,200,199,.20),transparent 23rem),
+    linear-gradient(135deg,#171020,#09070f);
+  box-shadow:var(--shadow);
+}
+.audition h2{
+  margin:0 0 14px;
+  font-size:clamp(2.25rem,4vw,3.8rem);
+}
+.audition p{margin:0;color:var(--muted);max-width:700px}
+.audition-actions{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap}
+
+/* EXPECTATIONS */
+.expect-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+}
+.expect{
+  padding:27px;
+  border:1px solid var(--border);
+  border-radius:24px;
+  background:rgba(255,255,255,.045);
+}
+.expect-number{
+  width:44px;
+  height:44px;
+  display:grid;
+  place-items:center;
+  margin-bottom:18px;
+  border-radius:50%;
+  color:#05050c;
+  background:linear-gradient(135deg,var(--gold),#f2d995);
+  font-weight:950;
+}
+.expect h3{margin:0 0 9px;font-size:1.5rem}
+.expect p{margin:0;color:var(--muted)}
+
+/* FOOTER */
+.footer{margin-top:38px;border-top:1px solid rgba(255,255,255,.09);background:#030307}
+.footer-inner{
+  width:min(calc(100% - 44px),var(--max));
+  margin:auto;
+  padding:52px 0;
+  display:grid;
+  grid-template-columns:1.3fr .7fr .7fr;
+  gap:36px;
+}
+.footer p{color:#aaa0b2}
+.footer h3{font-size:1.2rem}
+.footer a{display:block;color:#d8cfdf;margin:7px 0}
+.footer a:hover{color:var(--teal)}
+.footer-logo{width:74px;height:74px;object-fit:contain;margin-bottom:12px}
+
+@media(max-width:980px){
+  .benefit-grid{grid-template-columns:repeat(2,1fr)}
+  .team-card.featured,.team-card.standard{grid-column:span 6}
+}
+@media(max-width:920px){
+  .topbar{display:none}
+  .menu{display:grid;place-items:center}
+  .nav{min-height:72px}
+  .logo img{width:48px;height:48px}
+  .nav-links{
+    display:none;
+    position:absolute;
+    top:72px;
+    left:15px;
+    right:15px;
+    padding:20px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:6px;
+    border:1px solid var(--border);
+    border-radius:22px;
+    background:rgba(8,6,13,.98);
+    box-shadow:var(--shadow);
+  }
+  .nav-links.open{display:flex}
+  .nav-links a{padding:10px 12px}
+  .hero-inner{gap:34px;padding:48px 0 66px}
+  .hero-copy{max-width:100%}
+  .hero-photo{width:100%;margin:0}
+  h1{font-size:clamp(3rem,10vw,5rem)}
+  .audition{grid-template-columns:1fr}
+  .audition-actions{justify-content:flex-start}
+  .expect-grid,.footer-inner{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .nav{padding-left:16px;padding-right:16px}
+  .logo span{display:none}
+  .hero-inner,.section,.footer-inner{width:min(calc(100% - 30px),var(--max))}
+  .hero-inner{padding:28px 0 52px;gap:28px}
+  .hero-photo{width:100%;padding:5px;border-radius:22px}
+  .hero-photo:before{border-radius:22px}
+  .hero-photo img{border-radius:17px}
+  .hero-actions .btn{width:100%}
+  .hero-note{gap:10px;flex-direction:column}
+  .hero-copy{text-align:center}
+  .hero-lead{max-width:34rem}
+  h1 span{display:block}
+  .section{padding:68px 0}
+  .section-heading{text-align:left}
+  .benefit-grid{grid-template-columns:1fr}
+  .team-grid{display:grid;grid-template-columns:1fr}
+  .team-card.featured,.team-card.standard{grid-column:auto}
+  .team-card{min-height:290px;padding:26px}
+  .team-card.long-label-card{min-height:335px}
+  .team-card.long-label-card .team-label{left:22px;right:auto;max-width:calc(100% - 44px);white-space:nowrap;font-size:.68rem;letter-spacing:.08em}
+  .team-card.long-label-card h3{margin-top:48px}
+
+  .audition{padding:31px 23px;border-radius:27px}
+  .audition-actions .btn{width:100%}
+}
+
+/* Desktop-only correction for the longer Mini and Petite team labels.
+   Keep the label in normal document flow so it can never overlap the title. */
+@media (min-width:641px){
+  .team-card.long-label-card{
+    justify-content:flex-start;
+  }
+  .team-card.long-label-card .team-label{
+    position:static;
+    align-self:flex-start;
+    margin:0 0 28px;
+    white-space:nowrap;
+  }
+  .team-card.long-label-card h3{
+    margin:0 0 12px;
+  }
+  .team-card.long-label-card .card-link{
+    margin-top:auto;
+  }
+}
+
+
+/* Desktop-only correction for Junior and Teen labels.
+   Keep these labels in normal flow so they cannot overlap their titles. */
+@media (min-width:641px){
+  .team-card.desktop-label-fix{
+    justify-content:flex-start;
+  }
+  .team-card.desktop-label-fix .team-label{
+    position:static;
+    align-self:flex-start;
+    margin:0 0 28px;
+    white-space:nowrap;
+  }
+  .team-card.desktop-label-fix h3{
+    margin:0 0 12px;
+  }
+  .team-card.desktop-label-fix .card-link{
+    margin-top:auto;
+  }
+}
+
+/* Shared Stage Starz header logo and competition registration actions */
+.header .logo{display:flex!important;align-items:center!important;gap:12px!important;color:#fff!important;font-weight:900!important}
+.header .logo img{width:92px!important;height:62px!important;object-fit:contain!important;object-position:center!important;filter:drop-shadow(0 7px 13px rgba(0,0,0,.34))!important}
+.header .logo .brand-name{display:none!important}
+.footer-logo{width:150px;height:112px;object-fit:contain;display:block;margin:0 0 10px;filter:drop-shadow(0 9px 18px rgba(0,0,0,.28))}
+.competition-registration-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:20px}
+.competition-registration-actions .btn{flex:1 1 280px;min-height:50px;text-align:center}
+.competition-registration-actions .btn.teal{color:#041011!important;background:linear-gradient(135deg,#70e7dd,#24c8d8)!important;box-shadow:0 14px 34px rgba(36,200,216,.22)!important}
+.competition-registration-actions .registration-parent-portal-btn{color:#fff!important;background:linear-gradient(135deg,#9b5cff,#6e2fe8)!important;border-color:rgba(190,157,255,.7)!important;box-shadow:0 14px 34px rgba(126,50,255,.26)!important}
+@media(max-width:920px){.header .logo img{width:74px!important;height:52px!important}.competition-registration-actions{flex-direction:column}.competition-registration-actions .btn{width:100%;flex-basis:auto}}
+</style>
+<link rel="stylesheet" href="assets/css/site-refinements.css">
+</head>
+<body>
+<div class="topbar">
+  <span>6800 Lewis Ave, Temperance, MI 48182</span>
+  <a href="tel:+17344973740">(734) 497-3740</a>
+  <a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a>
+</div>
+
+<header class="header">
+  <nav class="nav">
+    <a class="logo" href="index.html">
+      <img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance logo">
+      <span>Stage Starz Academy of Dance</span>
+    </a>
+    <button class="menu" aria-label="Open menu" aria-expanded="false">☰</button>
+    <div class="nav-links">
+      <a href="classes.html">Classes</a>
+      <a href="competition.html">Competition</a>
+      <a href="events.html">Events</a>
+      <a href="parent-hub.html">Parent Hub</a>
+      <a href="/store">Shop</a>
+      <a href="portal.html">Dancer Portal</a>
+      <a class="btn small primary" href="competition-auditions.html">Auditions</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <section class="competition-hero">
+    <div class="hero-inner">
+      <figure class="hero-photo">
+        <img src="assets/images/full-team-picture.jpg" alt="Stage Starz competition dancers and instructors holding their Studio of Excellence award">
+      </figure>
+      <div class="hero-copy">
+        <p class="eyebrow">Stage Starz Competition Team</p>
+        <h1>Train with purpose. Perform with confidence. <span>Compete as one.</span></h1>
+        <p class="hero-lead">The Stage Starz competition program is designed for committed dancers ready to grow through focused training, teamwork, performance opportunities, and the excitement of the competitive stage.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#teams">Explore the Teams</a>
+          <a class="btn ghost" href="competition-auditions.html">View Audition Information</a>
+        </div>
+        <div class="hero-note">
+          <span>Technique and artistry</span>
+          <span>Team commitment</span>
+          <span>Performance experience</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-heading">
+      <p class="kicker">More than competition</p>
+      <h2>A team experience that develops the whole dancer.</h2>
+      <p>Competitive dance challenges students to strengthen technique, build resilience, support their teammates, and perform with professionalism both onstage and off.</p>
+    </div>
+    <div class="benefit-grid">
+      <article class="benefit">
+        <div class="benefit-icon">✦</div>
+        <h3>Stronger Technique</h3>
+        <p>Focused instruction helps dancers refine control, precision, flexibility, and performance quality.</p>
+      </article>
+      <article class="benefit">
+        <div class="benefit-icon">★</div>
+        <h3>Teamwork</h3>
+        <p>Dancers learn accountability, trust, encouragement, and how to contribute to a shared goal.</p>
+      </article>
+      <article class="benefit">
+        <div class="benefit-icon">◆</div>
+        <h3>Stage Confidence</h3>
+        <p>Repeated performance experience helps dancers grow more comfortable, expressive, and prepared.</p>
+      </article>
+      <article class="benefit">
+        <div class="benefit-icon">◇</div>
+        <h3>Personal Growth</h3>
+        <p>Commitment, discipline, resilience, and time management extend far beyond the studio.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="teams">
+    <div class="section-heading">
+      <p class="kicker">Competition team levels</p>
+      <h2>Find your dancer’s team.</h2>
+      <p>Explore each Stage Starz competition group for more information about its level, expectations, and team experience.</p>
+    </div>
+
+    <div class="team-grid">
+      <a class="team-card featured long-label-card" href="mini-competition-team.html">
+        <span class="team-label">Beginning team experience</span>
+        <h3>Mini Competition Team</h3>
+        <p>An encouraging introduction to competitive dance for younger performers ready to build confidence and learn team responsibility.</p>
+        <span class="card-link">Explore Mini Team <span>→</span></span>
+      </a>
+
+      <a class="team-card featured long-label-card" href="petite-competition-team.html">
+        <span class="team-label">Developing performers</span>
+        <h3>Petite Competition Team</h3>
+        <p>Progressive training for dancers strengthening technique, performance quality, and their understanding of team commitment.</p>
+        <span class="card-link">Explore Petite Team <span>→</span></span>
+      </a>
+
+      <a class="team-card standard" href="juniorettes-competition-team.html">
+        <span class="team-label">Growing confidence</span>
+        <h3>Juniorettes</h3>
+        <p>A team-focused program for dancers continuing to develop technique, artistry, and consistency.</p>
+        <span class="card-link">Explore Juniorettes <span>→</span></span>
+      </a>
+
+      <a class="team-card standard desktop-label-fix" href="junior-competition-team.html">
+        <span class="team-label">Focused training</span>
+        <h3>Junior Competition Team</h3>
+        <p>More advanced expectations, stronger technical demands, and expanded performance responsibilities.</p>
+        <span class="card-link">Explore Junior Team <span>→</span></span>
+      </a>
+
+      <a class="team-card standard desktop-label-fix" href="teen-competition-team.html">
+        <span class="team-label">Advanced performers</span>
+        <h3>Teen Competition Team</h3>
+        <p>High-level training and performance opportunities for experienced dancers prepared for greater commitment.</p>
+        <span class="card-link">Explore Teen Team <span>→</span></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:10px">
+    <div class="audition">
+      <div>
+        <p class="kicker">Ready for the next step?</p>
+        <h2>Competition team placement begins with auditions.</h2>
+        <p>Review the current audition information, preparation details, and placement process. Families with questions can contact the studio before registering.</p>
+      </div>
+      <div class="audition-actions">
+        <a class="btn teal" href="competition-auditions.html">View Auditions</a>
+        <a class="btn ghost" href="contact.html">Ask a Question</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-heading">
+      <p class="kicker">What competitive dance requires</p>
+      <h2>Commitment creates progress.</h2>
+    </div>
+    <div class="expect-grid">
+      <article class="expect">
+        <div class="expect-number">1</div>
+        <h3>Consistent Attendance</h3>
+        <p>Reliable participation supports choreography, spacing, team preparation, and individual improvement.</p>
+      </article>
+      <article class="expect">
+        <div class="expect-number">2</div>
+        <h3>Positive Team Culture</h3>
+        <p>Dancers and families contribute through respect, encouragement, communication, and professionalism.</p>
+      </article>
+      <article class="expect">
+        <div class="expect-number">3</div>
+        <h3>Focused Preparation</h3>
+        <p>Rehearsals, technique classes, costumes, and event schedules require planning and follow-through.</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <img class="footer-logo" src="assets/images/stage-starz-logo.png" alt="">
+      <h3>Stage Starz Academy of Dance</h3>
+      <p>Dance classes, competition teams, recital showcases, and parent resources in Temperance, Michigan.</p>
+    </div>
+    <div>
+      <h3>Explore</h3>
+      <a href="classes.html">Classes</a>
+      <a href="competition.html">Competition</a>
+      <a href="events.html">Events</a>
+      <a href="parent-hub.html">Parent Hub</a>
+    </div>
+    <div>
+      <h3>Competition</h3>
+      <a href="competition-auditions.html">Auditions</a>
+      <a href="mini-competition-team.html">Mini Team</a>
+      <a href="petite-competition-team.html">Petite Team</a>
+      <a href="teen-competition-team.html">Teen Team</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const menu=document.querySelector('.menu');
+const nav=document.querySelector('.nav-links');
+if(menu&&nav){
+  menu.addEventListener('click',()=>{
+    const open=nav.classList.toggle('open');
+    menu.setAttribute('aria-expanded',String(open));
+  });
+}
+</script>
+<script src="assets/js/site-refinements.js" defer></script>
+</body>
+</html>

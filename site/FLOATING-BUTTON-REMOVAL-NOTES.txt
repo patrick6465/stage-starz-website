@@ -1,0 +1,10 @@
+FLOATING VIEW OPENINGS BUTTON REMOVED
+
+Removed the floating/sticky "View Openings" button from:
+- preschool-class-registration.html
+- primary-class-registration.html
+- elementary-class-registration.html
+- intermediate-advanced-registration.html
+- specialized-class-registration.html
+
+The regular in-page buttons, class information, Preschool photo, and Jackrabbit registration sections were left unchanged.

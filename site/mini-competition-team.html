@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Minis Competition Team | Stage Starz</title><meta name="description" content="Minis Competition Team content carried over from the current Stage Starz site."><style>
+:root{--black:#080712;--ink:#171427;--muted:#6f6780;--white:#fff;--purple:#7e32ff;--teal:#24c8d8;--pink:#ec3fa9;--border:rgba(126,50,255,.18);--shadow:0 24px 70px rgba(31,18,74,.16);--radius:28px;--max:1180px}*{box-sizing:border-box}body{margin:0;color:var(--ink);font-family:Arial,Helvetica,sans-serif;line-height:1.65;background:radial-gradient(circle at 10% 0%,rgba(236,63,169,.18),transparent 32rem),radial-gradient(circle at 92% 4%,rgba(36,200,216,.24),transparent 34rem),linear-gradient(180deg,#fff8fd 0%,#fff 45%,#fff7fd 100%)}a{text-decoration:none;color:inherit}.topbar{background:var(--black);color:#fff;padding:8px 20px;display:flex;gap:22px;justify-content:center;flex-wrap:wrap;font-size:.88rem}.header{position:sticky;top:0;z-index:50;background:rgba(255,248,253,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}.nav{max-width:var(--max);margin:auto;padding:16px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px}.logo{display:flex;align-items:center;gap:10px;font-weight:950;font-size:1.28rem;color:var(--black)}.logo-mark{width:40px;height:40px;border-radius:15px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink),var(--teal))}.nav-links{display:flex;align-items:center;gap:16px;font-weight:850}.menu{display:none;border:0;background:transparent;font-size:1.8rem}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:999px;padding:13px 20px;font-weight:950;cursor:pointer}.btn.primary{color:#fff;background:linear-gradient(135deg,var(--purple),var(--pink));box-shadow:0 16px 36px rgba(126,50,255,.25)}.btn.dark{color:#fff;background:var(--black)}.btn.ghost{background:#fff;color:var(--purple);border:2px solid var(--purple)}.btn.small{padding:9px 13px;font-size:.9rem}.hero,.page-hero,.section{max-width:var(--max);margin:auto;padding-left:22px;padding-right:22px}.hero{padding-top:84px;padding-bottom:56px;display:grid;grid-template-columns:1.25fr .75fr;gap:34px;align-items:center}.page-hero{padding-top:64px;padding-bottom:26px}.eyebrow{margin:0 0 12px;color:var(--pink);font-size:.78rem;text-transform:uppercase;letter-spacing:.11em;font-weight:950}h1,h2,h3{line-height:1.05;letter-spacing:-.04em}h1{font-size:clamp(2.5rem,6vw,5.3rem);margin:0 0 18px}h2{font-size:clamp(1.8rem,4vw,3rem);margin:0 0 20px}h3{font-size:1.28rem;margin:0 0 10px}.lead{font-size:1.15rem;color:var(--muted);max-width:760px}.section{padding-top:54px;padding-bottom:54px}.grid{display:grid;gap:20px}.grid.two{grid-template-columns:repeat(2,1fr)}.grid.three{grid-template-columns:repeat(3,1fr)}.card,.panel,.content-box,.form-card{background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px}.card h3{color:var(--purple)}.card p,.content-box p{color:var(--muted)}.actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}.content-box h2{color:var(--purple)}.copied-content p{margin:0 0 16px}.quick-list a{display:block;padding:15px 16px;border:1px solid var(--border);border-radius:16px;background:#fff;font-weight:900;margin:10px 0}.footer{margin-top:40px;background:var(--black);color:#fff}.footer-inner{max-width:var(--max);margin:auto;padding:42px 22px;display:grid;grid-template-columns:1.2fr .8fr .8fr;gap:28px}.footer a{display:block;color:#d8d1ff;margin:6px 0}.map{border:0;width:100%;min-height:320px;border-radius:28px;box-shadow:var(--shadow)}label{display:grid;gap:8px;font-weight:900}input,textarea{width:100%;border:1px solid var(--border);border-radius:16px;padding:13px 14px;font:inherit;background:#fff}.form-card{display:grid;gap:15px}.sticky-enroll{position:fixed;right:18px;bottom:18px;z-index:60}.portal-table{width:100%;border-collapse:collapse;background:#fff;border-radius:20px;overflow:hidden;box-shadow:var(--shadow)}.portal-table th,.portal-table td{padding:15px;border-bottom:1px solid var(--border);text-align:left}.portal-table th{background:var(--black);color:#fff}@media(max-width:920px){.menu{display:block}.nav-links{display:none;position:absolute;left:18px;right:18px;top:72px;background:#fff;border:1px solid var(--border);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav-links.open{display:flex}.hero,.grid.two,.grid.three,.footer-inner{grid-template-columns:1fr}.sticky-enroll{display:none}}
+
+/* Jackrabbit registration embed */
+.jackrabbit-section{
+  max-width:1180px;
+  margin:0 auto;
+  padding:20px 22px 70px;
+}
+.jackrabbit-card{
+  background:rgba(255,255,255,.96);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:26px;
+  overflow:hidden;
+}
+.jackrabbit-card h2{
+  margin-top:0;
+}
+.jackrabbit-help{
+  color:var(--muted);
+  margin-bottom:18px;
+}
+.jackrabbit-frame{
+  border-radius:22px;
+  background:#05040b;
+  padding:18px;
+  overflow:auto;
+}
+.jackrabbit-frame table{
+  border-collapse:collapse;
+  width:100%;
+  max-width:100%;
+  margin:0 auto;
+  background-color:#fff;
+  box-shadow:none;
+  border:1px solid #d7d2e4;
+  border-radius:16px;
+  overflow:hidden;
+}
+.jackrabbit-frame th,
+.jackrabbit-frame td{
+  padding:12px;
+  text-align:left;
+  border-bottom:1px solid #e3def0;
+}
+.jackrabbit-frame th{
+  background:#171427;
+  color:#fff;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  font-size:.82rem;
+}
+.jackrabbit-frame td{
+  background-color:#fff;
+  color:#171427;
+}
+.jackrabbit-frame tr:hover td{
+  background-color:#f7f2ff;
+}
+.jackrabbit-frame img{
+  max-width:100%;
+  height:auto;
+}
+.jackrabbit-fallback{
+  color:#fff;
+  margin-top:12px;
+  font-size:.94rem;
+}
+@media screen and (max-width:700px){
+  .jackrabbit-frame table,
+  .jackrabbit-frame thead,
+  .jackrabbit-frame tbody,
+  .jackrabbit-frame th,
+  .jackrabbit-frame td,
+  .jackrabbit-frame tr{
+    display:block;
+  }
+  .jackrabbit-frame thead{
+    display:none;
+  }
+  .jackrabbit-frame tr{
+    border:1px solid #e3def0;
+    border-radius:16px;
+    overflow:hidden;
+    margin-bottom:12px;
+    background:#fff;
+  }
+  .jackrabbit-frame td{
+    border-bottom:none;
+    position:relative;
+    padding-left:48%;
+    min-height:44px;
+  }
+  .jackrabbit-frame td:before{
+    position:absolute;
+    top:12px;
+    left:12px;
+    width:42%;
+    padding-right:10px;
+    white-space:normal;
+    text-align:left;
+    font-weight:900;
+    color:#7e32ff;
+  }
+  .jackrabbit-frame td:nth-of-type(1):before{content:"Class";}
+  .jackrabbit-frame td:nth-of-type(2):before{content:"Instructor";}
+  .jackrabbit-frame td:nth-of-type(3):before{content:"Day / Time";}
+  .jackrabbit-frame td:nth-of-type(4):before{content:"Location";}
+  .jackrabbit-frame td:nth-of-type(5):before{content:"Openings";}
+  .jackrabbit-frame td:nth-of-type(6):before{content:"Register";}
+}
+
+
+/* Clean Jackrabbit boxes and blue registration buttons */
+.jackrabbit-frame{
+  background:#ffffff !important;
+  border:1px solid var(--border) !important;
+  border-radius:22px !important;
+  padding:18px !important;
+  overflow:auto !important;
+}
+.jackrabbit-frame table{
+  width:100% !important;
+  max-width:100% !important;
+  border-collapse:collapse !important;
+  background:#fff !important;
+}
+.jackrabbit-frame a,
+.jackrabbit-frame a:visited,
+.jackrabbit-frame input[type="button"],
+.jackrabbit-frame input[type="submit"],
+.jackrabbit-frame button,
+.jackrabbit-frame .button,
+.jackrabbit-frame .btn{
+  background:#007bff !important;
+  color:#ffffff !important;
+  border:none !important;
+  border-radius:10px !important;
+  padding:10px 16px !important;
+  font-weight:900 !important;
+  text-decoration:none !important;
+  display:inline-block !important;
+  line-height:1.2 !important;
+}
+.jackrabbit-frame a:hover,
+.jackrabbit-frame input[type="button"]:hover,
+.jackrabbit-frame input[type="submit"]:hover,
+.jackrabbit-frame button:hover,
+.jackrabbit-frame .button:hover,
+.jackrabbit-frame .btn:hover{
+  background:#0056d6 !important;
+  color:#ffffff !important;
+}
+.jackrabbit-fallback{
+  color:#171427 !important;
+  margin-top:14px !important;
+}
+
+.jackrabbit-fallback a{
+  background:none !important;
+  color:#007bff !important;
+  display:inline !important;
+  padding:0 !important;
+  margin:0 !important;
+  border:none !important;
+  border-radius:0 !important;
+  font-weight:900 !important;
+  text-decoration:underline !important;
+  box-shadow:none !important;
+}
+.jackrabbit-fallback a:hover{
+  color:#0056d6 !important;
+  background:none !important;
+}
+
+
+.jackrabbit-fallback{
+    color:#171427 !important;
+    margin-top:14px !important;
+    display:block !important;
+}
+.jackrabbit-fallback a,
+.jackrabbit-frame .jackrabbit-fallback a,
+.jackrabbit-card .jackrabbit-fallback a{
+    background:none !important;
+    background-color:transparent !important;
+    color:#007bff !important;
+    display:inline !important;
+    padding:0 !important;
+    margin:0 !important;
+    border:none !important;
+    border-radius:0 !important;
+    box-shadow:none !important;
+    font-weight:700 !important;
+    text-decoration:underline !important;
+}
+.jackrabbit-fallback a:hover,
+.jackrabbit-frame .jackrabbit-fallback a:hover,
+.jackrabbit-card .jackrabbit-fallback a:hover{
+    background:none !important;
+    background-color:transparent !important;
+    color:#0056d6 !important;
+}
+
+</style><script type="application/ld+json">{"@context": "https://schema.org", "@type": "DanceSchool", "name": "Stage Starz Academy of Dance", "address": {"@type": "PostalAddress", "streetAddress": "6800 Lewis Ave", "addressLocality": "Temperance", "addressRegion": "MI", "postalCode": "48182", "addressCountry": "US"}, "telephone": "+1-734-497-3740", "email": "stagestarzdance@aol.com", "url": "https://www.stagestarzdance.net/"}</script>
+<style id="competition-premium-theme">
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Montserrat:wght@400;500;600;700;800&display=swap');
+:root{
+  --black:#05040b;--black-2:#0b0914;--panel:#12101e;--panel-2:#171326;
+  --ink:#f7f3ff;--muted:#b9b1ca;--purple:#8c4cff;--teal:#28d7d2;
+  --pink:#e44bb5;--gold:#e6bf67;--border:rgba(167,126,255,.24);
+  --shadow:0 28px 80px rgba(0,0,0,.44);--radius:28px;--max:1180px;
+}
+html{scroll-behavior:smooth}
+body{
+  color:var(--ink)!important;font-family:Montserrat,Arial,sans-serif!important;
+  background:
+    radial-gradient(circle at 8% 10%,rgba(140,76,255,.17),transparent 29rem),
+    radial-gradient(circle at 92% 8%,rgba(40,215,210,.11),transparent 31rem),
+    linear-gradient(180deg,#05040b 0%,#0a0711 48%,#05040b 100%)!important;
+}
+.topbar{background:#030207!important;color:#d8d1e8!important;border-bottom:1px solid rgba(255,255,255,.06)}
+.topbar a{color:#d8d1e8!important}
+.header{background:rgba(5,4,11,.88)!important;border-bottom:1px solid rgba(167,126,255,.18)!important;box-shadow:0 8px 30px rgba(0,0,0,.22)}
+.logo{color:#fff!important}.logo-mark{background:linear-gradient(135deg,var(--purple),var(--pink),var(--teal))!important;box-shadow:0 0 26px rgba(140,76,255,.36)}
+.nav-links{color:#ded7ec}.nav-links>a:not(.btn):hover{color:var(--teal)}
+.menu{color:#fff!important}
+.btn{transition:.22s ease;letter-spacing:.01em}.btn:hover{transform:translateY(-2px)}
+.btn.primary{background:linear-gradient(135deg,var(--purple),#ad42e9)!important;box-shadow:0 16px 38px rgba(140,76,255,.3)!important}
+.btn.dark{background:linear-gradient(135deg,#262037,#171322)!important;border:1px solid rgba(255,255,255,.12)}
+.btn.ghost{background:rgba(255,255,255,.045)!important;color:#fff!important;border:1px solid rgba(40,215,210,.62)!important;box-shadow:inset 0 0 20px rgba(40,215,210,.04)}
+.page-hero{
+  position:relative;max-width:none!important;min-height:520px;padding:120px max(22px,calc((100% - var(--max))/2)) 82px!important;
+  display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;
+  background:
+    linear-gradient(90deg,rgba(5,4,11,.98) 0%,rgba(5,4,11,.87) 48%,rgba(5,4,11,.42) 100%),
+    radial-gradient(circle at 78% 28%,rgba(140,76,255,.33),transparent 25rem),
+    radial-gradient(circle at 88% 76%,rgba(40,215,210,.18),transparent 22rem),
+    linear-gradient(135deg,#0c0916,#171025 58%,#090711)!important;
+  border-bottom:1px solid rgba(167,126,255,.2)
+}
+.page-hero:before{content:"";position:absolute;inset:auto 0 0;height:42%;background:linear-gradient(180deg,transparent,rgba(5,4,11,.9));pointer-events:none}
+.page-hero:after{content:"✦";position:absolute;right:7%;top:18%;font-size:clamp(7rem,18vw,15rem);line-height:1;color:rgba(230,191,103,.07);text-shadow:0 0 50px rgba(140,76,255,.18);pointer-events:none}
+.page-hero>*{position:relative;z-index:1;max-width:830px}
+.eyebrow{color:var(--gold)!important;letter-spacing:.17em!important;font-size:.76rem!important}
+h1,h2,h3{font-family:'Cormorant Garamond',Georgia,serif!important;color:#fff}
+h1{font-size:clamp(3rem,7vw,6.2rem)!important;line-height:.92!important;letter-spacing:-.045em!important;text-wrap:balance}
+h2{font-size:clamp(2.15rem,4.6vw,3.8rem)!important}
+h3{font-size:1.55rem!important;letter-spacing:-.02em!important}
+.lead{color:#c8c0d5!important;font-size:1.12rem!important;max-width:760px!important}
+.section{padding-top:82px!important;padding-bottom:82px!important}
+.content-box,.card,.panel,.form-card{
+  color:var(--ink)!important;background:linear-gradient(145deg,rgba(24,19,39,.94),rgba(11,9,20,.96))!important;
+  border:1px solid var(--border)!important;border-radius:var(--radius)!important;box-shadow:var(--shadow)!important;
+  position:relative;overflow:hidden
+}
+.content-box:before,.card:before,.panel:before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--purple),var(--teal),transparent)}
+.content-box p,.card p,.copied-content p{color:var(--muted)!important}
+.content-box strong,.card strong{color:#fff}
+.content-box a:not(.btn),.card a:not(.btn){color:var(--teal)!important}
+.copied-content{padding:clamp(26px,5vw,52px)!important}
+.copied-content p{font-size:1.02rem;line-height:1.85;margin-bottom:18px!important}
+.grid{gap:24px!important}.card{transition:.24s ease}.card:hover{transform:translateY(-5px);border-color:rgba(40,215,210,.48)!important;box-shadow:0 28px 80px rgba(0,0,0,.5),0 0 35px rgba(140,76,255,.12)!important}
+.quick-list a{background:rgba(255,255,255,.04)!important;color:#fff;border:1px solid var(--border)!important}.quick-list a:hover{border-color:var(--teal)!important}
+.jackrabbit-section{background:transparent!important}
+.jackrabbit-card{background:linear-gradient(145deg,rgba(24,19,39,.97),rgba(9,7,16,.98))!important;border-color:rgba(167,126,255,.32)!important;box-shadow:0 30px 85px rgba(0,0,0,.5),0 0 46px rgba(140,76,255,.1)!important}
+.jackrabbit-card h2{color:#fff!important}.jackrabbit-help,.jackrabbit-fallback{color:var(--muted)!important}
+.jackrabbit-frame{border-color:rgba(40,215,210,.22)!important;background:#fff!important}
+.footer{background:#030207!important;border-top:1px solid rgba(167,126,255,.18)!important;margin-top:0!important}.footer p{color:#aaa1bb}.footer a{color:#d6cfee!important}.footer a:hover{color:var(--teal)!important}
+.sticky-enroll{background:linear-gradient(135deg,var(--purple),#a43ce2)!important;box-shadow:0 16px 45px rgba(140,76,255,.4)!important}
+@media(max-width:920px){
+ .nav-links{background:rgba(12,9,21,.98)!important;border-color:var(--border)!important;box-shadow:var(--shadow)!important}
+ .page-hero{min-height:500px;padding-top:100px!important;padding-bottom:62px!important}.page-hero:after{right:-7%;top:20%}
+}
+@media(max-width:640px){
+ .topbar{font-size:.75rem!important;gap:8px 15px!important}.nav{padding:13px 16px!important}
+ .page-hero{min-height:470px;padding-left:18px!important;padding-right:18px!important;padding-bottom:48px!important}
+ h1{font-size:clamp(2.8rem,15vw,4.4rem)!important}.lead{font-size:1rem!important}.actions{display:grid!important}.actions .btn{width:100%}
+ .section{padding:58px 18px!important}.copied-content{padding:25px!important}.footer-inner{padding:40px 20px!important}
+}
+
+/* Shared Stage Starz header logo and competition registration actions */
+.header .logo{display:flex!important;align-items:center!important;gap:12px!important;color:#fff!important;font-weight:900!important}
+.header .logo img{width:92px!important;height:62px!important;object-fit:contain!important;object-position:center!important;filter:drop-shadow(0 7px 13px rgba(0,0,0,.34))!important}
+.header .logo .brand-name{display:none!important}
+.footer-logo{width:150px;height:112px;object-fit:contain;display:block;margin:0 0 10px;filter:drop-shadow(0 9px 18px rgba(0,0,0,.28))}
+.competition-registration-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:20px}
+.competition-registration-actions .btn{flex:1 1 280px;min-height:50px;text-align:center}
+.competition-registration-actions .btn.teal{color:#041011!important;background:linear-gradient(135deg,#70e7dd,#24c8d8)!important;box-shadow:0 14px 34px rgba(36,200,216,.22)!important}
+.competition-registration-actions .registration-parent-portal-btn{color:#fff!important;background:linear-gradient(135deg,#9b5cff,#6e2fe8)!important;border-color:rgba(190,157,255,.7)!important;box-shadow:0 14px 34px rgba(126,50,255,.26)!important}
+@media(max-width:920px){.header .logo img{width:74px!important;height:52px!important}.competition-registration-actions{flex-direction:column}.competition-registration-actions .btn{width:100%;flex-basis:auto}}
+</style>
+
+<link rel="stylesheet" href="assets/css/site-refinements.css">
+</head><body>
+<div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div><header class="header"><nav class="nav"><a class="logo" href="index.html" aria-label="Stage Starz Academy of Dance home"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance"><span class="brand-name">Stage Starz Academy of Dance</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="/store">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="contact.html">Register</a></div></nav></header><main><section class="page-hero"><p class="eyebrow">Competition Team</p><h1>Minis Competition Team</h1><p class="lead">Minis Competition Team content carried over from the current Stage Starz site.</p><div class="actions"><a class="btn primary" href="contact.html">Register / Ask Questions</a><a class="btn ghost" href="parent-hub.html">Parent Resources</a></div></section><section class="section"><div class="content-box copied-content"><p>MINIS COMPETITION TEAM is for Primary Level dancers ages 5-7 and Preschool dancers who have or very soon will turn 5 years, with limited dance experience and 0 years comp experience. AUDITION REQUIRED.</p>
+<p>Stage Starz Competition Minis Jazz & Lyrical Combo: $75 monthly for 60-minute weekly class combo including Jazz and Lyrical comp routines.</p>
+<p>Stage Starz Minis Competition TAP Group: $40 monthly for 30-minute weekly class.</p>
+<p>Stage Starz Minis Competition HIP HOP Group: $40 monthly for 30-minute weekly class.</p>
+<p>Minis Comp Ballet Tech: supplemental 30-minute Ballet Tech class focused on technical training for competitive performance. $38 monthly.</p>
+<p>Minis Flexibility & Conditioning Tech Class: $38 monthly.</p>
+<p>Minis Turns, Leaps, & Jumps Tech Class: $38 monthly.</p>
+<p>Solo: Standard or Competitive sold out for 2026-2027. Solos are a 30-minute weekly class preparing dancers with a competitive or standard solo routine.</p></div></section>
+
+<section class="jackrabbit-section" aria-labelledby="jr-minis-openings-heading">
+  <div class="jackrabbit-card">
+    <h2 id="jr-minis-openings-heading">Minis Competition Team Registration</h2>
+    <p class="jackrabbit-help">Live class openings and registration are provided through Jackrabbit.</p>
+
+    <div class="jackrabbit-frame">
+      <script src="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsJS?OrgID=520608&cat1=competition fall&cat2=mini&InstructorID=&hidecols=Description&showcols=Instructors"></script>
+
+      <p class="jackrabbit-fallback">
+        Need help registering?
+        <a href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgId=520608" target="_blank" rel="noopener">Open Registration in the Parent Portal</a>.
+      </p>
+    </div>
+    <div class="competition-registration-actions">
+      <a class="btn teal" href="https://app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect?OrgID=520608&cat1=competition fall&cat2=mini&InstructorID=&hidecols=Description&showcols=Instructors" target="_blank" rel="noopener">Open Live Registration in a New Window</a>
+      <a class="btn registration-parent-portal-btn" href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgID=520608" target="_blank" rel="noopener">Existing Family Parent Portal</a>
+    </div>
+  </div>
+</section>
+
+</main><a class="btn primary sticky-enroll" href="contact.html">Enroll Now</a><footer class="footer"><div class="footer-inner"><div><img class="footer-logo" src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance"><h3>Stage Starz Academy of Dance</h3><p>Dance classes, competition teams, recital showcases, and parent resources in Temperance, Michigan.</p></div><div><h3>Pages</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a></div><div><h3>Contact</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a></div></div></footer><script>
+const m=document.querySelector('.menu'),n=document.querySelector('.nav-links');if(m&&n){m.addEventListener('click',()=>{const o=n.classList.toggle('open');m.setAttribute('aria-expanded',String(o));});}
+</script><script src="assets/js/site-refinements.js" defer></script>
+</body></html>

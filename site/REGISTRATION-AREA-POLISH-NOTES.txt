@@ -1,0 +1,18 @@
+REGISTRATION AREA POLISH
+
+Applied to:
+- Preschool
+- Primary
+- Elementary
+- Intermediate / Advanced
+- Specialized
+
+Changes:
+- Added "Ready to Join?" enrollment heading and supporting text.
+- Added premium glass-style border, shadow, spacing, and padding around the registration area.
+- Matched the two action buttons for height and minimum width.
+- Added more space between the live registration area and its buttons.
+- On mobile, both buttons stack vertically and fill the available width.
+- Live Registration remains teal.
+- Existing Family Parent Portal remains purple.
+- Parent Hub menu styling and registration functionality were not changed.

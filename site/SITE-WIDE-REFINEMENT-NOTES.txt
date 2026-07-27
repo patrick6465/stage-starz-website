@@ -1,0 +1,7 @@
+Stage Starz site-wide refinement pass
+- Added shared card radius, shadow, hover, and spacing behavior.
+- Added subtle scroll reveal animations with reduced-motion accessibility support.
+- Added active navigation highlighting.
+- Polished all individual competition team/audition hero and content areas.
+- Preserved Jackrabbit scripts, registration URLs, existing page content, and prior mobile fixes.
+- Photo replacements were intentionally not included; use authentic Stage Starz photos in a later asset pass.

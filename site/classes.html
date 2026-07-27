@@ -1,0 +1,666 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dance Classes | Stage Starz Academy of Dance</title>
+<meta name="description" content="Explore preschool, primary, elementary, intermediate, advanced, and specialized dance classes at Stage Starz Academy of Dance in Temperance, Michigan.">
+<style>
+:root{
+  --black:#05050c;
+  --black-2:#0b0713;
+  --panel:rgba(19,12,30,.76);
+  --panel-strong:rgba(21,13,34,.94);
+  --white:#fff;
+  --text:#f8f4ff;
+  --muted:#c8bed4;
+  --purple:#b53bd4;
+  --purple-2:#7026c8;
+  --teal:#20c8c7;
+  --gold:#d9b15f;
+  --border:rgba(255,255,255,.12);
+  --shadow:0 28px 80px rgba(0,0,0,.44);
+  --radius:28px;
+  --max:1200px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  color:var(--text);
+  font-family:Arial,Helvetica,sans-serif;
+  line-height:1.65;
+  background:
+    radial-gradient(circle at 10% 10%,rgba(181,59,212,.18),transparent 30rem),
+    radial-gradient(circle at 92% 18%,rgba(32,200,199,.12),transparent 34rem),
+    linear-gradient(180deg,#05050c 0%,#0a0710 55%,#05050c 100%);
+}
+a{text-decoration:none;color:inherit}
+.topbar{
+  position:relative;
+  z-index:70;
+  display:flex;
+  justify-content:center;
+  gap:24px;
+  flex-wrap:wrap;
+  padding:8px 20px;
+  background:#030307;
+  color:#d9d1e2;
+  font-size:.85rem;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+.header{
+  position:sticky;
+  top:0;
+  z-index:60;
+  background:rgba(5,5,12,.83);
+  border-bottom:1px solid rgba(255,255,255,.09);
+  -webkit-backdrop-filter:blur(18px);
+  backdrop-filter:blur(18px);
+}
+.nav{
+  max-width:var(--max);
+  min-height:78px;
+  margin:auto;
+  padding:12px 22px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:22px;
+}
+.logo{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  font-weight:900;
+  letter-spacing:.02em;
+}
+.logo img{
+  width:54px;
+  height:54px;
+  object-fit:contain;
+}
+.logo span{font-size:1.08rem}
+.nav-links{
+  display:flex;
+  align-items:center;
+  gap:20px;
+  font-weight:800;
+  font-size:.94rem;
+}
+.nav-links>a:not(.btn){color:#e9e2ee;transition:.2s ease}
+.nav-links>a:not(.btn):hover{color:var(--teal)}
+.menu{
+  display:none;
+  color:#fff;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.06);
+  border-radius:13px;
+  width:46px;
+  height:43px;
+  font-size:1.45rem;
+}
+.btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:48px;
+  padding:12px 21px;
+  border-radius:999px;
+  border:1px solid transparent;
+  font-weight:900;
+  line-height:1.15;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+.btn:hover{transform:translateY(-2px)}
+.btn.primary{
+  color:#fff;
+  background:linear-gradient(135deg,var(--purple-2),var(--purple));
+  box-shadow:0 14px 34px rgba(133,35,176,.35);
+}
+.btn.teal{
+  color:#041011;
+  background:linear-gradient(135deg,#70e7dd,var(--teal));
+  box-shadow:0 14px 34px rgba(32,200,199,.22);
+}
+.btn.ghost{
+  color:#fff;
+  border-color:rgba(255,255,255,.25);
+  background:rgba(255,255,255,.05);
+}
+.btn.small{min-height:42px;padding:10px 17px;font-size:.9rem}
+
+/* HERO */
+.classes-hero{
+  position:relative;
+  min-height:590px;
+  display:grid;
+  align-items:center;
+  overflow:hidden;
+  border-bottom:1px solid rgba(255,255,255,.08);
+}
+.classes-hero:before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(90deg,rgba(5,5,12,.98) 0%,rgba(5,5,12,.91) 42%,rgba(5,5,12,.52) 72%,rgba(5,5,12,.74) 100%),
+    linear-gradient(0deg,rgba(5,5,12,.84),transparent 45%),
+    url("assets/images/audriana-homepage-hero.jpg") center 35%/cover no-repeat;
+}
+.classes-hero:after{
+  content:"";
+  position:absolute;
+  width:520px;
+  height:520px;
+  right:-150px;
+  top:-120px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(32,200,199,.22),transparent 67%);
+  filter:blur(8px);
+}
+.hero-inner{
+  position:relative;
+  z-index:2;
+  width:min(calc(100% - 44px),var(--max));
+  margin:auto;
+  padding:86px 0 92px;
+}
+.hero-copy{max-width:720px}
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  margin:0 0 18px;
+  color:var(--teal);
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  font-size:.76rem;
+  font-weight:950;
+}
+.eyebrow:before{
+  content:"";
+  width:44px;
+  height:2px;
+  background:linear-gradient(90deg,var(--gold),var(--teal));
+}
+h1,h2,h3{
+  font-family:Georgia,"Times New Roman",serif;
+  line-height:1.04;
+  letter-spacing:-.035em;
+}
+h1{
+  max-width:760px;
+  margin:0 0 20px;
+  font-size:clamp(3.1rem,7vw,6.5rem);
+  text-wrap:balance;
+}
+h1 span{
+  display:block;
+  background:linear-gradient(100deg,#fff 12%,#d784e2 52%,#6ce1db 96%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+.hero-lead{
+  max-width:650px;
+  margin:0;
+  color:#d6cedd;
+  font-size:clamp(1.03rem,2vw,1.22rem);
+}
+.hero-actions{
+  display:flex;
+  gap:13px;
+  flex-wrap:wrap;
+  margin-top:30px;
+}
+.hero-note{
+  display:flex;
+  gap:24px;
+  flex-wrap:wrap;
+  margin-top:30px;
+  color:#d9d0e0;
+  font-size:.92rem;
+  font-weight:800;
+}
+.hero-note span:before{
+  content:"✦";
+  margin-right:8px;
+  color:var(--gold);
+}
+
+/* INTRO */
+.section{
+  width:min(calc(100% - 44px),var(--max));
+  margin:auto;
+  padding:88px 0;
+}
+.section-heading{
+  max-width:760px;
+  margin:0 auto 38px;
+  text-align:center;
+}
+.kicker{
+  margin:0 0 10px;
+  color:var(--gold);
+  font-size:.76rem;
+  text-transform:uppercase;
+  letter-spacing:.16em;
+  font-weight:950;
+}
+.section-heading h2{
+  margin:0 0 16px;
+  font-size:clamp(2.35rem,5vw,4.25rem);
+}
+.section-heading p{
+  margin:0;
+  color:var(--muted);
+  font-size:1.06rem;
+}
+
+/* PROGRAM CARDS */
+.program-grid{
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  gap:20px;
+}
+.program-card{
+  position:relative;
+  min-height:320px;
+  padding:30px;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  overflow:hidden;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  background:
+    linear-gradient(160deg,rgba(66,22,84,.62),rgba(7,52,56,.42)),
+    var(--panel);
+  box-shadow:var(--shadow);
+  isolation:isolate;
+  transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease;
+}
+.program-card:hover{
+  transform:translateY(-7px);
+  border-color:rgba(91,225,216,.45);
+  box-shadow:0 32px 85px rgba(0,0,0,.55);
+}
+.program-card:before{
+  content:"";
+  position:absolute;
+  width:270px;
+  height:270px;
+  border-radius:50%;
+  right:-90px;
+  top:-90px;
+  z-index:-1;
+  background:radial-gradient(circle,rgba(181,59,212,.34),transparent 68%);
+}
+.program-card:after{
+  content:"";
+  position:absolute;
+  inset:auto 0 0;
+  height:5px;
+  background:linear-gradient(90deg,var(--purple),var(--teal),var(--gold));
+}
+.program-card.wide{grid-column:span 6}
+.program-card.third{grid-column:span 4}
+.program-icon{
+  position:absolute;
+  top:24px;
+  left:26px;
+  display:grid;
+  place-items:center;
+  width:54px;
+  height:54px;
+  border-radius:18px;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.07);
+  color:var(--teal);
+  font-size:1.5rem;
+  font-weight:900;
+}
+.age{
+  margin:0 0 10px;
+  color:#73ddd8;
+  font-weight:900;
+  font-size:.82rem;
+  text-transform:uppercase;
+  letter-spacing:.11em;
+}
+.program-card h3{
+  margin:0 0 12px;
+  font-size:clamp(1.75rem,3vw,2.4rem);
+}
+.program-card p{
+  margin:0 0 24px;
+  color:#d0c7d7;
+}
+.card-link{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  width:max-content;
+  color:#fff;
+  font-weight:950;
+}
+.card-link span{
+  color:var(--gold);
+  transition:transform .2s ease;
+}
+.program-card:hover .card-link span{transform:translateX(5px)}
+
+/* FINDER CTA */
+.finder{
+  position:relative;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:34px;
+  padding:42px;
+  display:grid;
+  grid-template-columns:1.3fr .7fr;
+  gap:34px;
+  align-items:center;
+  background:
+    radial-gradient(circle at 12% 20%,rgba(181,59,212,.28),transparent 25rem),
+    radial-gradient(circle at 88% 80%,rgba(32,200,199,.20),transparent 23rem),
+    linear-gradient(135deg,#171020,#09070f);
+  box-shadow:var(--shadow);
+}
+.finder h2{
+  margin:0 0 14px;
+  font-size:clamp(2.2rem,4vw,3.7rem);
+}
+.finder p{
+  margin:0;
+  max-width:680px;
+  color:var(--muted);
+}
+.finder-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+/* STEPS */
+.steps{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+}
+.step{
+  padding:26px;
+  border:1px solid var(--border);
+  border-radius:24px;
+  background:rgba(255,255,255,.045);
+}
+.step-number{
+  width:44px;
+  height:44px;
+  margin-bottom:18px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  color:#05050c;
+  background:linear-gradient(135deg,var(--gold),#f2d995);
+  font-weight:950;
+}
+.step h3{margin:0 0 9px;font-size:1.5rem}
+.step p{margin:0;color:var(--muted)}
+
+/* FOOTER */
+.footer{
+  margin-top:38px;
+  border-top:1px solid rgba(255,255,255,.09);
+  background:#030307;
+}
+.footer-inner{
+  width:min(calc(100% - 44px),var(--max));
+  margin:auto;
+  padding:52px 0;
+  display:grid;
+  grid-template-columns:1.3fr .7fr .7fr;
+  gap:36px;
+}
+.footer p{color:#aaa0b2}
+.footer h3{font-size:1.2rem}
+.footer a{display:block;color:#d8cfdf;margin:7px 0}
+.footer a:hover{color:var(--teal)}
+.footer-logo{width:74px;height:74px;object-fit:contain;margin-bottom:12px}
+
+/* MOBILE */
+@media(max-width:920px){
+  .topbar{display:none}
+  .menu{display:grid;place-items:center}
+  .nav{min-height:72px}
+  .logo img{width:48px;height:48px}
+  .nav-links{
+    display:none;
+    position:absolute;
+    top:72px;
+    left:15px;
+    right:15px;
+    padding:20px;
+    flex-direction:column;
+    align-items:stretch;
+    gap:6px;
+    border:1px solid var(--border);
+    border-radius:22px;
+    background:rgba(8,6,13,.98);
+    box-shadow:var(--shadow);
+  }
+  .nav-links.open{display:flex}
+  .nav-links a{padding:10px 12px}
+  .classes-hero{min-height:650px}
+  .classes-hero:before{
+    background:
+      linear-gradient(180deg,rgba(5,5,12,.90) 0%,rgba(5,5,12,.62) 34%,rgba(5,5,12,.88) 72%,#05050c 100%),
+      url("assets/images/audriana-homepage-hero.jpg") 58% center/cover no-repeat;
+  }
+  .hero-inner{
+    align-self:end;
+    padding:150px 0 62px;
+  }
+  h1{font-size:clamp(3rem,13vw,5rem)}
+  .program-card.wide,.program-card.third{grid-column:span 6}
+  .finder{grid-template-columns:1fr}
+  .finder-actions{justify-content:flex-start}
+  .steps,.footer-inner{grid-template-columns:1fr}
+}
+@media(max-width:640px){
+  .nav{padding-left:16px;padding-right:16px}
+  .logo span{display:none}
+  .classes-hero{min-height:690px}
+  .hero-inner,.section,.footer-inner{width:min(calc(100% - 30px),var(--max))}
+  .hero-inner{padding-bottom:48px}
+  .hero-actions .btn{width:100%}
+  .hero-note{gap:10px;flex-direction:column}
+  .section{padding:68px 0}
+  .section-heading{text-align:left}
+  .program-grid{display:grid;grid-template-columns:1fr}
+  .program-card.wide,.program-card.third{grid-column:auto}
+  .program-card{min-height:285px;padding:26px}
+  .finder{padding:30px 23px;border-radius:27px}
+  .finder-actions .btn{width:100%}
+  .steps{gap:14px}
+}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"DanceSchool","name":"Stage Starz Academy of Dance","address":{"@type":"PostalAddress","streetAddress":"6800 Lewis Ave","addressLocality":"Temperance","addressRegion":"MI","postalCode":"48182","addressCountry":"US"},"telephone":"+1-734-497-3740","email":"stagestarzdance@aol.com","url":"https://www.stagestarzdance.net/"}
+</script>
+<link rel="stylesheet" href="assets/css/site-refinements.css">
+</head>
+<body>
+<div class="topbar">
+  <span>6800 Lewis Ave, Temperance, MI 48182</span>
+  <a href="tel:+17344973740">(734) 497-3740</a>
+  <a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a>
+</div>
+
+<header class="header">
+  <nav class="nav">
+    <a class="logo" href="index.html">
+      <img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance logo">
+      <span>Stage Starz Academy of Dance</span>
+    </a>
+    <button class="menu" aria-label="Open menu" aria-expanded="false">☰</button>
+    <div class="nav-links">
+      <a href="classes.html">Classes</a>
+      <a href="competition.html">Competition</a>
+      <a href="events.html">Events</a>
+      <a href="parent-hub.html">Parent Hub</a>
+      <a href="/store">Shop</a>
+      <a href="portal.html">Dancer Portal</a>
+      <a class="btn small primary" href="contact.html">Register</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <section class="classes-hero">
+    <div class="hero-inner">
+      <div class="hero-copy">
+        <p class="eyebrow">Dance classes in Temperance, Michigan</p>
+        <h1>Find the class where your dancer will <span>shine.</span></h1>
+        <p class="hero-lead">From first steps to advanced training, Stage Starz offers age-appropriate programs designed to build technique, confidence, creativity, and a lasting love of dance.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="#programs">Explore Programs</a>
+          <a class="btn ghost" href="class-finder.html">Use the Class Finder</a>
+        </div>
+        <div class="hero-note">
+          <span>Beginner-friendly options</span>
+          <span>Multiple age levels</span>
+          <span>Performance opportunities</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="programs">
+    <div class="section-heading">
+      <p class="kicker">Programs for every stage</p>
+      <h2>A clear path from first class to confident performer.</h2>
+      <p>Choose the age group or training level that best fits your dancer. Each registration page includes the currently available classes and enrollment options.</p>
+    </div>
+
+    <div class="program-grid">
+      <a class="program-card wide" href="preschool-class-registration.html">
+        <span class="program-icon">✦</span>
+        <p class="age">Ages 3–4</p>
+        <h3>Preschool Dance</h3>
+        <p>Playful combination classes that introduce rhythm, movement, classroom skills, and the joy of performing.</p>
+        <span class="card-link">View Preschool Classes <span>→</span></span>
+      </a>
+
+      <a class="program-card wide" href="primary-class-registration.html">
+        <span class="program-icon">★</span>
+        <p class="age">Ages 5–8</p>
+        <h3>Primary Programs</h3>
+        <p>Foundational instruction that develops coordination, musicality, confidence, and strong beginning technique.</p>
+        <span class="card-link">View Primary Classes <span>→</span></span>
+      </a>
+
+      <a class="program-card third" href="elementary-class-registration.html">
+        <span class="program-icon">◆</span>
+        <p class="age">Approximately ages 8/9–11</p>
+        <h3>Elementary</h3>
+        <p>Progressive training for growing dancers ready to strengthen technique and explore additional styles.</p>
+        <span class="card-link">View Classes <span>→</span></span>
+      </a>
+
+      <a class="program-card third" href="intermediate-advanced-registration.html">
+        <span class="program-icon">✧</span>
+        <p class="age">Experienced dancers</p>
+        <h3>Intermediate &amp; Advanced</h3>
+        <p>Focused instruction for dancers prepared for greater technical detail, artistry, and performance demands.</p>
+        <span class="card-link">View Classes <span>→</span></span>
+      </a>
+
+      <a class="program-card third" href="specialized-class-registration.html">
+        <span class="program-icon">◇</span>
+        <p class="age">Personalized training</p>
+        <h3>Specialized Classes</h3>
+        <p>Solo, duet, trio, private, and semi-private opportunities for targeted instruction and individual goals.</p>
+        <span class="card-link">View Specialized Options <span>→</span></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:10px">
+    <div class="finder">
+      <div>
+        <p class="kicker">Not sure where to begin?</p>
+        <h2>Let us help you find the right fit.</h2>
+        <p>Use the class finder for a guided recommendation, or contact the studio for personal help choosing the best program for your dancer’s age and experience.</p>
+      </div>
+      <div class="finder-actions">
+        <a class="btn teal" href="class-finder.html">Open Class Finder</a>
+        <a class="btn ghost" href="contact.html">Contact the Studio</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-heading">
+      <p class="kicker">Simple enrollment process</p>
+      <h2>Getting started is easy.</h2>
+    </div>
+    <div class="steps">
+      <article class="step">
+        <div class="step-number">1</div>
+        <h3>Choose a program</h3>
+        <p>Select the age group or training level that best matches your dancer.</p>
+      </article>
+      <article class="step">
+        <div class="step-number">2</div>
+        <h3>Review openings</h3>
+        <p>Open the registration page to see current classes, days, times, and availability.</p>
+      </article>
+      <article class="step">
+        <div class="step-number">3</div>
+        <h3>Register</h3>
+        <p>Complete enrollment online or contact Stage Starz when you need personal guidance.</p>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <img class="footer-logo" src="assets/images/stage-starz-logo.png" alt="">
+      <h3>Stage Starz Academy of Dance</h3>
+      <p>Dance classes, competition teams, recital showcases, and parent resources in Temperance, Michigan.</p>
+    </div>
+    <div>
+      <h3>Explore</h3>
+      <a href="classes.html">Classes</a>
+      <a href="competition.html">Competition</a>
+      <a href="events.html">Events</a>
+      <a href="parent-hub.html">Parent Hub</a>
+    </div>
+    <div>
+      <h3>Contact</h3>
+      <a href="tel:+17344973740">(734) 497-3740</a>
+      <a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a>
+      <a href="https://www.instagram.com/stagestarzdance/">Instagram</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const menu=document.querySelector('.menu');
+const nav=document.querySelector('.nav-links');
+if(menu&&nav){
+  menu.addEventListener('click',()=>{
+    const open=nav.classList.toggle('open');
+    menu.setAttribute('aria-expanded',String(open));
+  });
+}
+</script>
+<script src="assets/js/site-refinements.js" defer></script>
+</body>
+</html>
