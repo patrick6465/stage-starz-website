@@ -56,6 +56,7 @@ def init_db() -> None:
             stock INTEGER NOT NULL DEFAULT 0,
             sizes TEXT NOT NULL DEFAULT 'One Size',
             colors TEXT NOT NULL DEFAULT 'Default',
+            show_color INTEGER NOT NULL DEFAULT 1,
             allow_name INTEGER NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1,
             image_url TEXT NOT NULL DEFAULT '',
@@ -63,6 +64,15 @@ def init_db() -> None:
         )
         """
     )
+
+    # Safely upgrade existing Railway databases without deleting product data.
+    product_columns = {
+        row["name"] for row in cursor.execute("PRAGMA table_info(products)").fetchall()
+    }
+    if "show_color" not in product_columns:
+        cursor.execute(
+            "ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1"
+        )
 
     cursor.execute(
         """
@@ -81,29 +91,29 @@ def init_db() -> None:
                 "Moisture-wicking team jersey made for dance, stage, and studio events.",
                 32.00, 28.00, 5.00, 14,
                 "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL",
-                "Black,Purple,Teal", 1, 1, "", "👕"
+                "Black,Purple,Teal", 1, 1, 1, "", "👕"
             ),
             (
                 "Signature Dance Jacket", "Apparel",
                 "Form-fitting four-way stretch jacket for dancers and team members.",
                 55.00, None, 5.00, 9,
                 "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL",
-                "Black,Purple", 1, 1, "", "🧥"
+                "Black,Purple", 1, 1, 1, "", "🧥"
             ),
             (
                 "Stage Starz Duffle Bag", "Bags",
                 "Durable dance bag with shoulder strap and room for shoes and apparel.",
                 38.00, None, 6.00, 6,
-                "One Size", "Black,Purple,Teal", 1, 1, "", "👜"
+                "One Size", "Black,Purple,Teal", 1, 1, 1, "", "👜"
             ),
         ]
         cursor.executemany(
             """
             INSERT INTO products (
                 name, category, description, price, sale_price,
-                fulfillment_fee, stock, sizes, colors, allow_name,
-                active, image_url, emoji
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                fulfillment_fee, stock, sizes, colors, show_color,
+                allow_name, active, image_url, emoji
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             starter_products,
         )
@@ -142,6 +152,7 @@ def rows_to_products(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
         item = dict(row)
         item["sizes"] = [x.strip() for x in item["sizes"].split(",") if x.strip()]
         item["colors"] = [x.strip() for x in item["colors"].split(",") if x.strip()]
+        item["show_color"] = bool(item["show_color"])
         item["allow_name"] = bool(item["allow_name"])
         item["active"] = bool(item["active"])
         products.append(item)
@@ -240,6 +251,7 @@ def save_product():
         int(form.get("stock") or 0),
         form.get("sizes", "One Size").strip(),
         form.get("colors", "Default").strip(),
+        1 if form.get("show_color") == "on" else 0,
         1 if form.get("allow_name") == "on" else 0,
         1 if form.get("active") == "on" else 0,
         form.get("image_url", "").strip(),
@@ -252,7 +264,7 @@ def save_product():
             """
             UPDATE products SET
                 name=?, category=?, description=?, price=?, sale_price=?,
-                fulfillment_fee=?, stock=?, sizes=?, colors=?,
+                fulfillment_fee=?, stock=?, sizes=?, colors=?, show_color=?,
                 allow_name=?, active=?, image_url=?, emoji=?
             WHERE id=?
             """,
@@ -263,9 +275,9 @@ def save_product():
             """
             INSERT INTO products (
                 name, category, description, price, sale_price,
-                fulfillment_fee, stock, sizes, colors, allow_name,
-                active, image_url, emoji
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                fulfillment_fee, stock, sizes, colors, show_color,
+                allow_name, active, image_url, emoji
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             values,
         )
