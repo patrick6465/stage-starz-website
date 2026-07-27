@@ -6,16 +6,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 
-from flask import (
-    Flask,
-    send_from_directory,
-    jsonify,
-    redirect,
-    render_template,
-    request,
-    session,
-    url_for,
-)
+from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("DATABASE_PATH", str(BASE_DIR / "data" / "store.db")))
@@ -42,7 +33,6 @@ def get_db() -> sqlite3.Connection:
 def init_db() -> None:
     connection = get_db()
     cursor = connection.cursor()
-
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS products (
@@ -64,55 +54,23 @@ def init_db() -> None:
         )
         """
     )
-
-    # Safely upgrade existing Railway databases without deleting product data.
-    product_columns = {
-        row["name"] for row in cursor.execute("PRAGMA table_info(products)").fetchall()
-    }
+    product_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(products)").fetchall()}
     if "show_color" not in product_columns:
-        cursor.execute(
-            "ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1"
-        )
+        cursor.execute("ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1")
 
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        )
-        """
-    )
-
+    cursor.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     cursor.execute("SELECT COUNT(*) AS count FROM products")
     if cursor.fetchone()["count"] == 0:
         starter_products = [
-            (
-                "Stage Starz Team Jersey", "Apparel",
-                "Moisture-wicking team jersey made for dance, stage, and studio events.",
-                32.00, 28.00, 5.00, 14,
-                "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL",
-                "Black,Purple,Teal", 1, 1, 1, "", "👕"
-            ),
-            (
-                "Signature Dance Jacket", "Apparel",
-                "Form-fitting four-way stretch jacket for dancers and team members.",
-                55.00, None, 5.00, 9,
-                "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL",
-                "Black,Purple", 1, 1, 1, "", "🧥"
-            ),
-            (
-                "Stage Starz Duffle Bag", "Bags",
-                "Durable dance bag with shoulder strap and room for shoes and apparel.",
-                38.00, None, 6.00, 6,
-                "One Size", "Black,Purple,Teal", 1, 1, 1, "", "👜"
-            ),
+            ("Stage Starz Team Jersey", "Apparel", "Moisture-wicking team jersey made for dance, stage, and studio events.", 32.00, 28.00, 5.00, 14, "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL", "Black,Purple,Teal", 1, 1, 1, "", "👕"),
+            ("Signature Dance Jacket", "Apparel", "Form-fitting four-way stretch jacket for dancers and team members.", 55.00, None, 5.00, 9, "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL", "Black,Purple", 1, 1, 1, "", "🧥"),
+            ("Stage Starz Duffle Bag", "Bags", "Durable dance bag with shoulder strap and room for shoes and apparel.", 38.00, None, 6.00, 6, "One Size", "Black,Purple,Teal", 1, 1, 1, "", "👜"),
         ]
         cursor.executemany(
             """
             INSERT INTO products (
-                name, category, description, price, sale_price,
-                fulfillment_fee, stock, sizes, colors, show_color,
-                allow_name, active, image_url, emoji
+                name, category, description, price, sale_price, fulfillment_fee,
+                stock, sizes, colors, show_color, allow_name, active, image_url, emoji
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             starter_products,
@@ -123,16 +81,17 @@ def init_db() -> None:
         "order_email": "stagestarzacademy@gmail.com",
         "venmo_username": "@StageStarzDance",
         "name_fee": "10.00",
+        "name_max_chars": "20",
+        "name_instructions": "Enter the name exactly as you want it printed.",
         "sales_tax_rate": "0.06",
-        "customer_shipping_fee": "0.00",
+        "shipping_mode": "per_item",
+        "shipping_rate": "5.00",
+        "free_shipping_threshold": "100.00",
         "allow_customer_shipping": "1",
+        "customer_shipping_fee": "0.00",
     }
     for key, value in defaults.items():
-        cursor.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
-            (key, value),
-        )
-
+        cursor.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))
     connection.commit()
     connection.close()
 
@@ -183,7 +142,6 @@ def storefront():
 
 @app.route("/<path:filename>")
 def website_file(filename: str):
-    """Serve the remaining existing website pages and assets."""
     requested = BASE_DIR / "site" / filename
     if requested.exists() and requested.is_file():
         return send_from_directory(BASE_DIR / "site", filename)
@@ -193,9 +151,7 @@ def website_file(filename: str):
 @app.route("/api/products")
 def api_products():
     connection = get_db()
-    rows = connection.execute(
-        "SELECT * FROM products WHERE active = 1 ORDER BY category, name"
-    ).fetchall()
+    rows = connection.execute("SELECT * FROM products WHERE active = 1 ORDER BY category, name").fetchall()
     connection.close()
     return jsonify(rows_to_products(rows))
 
@@ -230,9 +186,7 @@ def admin_dashboard():
     connection = get_db()
     rows = connection.execute("SELECT * FROM products ORDER BY category, name").fetchall()
     connection.close()
-    products = rows_to_products(rows)
-    settings = get_settings()
-    return render_template("admin.html", products=products, settings=settings)
+    return render_template("admin.html", products=rows_to_products(rows), settings=get_settings())
 
 
 @app.route("/admin/product/save", methods=["POST"])
@@ -240,7 +194,6 @@ def admin_dashboard():
 def save_product():
     form = request.form
     product_id = form.get("id", "").strip()
-
     values = (
         form.get("name", "").strip(),
         form.get("category", "").strip(),
@@ -257,16 +210,13 @@ def save_product():
         form.get("image_url", "").strip(),
         form.get("emoji", "⭐").strip() or "⭐",
     )
-
     connection = get_db()
     if product_id:
         connection.execute(
             """
-            UPDATE products SET
-                name=?, category=?, description=?, price=?, sale_price=?,
-                fulfillment_fee=?, stock=?, sizes=?, colors=?, show_color=?,
-                allow_name=?, active=?, image_url=?, emoji=?
-            WHERE id=?
+            UPDATE products SET name=?, category=?, description=?, price=?, sale_price=?,
+                fulfillment_fee=?, stock=?, sizes=?, colors=?, show_color=?, allow_name=?,
+                active=?, image_url=?, emoji=? WHERE id=?
             """,
             values + (int(product_id),),
         )
@@ -274,14 +224,12 @@ def save_product():
         connection.execute(
             """
             INSERT INTO products (
-                name, category, description, price, sale_price,
-                fulfillment_fee, stock, sizes, colors, show_color,
-                allow_name, active, image_url, emoji
+                name, category, description, price, sale_price, fulfillment_fee,
+                stock, sizes, colors, show_color, allow_name, active, image_url, emoji
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             values,
         )
-
     connection.commit()
     connection.close()
     return redirect(url_for("admin_dashboard"))
@@ -301,15 +249,11 @@ def delete_product(product_id: int):
 @login_required
 def save_settings():
     allowed = {
-        "store_name",
-        "order_email",
-        "venmo_username",
-        "name_fee",
-        "sales_tax_rate",
-        "customer_shipping_fee",
-        "allow_customer_shipping",
+        "store_name", "order_email", "venmo_username", "name_fee",
+        "name_max_chars", "name_instructions", "sales_tax_rate",
+        "shipping_mode", "shipping_rate", "free_shipping_threshold",
+        "allow_customer_shipping", "customer_shipping_fee",
     }
-
     connection = get_db()
     for key in allowed:
         value = request.form.get(key, "")
@@ -329,10 +273,5 @@ def save_settings():
 
 init_db()
 
-
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", "5000")),
-        debug=os.environ.get("FLASK_DEBUG") == "1",
-    )
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), debug=os.environ.get("FLASK_DEBUG") == "1")
