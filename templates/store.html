@@ -98,7 +98,7 @@ function render(){
         <div><span class="price">${money(p.sale_price??p.price)}</span>${p.sale_price?`<span class="old">${money(p.price)}</span>`:''}</div>
         <p class="meta">Fulfillment fee: ${money(p.fulfillment_fee)} per item<br>Stock: ${p.stock}</p>
         <div class="field"><label>Size</label><select id="size-${p.id}">${p.sizes.map(x=>`<option>${x}</option>`).join('')}</select></div>
-        <div class="field"><label>Color</label><select id="color-${p.id}">${p.colors.map(x=>`<option>${x}</option>`).join('')}</select></div>
+        ${p.show_color?`<div class="field"><label>Color</label><select id="color-${p.id}">${p.colors.map(x=>`<option>${x}</option>`).join('')}</select></div>`:''}
         ${p.allow_name?`
           <div class="field"><label>Add a name? (+${money(Number(settings.name_fee||10))})</label>
             <select id="add-name-${p.id}" onchange="toggleName(${p.id})"><option value="no">No</option><option value="yes">Yes</option></select>
@@ -124,7 +124,8 @@ function addToCart(id){
     fulfillmentFee:Number(p.fulfillment_fee||0),
     nameFee:addName?Number(settings.name_fee||10):0,
     requestedName,size:document.getElementById(`size-${id}`).value,
-    color:document.getElementById(`color-${id}`).value
+    showColor:Boolean(p.show_color),
+    color:p.show_color?document.getElementById(`color-${id}`).value:''
   });
   renderCart();toggleCart(true);
 }
@@ -133,7 +134,7 @@ function renderCart(){
   document.getElementById('cartCount').textContent=cart.length;
   document.getElementById('items').innerHTML=cart.length?cart.map((x,i)=>`
     <div class="item"><strong>${x.name}</strong>
-      <div class="meta">Size: ${x.size}<br>Color: ${x.color}<br>Name: ${x.requestedName||'No'}<br>
+      <div class="meta">Size: ${x.size}${x.showColor?`<br>Color: ${x.color}`:''}<br>Name: ${x.requestedName||'No'}<br>
       Item: ${money(x.price)} | Name fee: ${money(x.nameFee)} | Fulfillment: ${money(x.fulfillmentFee)}</div>
       <button onclick="cart.splice(${i},1);renderCart()">Remove</button>
     </div>`).join(''):'<p>Your cart is empty.</p>';
@@ -162,7 +163,10 @@ function emailOrder(){
   const fulfillment=cart.reduce((s,x)=>s+x.fulfillmentFee,0);
   const tax=subtotal*Number(settings.sales_tax_rate||0);
   const total=subtotal+nameFees+fulfillment+tax;
-  const lines=cart.map((x,i)=>`${i+1}. ${x.name}\nSize: ${x.size}\nColor: ${x.color}\nName: ${x.requestedName||'No'}\nItem: ${money(x.price)}\nName fee: ${money(x.nameFee)}\nFulfillment: ${money(x.fulfillmentFee)}`).join('\n\n');
+  const lines=cart.map((x,i)=>{
+    const colorLine=x.showColor?`\nColor: ${x.color}`:'';
+    return `${i+1}. ${x.name}\nSize: ${x.size}${colorLine}\nName: ${x.requestedName||'No'}\nItem: ${money(x.price)}\nName fee: ${money(x.nameFee)}\nFulfillment: ${money(x.fulfillmentFee)}`;
+  }).join('\n\n');
   const body=`STAGE STARZ ORDER\n\n${lines}\n\nMerchandise: ${money(subtotal)}\nName charges: ${money(nameFees)}\nFulfillment fees: ${money(fulfillment)}\nSales tax: ${money(tax)}\nTOTAL: ${money(total)}`;
   location.href=`mailto:${settings.order_email}?subject=${encodeURIComponent('New Stardust Ship-it-Shop Order')}&body=${encodeURIComponent(body)}`;
 }
