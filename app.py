@@ -6,7 +6,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 
-from flask import Flask, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, Response, abort, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("DATABASE_PATH", str(BASE_DIR / "data" / "store.db")))
@@ -18,10 +18,12 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=os.environ.get("FLASK_ENV") == "production",
+    MAX_CONTENT_LENGTH=8 * 1024 * 1024,
 )
 
 ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "StageStarz123!")
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 
 def get_db() -> sqlite3.Connection:
@@ -50,13 +52,21 @@ def init_db() -> None:
             allow_name INTEGER NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1,
             image_url TEXT NOT NULL DEFAULT '',
-            emoji TEXT NOT NULL DEFAULT '⭐'
+            emoji TEXT NOT NULL DEFAULT '⭐',
+            image_data BLOB,
+            image_mime TEXT NOT NULL DEFAULT ''
         )
         """
     )
     product_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(products)").fetchall()}
-    if "show_color" not in product_columns:
-        cursor.execute("ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1")
+    upgrades = {
+        "show_color": "ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1",
+        "image_data": "ALTER TABLE products ADD COLUMN image_data BLOB",
+        "image_mime": "ALTER TABLE products ADD COLUMN image_mime TEXT NOT NULL DEFAULT ''",
+    }
+    for column, statement in upgrades.items():
+        if column not in product_columns:
+            cursor.execute(statement)
 
     cursor.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     cursor.execute("SELECT COUNT(*) AS count FROM products")
@@ -109,6 +119,12 @@ def rows_to_products(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
     products = []
     for row in rows:
         item = dict(row)
+        image_data = item.pop("image_data", None)
+        item.pop("image_mime", None)
+        item["external_image_url"] = item.get("image_url", "")
+        item["has_uploaded_image"] = bool(image_data)
+        if image_data:
+            item["image_url"] = url_for("product_image", product_id=item["id"])
         item["sizes"] = [x.strip() for x in item["sizes"].split(",") if x.strip()]
         item["colors"] = [x.strip() for x in item["colors"].split(",") if x.strip()]
         item["show_color"] = bool(item["show_color"])
@@ -138,6 +154,16 @@ def health_check():
 @app.route("/store")
 def storefront():
     return render_template("store.html")
+
+
+@app.route("/product-image/<int:product_id>")
+def product_image(product_id: int):
+    connection = get_db()
+    row = connection.execute("SELECT image_data, image_mime FROM products WHERE id = ?", (product_id,)).fetchone()
+    connection.close()
+    if not row or not row["image_data"]:
+        abort(404)
+    return Response(row["image_data"], mimetype=row["image_mime"] or "application/octet-stream", headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.route("/<path:filename>")
@@ -220,8 +246,9 @@ def save_product():
             """,
             values + (int(product_id),),
         )
+        saved_id = int(product_id)
     else:
-        connection.execute(
+        cursor = connection.execute(
             """
             INSERT INTO products (
                 name, category, description, price, sale_price, fulfillment_fee,
@@ -230,6 +257,24 @@ def save_product():
             """,
             values,
         )
+        saved_id = int(cursor.lastrowid)
+
+    upload = request.files.get("image_upload")
+    if form.get("remove_uploaded_image") == "1":
+        connection.execute("UPDATE products SET image_data = NULL, image_mime = '' WHERE id = ?", (saved_id,))
+    elif upload and upload.filename:
+        if upload.mimetype not in ALLOWED_IMAGE_TYPES:
+            connection.close()
+            return ("Unsupported image type. Please upload JPG, PNG, WebP, or GIF.", 400)
+        image_bytes = upload.read()
+        if not image_bytes:
+            connection.close()
+            return ("The uploaded image was empty.", 400)
+        connection.execute(
+            "UPDATE products SET image_data = ?, image_mime = ? WHERE id = ?",
+            (sqlite3.Binary(image_bytes), upload.mimetype, saved_id),
+        )
+
     connection.commit()
     connection.close()
     return redirect(url_for("admin_dashboard"))
