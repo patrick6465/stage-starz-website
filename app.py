@@ -24,6 +24,7 @@ MAX_PRODUCT_IMAGES = 6
 def get_db() -> sqlite3.Connection:
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
     return connection
 
 
@@ -41,15 +42,16 @@ def init_db() -> None:
             emoji TEXT NOT NULL DEFAULT '⭐', image_data BLOB, image_mime TEXT NOT NULL DEFAULT ''
         )
     """)
-    product_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(products)").fetchall()}
+    columns = {row["name"] for row in cursor.execute("PRAGMA table_info(products)").fetchall()}
     upgrades = {
         "show_color": "ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1",
         "image_data": "ALTER TABLE products ADD COLUMN image_data BLOB",
         "image_mime": "ALTER TABLE products ADD COLUMN image_mime TEXT NOT NULL DEFAULT ''",
     }
     for column, statement in upgrades.items():
-        if column not in product_columns:
+        if column not in columns:
             cursor.execute(statement)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS product_images (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,7 +76,7 @@ def init_db() -> None:
             INSERT INTO products (name,category,description,price,sale_price,fulfillment_fee,stock,sizes,colors,show_color,allow_name,active,image_url,emoji)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, starter_products)
-    # Migrate each legacy uploaded image into the gallery once.
+
     cursor.execute("""
         INSERT INTO product_images (product_id,image_data,image_mime,sort_order,is_primary)
         SELECT p.id,p.image_data,p.image_mime,0,1 FROM products p
@@ -86,7 +88,7 @@ def init_db() -> None:
         "venmo_username": "@StageStarzDance", "name_fee": "10.00", "name_max_chars": "20",
         "name_instructions": "Enter the name exactly as you want it printed.", "sales_tax_rate": "0.06",
         "shipping_mode": "per_item", "shipping_rate": "5.00", "free_shipping_threshold": "100.00",
-        "allow_customer_shipping": "1", "customer_shipping_fee": "0.00",
+        "allow_customer_shipping": "1", "customer_shipping_fee": "0.00", "low_stock_threshold": "5",
     }
     for key, value in defaults.items():
         cursor.execute("INSERT OR IGNORE INTO settings (key,value) VALUES (?,?)", (key, value))
@@ -104,7 +106,7 @@ def login_required(view):
 
 
 def image_rows_for_products(connection: sqlite3.Connection, product_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
-    grouped: dict[int, list[dict[str, Any]]] = {pid: [] for pid in product_ids}
+    grouped = {pid: [] for pid in product_ids}
     if not product_ids:
         return grouped
     marks = ",".join("?" for _ in product_ids)
@@ -115,8 +117,7 @@ def image_rows_for_products(connection: sqlite3.Connection, product_ids: list[in
 
 
 def rows_to_products(rows: list[sqlite3.Row], connection: sqlite3.Connection) -> list[dict[str, Any]]:
-    product_ids = [row["id"] for row in rows]
-    galleries = image_rows_for_products(connection, product_ids)
+    galleries = image_rows_for_products(connection, [row["id"] for row in rows])
     products = []
     for row in rows:
         item = dict(row)
@@ -136,11 +137,40 @@ def rows_to_products(rows: list[sqlite3.Row], connection: sqlite3.Connection) ->
     return products
 
 
-def get_settings() -> dict[str, str]:
-    connection = get_db()
+def get_settings(connection: sqlite3.Connection | None = None) -> dict[str, str]:
+    own = connection is None
+    connection = connection or get_db()
     rows = connection.execute("SELECT key,value FROM settings").fetchall()
-    connection.close()
+    if own:
+        connection.close()
     return {row["key"]: row["value"] for row in rows}
+
+
+def build_dashboard(products: list[dict[str, Any]], settings: dict[str, str]) -> dict[str, Any]:
+    try:
+        threshold = max(0, int(settings.get("low_stock_threshold", "5")))
+    except ValueError:
+        threshold = 5
+    low_stock = sorted([p for p in products if 0 < p["stock"] <= threshold], key=lambda p: (p["stock"], p["name"].lower()))
+    out_of_stock = sorted([p for p in products if p["stock"] <= 0], key=lambda p: p["name"].lower())
+    categories: dict[str, dict[str, Any]] = {}
+    for p in products:
+        current_price = float(p["sale_price"] if p["sale_price"] is not None else p["price"])
+        category = categories.setdefault(p["category"] or "Uncategorized", {"name": p["category"] or "Uncategorized", "products": 0, "units": 0, "value": 0.0})
+        category["products"] += 1
+        category["units"] += max(0, int(p["stock"]))
+        category["value"] += max(0, int(p["stock"])) * current_price
+    return {
+        "total_products": len(products),
+        "active_products": sum(1 for p in products if p["active"]),
+        "hidden_products": sum(1 for p in products if not p["active"]),
+        "inventory_units": sum(max(0, int(p["stock"])) for p in products),
+        "inventory_value": sum(max(0, int(p["stock"])) * float(p["sale_price"] if p["sale_price"] is not None else p["price"]) for p in products),
+        "low_stock": low_stock,
+        "out_of_stock": out_of_stock,
+        "categories": sorted(categories.values(), key=lambda x: x["name"].lower()),
+        "threshold": threshold,
+    }
 
 
 @app.route("/")
@@ -213,8 +243,10 @@ def admin_dashboard():
     connection = get_db()
     rows = connection.execute("SELECT * FROM products ORDER BY category,name").fetchall()
     products = rows_to_products(rows, connection)
+    settings = get_settings(connection)
+    dashboard = build_dashboard(products, settings)
     connection.close()
-    return render_template("admin.html", products=products, settings=get_settings(), max_product_images=MAX_PRODUCT_IMAGES)
+    return render_template("admin.html", products=products, settings=settings, dashboard=dashboard, max_product_images=MAX_PRODUCT_IMAGES)
 
 
 @app.route("/admin/product/save", methods=["POST"])
@@ -244,9 +276,8 @@ def save_product():
     for image_id in remove_ids:
         connection.execute("DELETE FROM product_images WHERE id=? AND product_id=?", (image_id, saved_id))
     for image_id in existing_ids - remove_ids:
-        order_value = form.get(f"image_order_{image_id}", "0")
         try:
-            order = max(0, int(order_value))
+            order = max(0, int(form.get(f"image_order_{image_id}", "0")))
         except ValueError:
             order = 0
         connection.execute("UPDATE product_images SET sort_order=? WHERE id=? AND product_id=?", (order, image_id, saved_id))
@@ -257,16 +288,14 @@ def save_product():
         connection.rollback(); connection.close()
         return (f"Each product may have up to {MAX_PRODUCT_IMAGES} uploaded images.", 400)
     next_order = connection.execute("SELECT COALESCE(MAX(sort_order),-1)+1 AS next_order FROM product_images WHERE product_id=?", (saved_id,)).fetchone()["next_order"]
-    new_ids = []
     for upload in uploads:
         if upload.mimetype not in ALLOWED_IMAGE_TYPES:
             connection.rollback(); connection.close()
             return ("Unsupported image type. Please upload JPG, PNG, WebP, or GIF.", 400)
         image_bytes = upload.read()
-        if not image_bytes:
-            continue
-        cursor = connection.execute("INSERT INTO product_images (product_id,image_data,image_mime,sort_order,is_primary) VALUES (?,?,?,?,0)", (saved_id, sqlite3.Binary(image_bytes), upload.mimetype, next_order,))
-        new_ids.append(int(cursor.lastrowid)); next_order += 1
+        if image_bytes:
+            connection.execute("INSERT INTO product_images (product_id,image_data,image_mime,sort_order,is_primary) VALUES (?,?,?,?,0)", (saved_id, sqlite3.Binary(image_bytes), upload.mimetype, next_order))
+            next_order += 1
 
     primary_raw = form.get("primary_image", "")
     primary_id = int(primary_raw) if primary_raw.isdigit() else None
@@ -294,7 +323,7 @@ def delete_product(product_id: int):
 @app.route("/admin/settings/save", methods=["POST"])
 @login_required
 def save_settings():
-    allowed = {"store_name","order_email","venmo_username","name_fee","name_max_chars","name_instructions","sales_tax_rate","shipping_mode","shipping_rate","free_shipping_threshold","allow_customer_shipping","customer_shipping_fee"}
+    allowed = {"store_name","order_email","venmo_username","name_fee","name_max_chars","name_instructions","sales_tax_rate","shipping_mode","shipping_rate","free_shipping_threshold","allow_customer_shipping","customer_shipping_fee","low_stock_threshold"}
     connection = get_db()
     for key in allowed:
         value = request.form.get(key, "")
