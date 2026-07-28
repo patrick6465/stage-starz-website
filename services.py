@@ -37,8 +37,29 @@ def image_rows_for_products(connection: sqlite3.Connection, product_ids: list[in
     return grouped
 
 
+def variant_rows_for_products(connection, product_ids: list[int]) -> dict[int, list[dict[str, Any]]]:
+    grouped = {pid: [] for pid in product_ids}
+    if not product_ids:
+        return grouped
+    marks = ",".join("?" for _ in product_ids)
+    rows = connection.execute(
+        f"SELECT id,product_id,size,color,stock FROM product_variants WHERE active=1 AND product_id IN ({marks}) ORDER BY product_id,size,color",
+        product_ids,
+    ).fetchall()
+    for row in rows:
+        grouped[row["product_id"]].append({
+            "id": row["id"],
+            "size": row["size"],
+            "color": row["color"],
+            "stock": int(row["stock"]),
+        })
+    return grouped
+
+
 def rows_to_products(rows: list[sqlite3.Row], connection: sqlite3.Connection) -> list[dict[str, Any]]:
-    galleries = image_rows_for_products(connection, [row["id"] for row in rows])
+    product_ids = [row["id"] for row in rows]
+    galleries = image_rows_for_products(connection, product_ids)
+    variants = variant_rows_for_products(connection, product_ids)
     products = []
     for row in rows:
         item = dict(row)
@@ -54,6 +75,8 @@ def rows_to_products(rows: list[sqlite3.Row], connection: sqlite3.Connection) ->
         item["show_color"] = bool(item["show_color"])
         item["allow_name"] = bool(item["allow_name"])
         item["active"] = bool(item["active"])
+        item["track_variants"] = bool(item.get("track_variants", 0))
+        item["variants"] = variants.get(item["id"], []) if item["track_variants"] else []
         products.append(item)
     return products
 
