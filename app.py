@@ -5,10 +5,20 @@ import os
 from flask import Flask
 
 from config import SECRET_KEY
-from database import init_db
+from database import Cursor, init_db
 from routes_admin import register_admin_routes
 from routes_public import register_public_routes
 from routes_reports import register_report_routes
+
+
+def _postgres_lastrowid(cursor: Cursor) -> int:
+    row = cursor._cursor.connection.execute("SELECT lastval() AS id").fetchone()
+    return int(row["id"])
+
+
+# Preserve the existing route code's cursor.lastrowid behavior while PostgreSQL
+# supplies IDs from SERIAL sequences.
+Cursor.lastrowid = property(_postgres_lastrowid)
 
 
 def create_app() -> Flask:
