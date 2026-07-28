@@ -55,7 +55,7 @@ def register_report_routes(app):
         daily_sales = [dict(row) for row in connection.execute(
             f"""SELECT substr(created_at,1,10) AS sale_date,
                        COUNT(*) AS orders,
-                       ROUND(SUM(total),2) AS sales
+                       ROUND(CAST(SUM(total) AS numeric),2) AS sales
                 FROM orders WHERE {valid_order}
                 GROUP BY substr(created_at,1,10)
                 ORDER BY sale_date""",
@@ -65,7 +65,7 @@ def register_report_routes(app):
         top_products = [dict(row) for row in connection.execute(
             """SELECT oi.product_name,
                       SUM(oi.quantity) AS units,
-                      ROUND(SUM(oi.line_total),2) AS sales
+                      ROUND(CAST(SUM(oi.line_total) AS numeric),2) AS sales
                FROM order_items oi
                JOIN orders o ON o.id=oi.order_id
                WHERE o.status!='Cancelled' AND substr(o.created_at,1,10) BETWEEN ? AND ?
@@ -76,11 +76,11 @@ def register_report_routes(app):
         ).fetchall()]
 
         top_customers = [dict(row) for row in connection.execute(
-            """SELECT COALESCE(c.id,0) AS customer_id,
-                      o.customer_name AS name,
-                      o.customer_email AS email,
+            """SELECT COALESCE(MAX(c.id),0) AS customer_id,
+                      MAX(o.customer_name) AS name,
+                      MAX(o.customer_email) AS email,
                       COUNT(*) AS orders,
-                      ROUND(SUM(o.total),2) AS spending
+                      ROUND(CAST(SUM(o.total) AS numeric),2) AS spending
                FROM orders o
                LEFT JOIN customers c ON c.id=o.customer_id
                WHERE o.status!='Cancelled' AND substr(o.created_at,1,10) BETWEEN ? AND ?
@@ -91,7 +91,7 @@ def register_report_routes(app):
         ).fetchall()]
 
         status_breakdown = [dict(row) for row in connection.execute(
-            """SELECT status, COUNT(*) AS orders, ROUND(SUM(total),2) AS total
+            """SELECT status, COUNT(*) AS orders, ROUND(CAST(SUM(total) AS numeric),2) AS total
                FROM orders
                WHERE substr(created_at,1,10) BETWEEN ? AND ?
                GROUP BY status ORDER BY orders DESC""",
