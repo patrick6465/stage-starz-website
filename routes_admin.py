@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from flask import redirect, render_template, request, session, url_for
+from flask import abort, redirect, render_template, request, session, url_for
 
 from config import ADMIN_PASSWORD, ADMIN_USERNAME, ALLOWED_IMAGE_TYPES, MAX_PRODUCT_IMAGES, ORDER_STATUSES
 from database import get_db
@@ -65,6 +65,73 @@ def register_admin_routes(app):
         connection.commit()
         connection.close()
         return redirect(url_for("admin_orders"))
+
+    @app.route("/admin/customers")
+    @login_required
+    def admin_customers():
+        query = request.args.get("q", "").strip()
+        connection = get_db()
+        params = []
+        where = ""
+        if query:
+            where = "WHERE name LIKE ? OR email LIKE ? OR phone LIKE ?"
+            like = f"%{query}%"
+            params = [like, like, like]
+        customers = [dict(row) for row in connection.execute(
+            f"SELECT *, CASE WHEN total_orders>0 THEN lifetime_spending/total_orders ELSE 0 END AS average_order FROM customers {where} ORDER BY last_order_date DESC, name COLLATE NOCASE",
+            params,
+        ).fetchall()]
+        summary = dict(connection.execute("""
+            SELECT COUNT(*) AS total_customers,
+                   COALESCE(SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END),0) AS active_customers,
+                   COALESCE(SUM(lifetime_spending),0) AS lifetime_sales,
+                   COALESCE(AVG(CASE WHEN total_orders>0 THEN lifetime_spending/total_orders END),0) AS average_order
+            FROM customers
+        """).fetchone())
+        connection.close()
+        return render_template("customers.html", customers=customers, summary=summary, query=query)
+
+    @app.route("/admin/customer/<int:customer_id>")
+    @login_required
+    def customer_profile(customer_id: int):
+        connection = get_db()
+        customer_row = connection.execute("SELECT * FROM customers WHERE id=?", (customer_id,)).fetchone()
+        if not customer_row:
+            connection.close()
+            abort(404)
+        customer = dict(customer_row)
+        orders = [dict(row) for row in connection.execute("SELECT * FROM orders WHERE customer_id=? ORDER BY id DESC", (customer_id,)).fetchall()]
+        for order in orders:
+            order["items"] = [dict(row) for row in connection.execute("SELECT * FROM order_items WHERE order_id=? ORDER BY id", (order["id"],)).fetchall()]
+        stats = dict(connection.execute("""
+            SELECT COUNT(*) AS total_orders,
+                   COALESCE(SUM(CASE WHEN status!='Cancelled' THEN total ELSE 0 END),0) AS lifetime_spending,
+                   COALESCE(AVG(CASE WHEN status!='Cancelled' THEN total END),0) AS average_order,
+                   COALESCE(MAX(CASE WHEN status!='Cancelled' THEN total END),0) AS biggest_order,
+                   MAX(created_at) AS last_order_date
+            FROM orders WHERE customer_id=?
+        """, (customer_id,)).fetchone())
+        connection.close()
+        return render_template("customer_profile.html", customer=customer, orders=orders, stats=stats)
+
+    @app.route("/admin/customer/<int:customer_id>/update", methods=["POST"])
+    @login_required
+    def update_customer(customer_id: int):
+        status = "Inactive" if request.form.get("status") == "Inactive" else "Active"
+        connection = get_db()
+        connection.execute("""
+            UPDATE customers SET name=?, email=?, phone=?, address1=?, address2=?, city=?, state=?, postal_code=?, status=?, notes=?
+            WHERE id=?
+        """, (
+            request.form.get("name", "").strip(), request.form.get("email", "").strip().lower(),
+            request.form.get("phone", "").strip(), request.form.get("address1", "").strip(),
+            request.form.get("address2", "").strip(), request.form.get("city", "").strip(),
+            request.form.get("state", "").strip(), request.form.get("postal_code", "").strip(),
+            status, request.form.get("notes", "").strip(), customer_id,
+        ))
+        connection.commit()
+        connection.close()
+        return redirect(url_for("customer_profile", customer_id=customer_id))
 
     @app.route("/admin/product/save", methods=["POST"])
     @login_required
