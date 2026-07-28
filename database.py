@@ -1,96 +1,128 @@
 from __future__ import annotations
 
-import sqlite3
+import re
+from typing import Any, Iterable
 
-from config import DB_PATH
+import psycopg
+from psycopg.rows import dict_row
+
+from config import DATABASE_URL
 
 
-def get_db() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+def _translate_sql(sql: str) -> str:
+    sql = re.sub(r"\s+COLLATE\s+NOCASE", "", sql, flags=re.IGNORECASE)
+    sql = re.sub(r"\bLIKE\b", "ILIKE", sql, flags=re.IGNORECASE)
+    sql = sql.replace("MAX(0,stock-?)", "GREATEST(0,stock-?)")
+    return sql.replace("?", "%s")
+
+
+class Cursor:
+    def __init__(self, cursor: psycopg.Cursor):
+        self._cursor = cursor
+
+    def execute(self, sql: str, params: Iterable[Any] | None = None) -> "Cursor":
+        self._cursor.execute(_translate_sql(sql), tuple(params or ()))
+        return self
+
+    def executemany(self, sql: str, params_seq: Iterable[Iterable[Any]]) -> "Cursor":
+        self._cursor.executemany(_translate_sql(sql), params_seq)
+        return self
+
+    def fetchone(self):
+        return self._cursor.fetchone()
+
+    def fetchall(self):
+        return self._cursor.fetchall()
+
+
+class Connection:
+    def __init__(self, connection: psycopg.Connection):
+        self._connection = connection
+
+    def cursor(self) -> Cursor:
+        return Cursor(self._connection.cursor())
+
+    def execute(self, sql: str, params: Iterable[Any] | None = None) -> Cursor:
+        return self.cursor().execute(sql, params)
+
+    def executemany(self, sql: str, params_seq: Iterable[Iterable[Any]]) -> Cursor:
+        return self.cursor().executemany(sql, params_seq)
+
+    def commit(self) -> None:
+        self._connection.commit()
+
+    def rollback(self) -> None:
+        self._connection.rollback()
+
+    def close(self) -> None:
+        self._connection.close()
+
+
+def get_db() -> Connection:
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL is not configured. Add the Railway PostgreSQL reference variable to the web service.")
+    return Connection(psycopg.connect(DATABASE_URL, row_factory=dict_row))
 
 
 def init_db() -> None:
     connection = get_db()
     cursor = connection.cursor()
+    cursor.execute("SELECT pg_advisory_xact_lock(hashtext('stage_starz_database_init'))")
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '', price REAL NOT NULL DEFAULT 0, sale_price REAL,
-            fulfillment_fee REAL NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0,
+            id SERIAL PRIMARY KEY, name TEXT NOT NULL, category TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '', price DOUBLE PRECISION NOT NULL DEFAULT 0, sale_price DOUBLE PRECISION,
+            fulfillment_fee DOUBLE PRECISION NOT NULL DEFAULT 0, stock INTEGER NOT NULL DEFAULT 0,
             sizes TEXT NOT NULL DEFAULT 'One Size', colors TEXT NOT NULL DEFAULT 'Default',
             show_color INTEGER NOT NULL DEFAULT 1, allow_name INTEGER NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1, image_url TEXT NOT NULL DEFAULT '',
-            emoji TEXT NOT NULL DEFAULT '⭐', image_data BLOB, image_mime TEXT NOT NULL DEFAULT ''
+            emoji TEXT NOT NULL DEFAULT '⭐', image_data BYTEA, image_mime TEXT NOT NULL DEFAULT ''
         )
     """)
-    columns = {row["name"] for row in cursor.execute("PRAGMA table_info(products)").fetchall()}
-    upgrades = {
-        "show_color": "ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1",
-        "image_data": "ALTER TABLE products ADD COLUMN image_data BLOB",
-        "image_mime": "ALTER TABLE products ADD COLUMN image_mime TEXT NOT NULL DEFAULT ''",
-    }
-    for column, statement in upgrades.items():
-        if column not in columns:
-            cursor.execute(statement)
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS product_images (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL,
-            image_data BLOB NOT NULL, image_mime TEXT NOT NULL,
-            sort_order INTEGER NOT NULL DEFAULT 0, is_primary INTEGER NOT NULL DEFAULT 0,
-            FOREIGN KEY(product_id) REFERENCES products(id) ON DELETE CASCADE
+            id SERIAL PRIMARY KEY, product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+            image_data BYTEA NOT NULL, image_mime TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0, is_primary INTEGER NOT NULL DEFAULT 0
         )
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_images_product ON product_images(product_id, sort_order, id)")
     cursor.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS customers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE COLLATE NOCASE,
-            phone TEXT NOT NULL DEFAULT '',
-            address1 TEXT NOT NULL DEFAULT '',
-            address2 TEXT NOT NULL DEFAULT '',
-            city TEXT NOT NULL DEFAULT '',
-            state TEXT NOT NULL DEFAULT '',
-            postal_code TEXT NOT NULL DEFAULT '',
-            customer_since TEXT NOT NULL,
-            last_order_date TEXT NOT NULL,
-            total_orders INTEGER NOT NULL DEFAULT 0,
-            lifetime_spending REAL NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'Active',
-            notes TEXT NOT NULL DEFAULT ''
+            email TEXT NOT NULL UNIQUE,
+            phone TEXT NOT NULL DEFAULT '', address1 TEXT NOT NULL DEFAULT '', address2 TEXT NOT NULL DEFAULT '',
+            city TEXT NOT NULL DEFAULT '', state TEXT NOT NULL DEFAULT '', postal_code TEXT NOT NULL DEFAULT '',
+            customer_since TEXT NOT NULL, last_order_date TEXT NOT NULL,
+            total_orders INTEGER NOT NULL DEFAULT 0, lifetime_spending DOUBLE PRECISION NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'Active', notes TEXT NOT NULL DEFAULT ''
         )
     """)
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name COLLATE NOCASE)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(lower(name))")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_last_order ON customers(last_order_date DESC)")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, order_number TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL,
+            id SERIAL PRIMARY KEY, order_number TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL,
             customer_name TEXT NOT NULL, customer_email TEXT NOT NULL, customer_phone TEXT NOT NULL DEFAULT '',
             fulfillment_method TEXT NOT NULL DEFAULT 'shipping', address1 TEXT NOT NULL DEFAULT '', address2 TEXT NOT NULL DEFAULT '',
             city TEXT NOT NULL DEFAULT '', state TEXT NOT NULL DEFAULT '', postal_code TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
             payment_method TEXT NOT NULL DEFAULT 'Venmo', payment_status TEXT NOT NULL DEFAULT 'Unpaid', status TEXT NOT NULL DEFAULT 'New',
-            subtotal REAL NOT NULL DEFAULT 0, name_fees REAL NOT NULL DEFAULT 0, fulfillment_fees REAL NOT NULL DEFAULT 0,
-            shipping REAL NOT NULL DEFAULT 0, tax REAL NOT NULL DEFAULT 0, total REAL NOT NULL DEFAULT 0,
-            customer_id INTEGER,
-            FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE SET NULL
+            subtotal DOUBLE PRECISION NOT NULL DEFAULT 0, name_fees DOUBLE PRECISION NOT NULL DEFAULT 0,
+            fulfillment_fees DOUBLE PRECISION NOT NULL DEFAULT 0, shipping DOUBLE PRECISION NOT NULL DEFAULT 0,
+            tax DOUBLE PRECISION NOT NULL DEFAULT 0, total DOUBLE PRECISION NOT NULL DEFAULT 0,
+            customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL
         )
     """)
-    order_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(orders)").fetchall()}
-    if "customer_id" not in order_columns:
-        cursor.execute("ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL")
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS order_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, product_id INTEGER,
-            product_name TEXT NOT NULL, size TEXT NOT NULL DEFAULT '', color TEXT NOT NULL DEFAULT '', requested_name TEXT NOT NULL DEFAULT '',
-            quantity INTEGER NOT NULL DEFAULT 1, unit_price REAL NOT NULL DEFAULT 0, name_fee REAL NOT NULL DEFAULT 0,
-            fulfillment_fee REAL NOT NULL DEFAULT 0, line_total REAL NOT NULL DEFAULT 0,
-            FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+            id SERIAL PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+            product_id INTEGER, product_name TEXT NOT NULL, size TEXT NOT NULL DEFAULT '', color TEXT NOT NULL DEFAULT '',
+            requested_name TEXT NOT NULL DEFAULT '', quantity INTEGER NOT NULL DEFAULT 1,
+            unit_price DOUBLE PRECISION NOT NULL DEFAULT 0, name_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+            fulfillment_fee DOUBLE PRECISION NOT NULL DEFAULT 0, line_total DOUBLE PRECISION NOT NULL DEFAULT 0
         )
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at DESC)")
@@ -113,7 +145,6 @@ def init_db() -> None:
           AND NOT EXISTS (SELECT 1 FROM product_images pi WHERE pi.product_id=p.id)
     """)
 
-    # Build customer profiles from historical orders and link every order.
     historical = cursor.execute("""
         SELECT lower(trim(customer_email)) AS email_key,
                MAX(customer_name) AS name, MAX(customer_email) AS email, MAX(customer_phone) AS phone,
@@ -147,7 +178,7 @@ def init_db() -> None:
         "allow_customer_shipping": "1", "customer_shipping_fee": "0.00", "low_stock_threshold": "5",
     }
     for key, value in defaults.items():
-        cursor.execute("INSERT OR IGNORE INTO settings (key,value) VALUES (?,?)", (key, value))
+        cursor.execute("INSERT INTO settings (key,value) VALUES (?,?) ON CONFLICT(key) DO NOTHING", (key, value))
 
     connection.commit()
     connection.close()
