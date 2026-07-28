@@ -17,6 +17,16 @@ def customer_login_required(view):
 
 
 def register_customer_routes(app):
+    @app.after_request
+    def add_customer_center_store_link(response):
+        if request.path == "/store" and response.mimetype == "text/html":
+            html = response.get_data(as_text=True)
+            admin_link = '<a href="/admin" style="color:white;text-decoration:none;font-weight:800;white-space:nowrap">Store Admin</a>'
+            customer_link = '<a href="/customer-center" style="color:white;text-decoration:none;font-weight:800;white-space:nowrap">Customer Center</a>'
+            if customer_link not in html and admin_link in html:
+                response.set_data(html.replace(admin_link, customer_link + admin_link, 1))
+        return response
+
     @app.route("/customer-center", methods=["GET", "POST"])
     def customer_center():
         error = ""
