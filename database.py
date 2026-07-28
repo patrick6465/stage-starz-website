@@ -77,9 +77,23 @@ def init_db() -> None:
             sizes TEXT NOT NULL DEFAULT 'One Size', colors TEXT NOT NULL DEFAULT 'Default',
             show_color INTEGER NOT NULL DEFAULT 1, allow_name INTEGER NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1, image_url TEXT NOT NULL DEFAULT '',
-            emoji TEXT NOT NULL DEFAULT '⭐', image_data BYTEA, image_mime TEXT NOT NULL DEFAULT ''
+            emoji TEXT NOT NULL DEFAULT '⭐', image_data BYTEA, image_mime TEXT NOT NULL DEFAULT '',
+            track_variants INTEGER NOT NULL DEFAULT 0
         )
     """)
+    cursor.execute("ALTER TABLE products ADD COLUMN IF NOT EXISTS track_variants INTEGER NOT NULL DEFAULT 0")
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS product_variants (
+            id SERIAL PRIMARY KEY,
+            product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+            size TEXT NOT NULL DEFAULT 'One Size',
+            color TEXT NOT NULL DEFAULT 'Default',
+            stock INTEGER NOT NULL DEFAULT 0,
+            active INTEGER NOT NULL DEFAULT 1,
+            UNIQUE(product_id,size,color)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_product_variants_product ON product_variants(product_id,size,color)")
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS product_images (
             id SERIAL PRIMARY KEY, product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -122,9 +136,11 @@ def init_db() -> None:
             product_id INTEGER, product_name TEXT NOT NULL, size TEXT NOT NULL DEFAULT '', color TEXT NOT NULL DEFAULT '',
             requested_name TEXT NOT NULL DEFAULT '', quantity INTEGER NOT NULL DEFAULT 1,
             unit_price DOUBLE PRECISION NOT NULL DEFAULT 0, name_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
-            fulfillment_fee DOUBLE PRECISION NOT NULL DEFAULT 0, line_total DOUBLE PRECISION NOT NULL DEFAULT 0
+            fulfillment_fee DOUBLE PRECISION NOT NULL DEFAULT 0, line_total DOUBLE PRECISION NOT NULL DEFAULT 0,
+            variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL
         )
     """)
+    cursor.execute("ALTER TABLE order_items ADD COLUMN IF NOT EXISTS variant_id INTEGER REFERENCES product_variants(id) ON DELETE SET NULL")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id, created_at DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id)")
