@@ -20,7 +20,7 @@ def register_inventory_routes(app):
             threshold = 5
 
         products = [dict(row) for row in connection.execute(
-            """SELECT id,name,category,stock,active,
+            """SELECT id,name,category,stock,active,track_variants,
                       CASE WHEN stock<=0 THEN 'Out of stock'
                            WHEN stock<=? THEN 'Low stock'
                            ELSE 'Healthy' END AS inventory_status
@@ -66,12 +66,16 @@ def register_inventory_routes(app):
         connection = get_db()
         ensure_inventory_schema(connection)
         product = connection.execute(
-            "SELECT id,name,stock FROM products WHERE id=? FOR UPDATE", (product_id,)
+            "SELECT id,name,stock,track_variants FROM products WHERE id=? FOR UPDATE", (product_id,)
         ).fetchone()
         if not product:
             connection.rollback()
             connection.close()
             abort(404)
+        if product["track_variants"]:
+            connection.rollback()
+            connection.close()
+            return redirect(url_for("admin_variants"))
 
         new_quantity = max(0, int(product["stock"]) + change)
         actual_change = new_quantity - int(product["stock"])
