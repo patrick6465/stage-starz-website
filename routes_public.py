@@ -8,6 +8,7 @@ from config import BASE_DIR
 from database import get_db
 from inventory import ensure_inventory_schema, record_inventory_movement
 from services import get_settings, rows_to_products, shipping_amount
+from variants import refresh_product_stock
 
 
 def register_public_routes(app):
@@ -62,6 +63,7 @@ def register_public_routes(app):
         settings = get_settings(connection)
         validated = []
         reserved_by_product: dict[int, int] = {}
+        reserved_by_variant: dict[int, int] = {}
         subtotal = name_fees = fulfillment_fees = 0.0
         total_quantity = 0
         try:
@@ -75,11 +77,6 @@ def register_public_routes(app):
                 if not product:
                     raise ValueError("A product in the cart is no longer available.")
 
-                requested_total = reserved_by_product.get(product_id, 0) + quantity
-                if int(product["stock"]) < requested_total:
-                    raise ValueError(f"Only {product['stock']} unit(s) of {product['name']} remain in stock.")
-                reserved_by_product[product_id] = requested_total
-
                 sizes = [x.strip() for x in product["sizes"].split(",") if x.strip()]
                 colors = [x.strip() for x in product["colors"].split(",") if x.strip()]
                 size = str(raw.get("size", "")).strip()
@@ -91,6 +88,27 @@ def register_public_routes(app):
                     color = colors[0] if colors else "Default"
                 if not product["show_color"]:
                     color = ""
+
+                variant_id = None
+                if product["track_variants"]:
+                    lookup_color = color or "Default"
+                    variant = connection.execute(
+                        "SELECT id,stock FROM product_variants WHERE product_id=? AND size=? AND color=? AND active=1 FOR UPDATE",
+                        (product_id, size, lookup_color),
+                    ).fetchone()
+                    if not variant:
+                        raise ValueError(f"The selected size and color for {product['name']} is unavailable.")
+                    variant_id = int(variant["id"])
+                    requested_variant_total = reserved_by_variant.get(variant_id, 0) + quantity
+                    if int(variant["stock"]) < requested_variant_total:
+                        raise ValueError(f"Only {variant['stock']} unit(s) of {product['name']} in {size}{' / ' + color if color else ''} remain.")
+                    reserved_by_variant[variant_id] = requested_variant_total
+                else:
+                    requested_total = reserved_by_product.get(product_id, 0) + quantity
+                    if int(product["stock"]) < requested_total:
+                        raise ValueError(f"Only {product['stock']} unit(s) of {product['name']} remain in stock.")
+                    reserved_by_product[product_id] = requested_total
+
                 max_chars = max(1, int(settings.get("name_max_chars", "20") or 20))
                 if not product["allow_name"]:
                     requested_name = ""
@@ -99,7 +117,7 @@ def register_public_routes(app):
                 name_fee = float(settings.get("name_fee", "10") or 0) if requested_name else 0.0
                 fulfillment_fee = float(product["fulfillment_fee"] or 0)
                 line_total = quantity * (price + name_fee + fulfillment_fee)
-                validated.append((product_id, product["name"], size, color, requested_name, quantity, price, name_fee, fulfillment_fee, line_total))
+                validated.append((product_id, product["name"], size, color, requested_name, quantity, price, name_fee, fulfillment_fee, line_total, variant_id))
                 subtotal += quantity * price
                 name_fees += quantity * name_fee
                 fulfillment_fees += quantity * fulfillment_fee
@@ -139,21 +157,25 @@ def register_public_routes(app):
             order_id = int(cursor.lastrowid)
             order_number = f"SS-{datetime.now().strftime('%y%m%d')}-{order_id:04d}"
             connection.execute("UPDATE orders SET order_number=? WHERE id=?", (order_number, order_id))
-            connection.executemany("INSERT INTO order_items (order_id,product_id,product_name,size,color,requested_name,quantity,unit_price,name_fee,fulfillment_fee,line_total) VALUES (?,?,?,?,?,?,?,?,?,?,?)", [(order_id,) + item for item in validated])
+            connection.executemany(
+                "INSERT INTO order_items (order_id,product_id,product_name,size,color,requested_name,quantity,unit_price,name_fee,fulfillment_fee,line_total,variant_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                [(order_id,) + item for item in validated],
+            )
+
+            for variant_id, quantity in reserved_by_variant.items():
+                connection.execute("UPDATE product_variants SET stock=stock-? WHERE id=?", (quantity, variant_id))
+            variant_product_ids = {item[0] for item in validated if item[10] is not None}
+            for product_id in variant_product_ids:
+                old_stock = int(connection.execute("SELECT stock FROM products WHERE id=?", (product_id,)).fetchone()["stock"])
+                new_stock = refresh_product_stock(connection, product_id)
+                record_inventory_movement(connection, product_id, new_stock - old_stock, new_stock, "Order placed", reference=order_number)
 
             for product_id, quantity in reserved_by_product.items():
                 updated = connection.execute(
                     "UPDATE products SET stock=stock-? WHERE id=? RETURNING stock",
                     (quantity, product_id),
                 ).fetchone()
-                record_inventory_movement(
-                    connection,
-                    product_id,
-                    -quantity,
-                    int(updated["stock"]),
-                    "Order placed",
-                    reference=order_number,
-                )
+                record_inventory_movement(connection, product_id, -quantity, int(updated["stock"]), "Order placed", reference=order_number)
             connection.commit()
         except (ValueError, TypeError) as exc:
             connection.rollback()
