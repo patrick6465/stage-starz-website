@@ -8,6 +8,7 @@ from config import SECRET_KEY
 from database import init_db
 from routes_admin import register_admin_routes
 from routes_public import register_public_routes
+from routes_reports import register_report_routes
 
 
 def create_app() -> Flask:
@@ -21,6 +22,7 @@ def create_app() -> Flask:
     )
     register_public_routes(application)
     register_admin_routes(application)
+    register_report_routes(application)
     init_db()
     return application
 
