@@ -21,6 +21,23 @@ def _load_order(connection, order_id: int):
 
 
 def register_packing_routes(app):
+    @app.route("/admin/packing-slips")
+    @login_required
+    def packing_slips():
+        connection = get_db()
+        orders = [
+            dict(row)
+            for row in connection.execute(
+                """SELECT id,order_number,created_at,customer_name,
+                          fulfillment_method,status,payment_status
+                   FROM orders
+                   WHERE status!='Cancelled'
+                   ORDER BY id DESC"""
+            ).fetchall()
+        ]
+        connection.close()
+        return render_template("packing_slips.html", orders=orders)
+
     @app.route("/admin/order/<int:order_id>/packing-slip")
     @login_required
     def packing_slip(order_id: int):
