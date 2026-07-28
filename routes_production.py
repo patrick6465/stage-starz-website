@@ -95,11 +95,10 @@ def register_production_routes(app):
             "SELECT production_status,COUNT(*) AS count FROM orders WHERE status!='Cancelled' GROUP BY production_status"
         ).fetchall()}
         totals = dict(connection.execute("""
-            SELECT COALESCE(SUM(i.quantity),0) AS waiting_items,
-                   COALESCE(SUM(CASE WHEN o.production_status='Ready for Pickup' THEN 1 ELSE 0 END),0) AS ready_orders,
-                   COALESCE(SUM(CASE WHEN o.production_status='Completed' AND left(o.production_updated_at,10)=to_char(CURRENT_DATE,'YYYY-MM-DD') THEN 1 ELSE 0 END),0) AS completed_today
-            FROM orders o LEFT JOIN order_items i ON i.order_id=o.id
-            WHERE o.status!='Cancelled' AND o.production_status='Waiting to Order'
+            SELECT
+                COALESCE((SELECT SUM(i.quantity) FROM order_items i JOIN orders wo ON wo.id=i.order_id WHERE wo.status!='Cancelled' AND wo.production_status='Waiting to Order'),0) AS waiting_items,
+                COALESCE((SELECT COUNT(*) FROM orders ro WHERE ro.status!='Cancelled' AND ro.production_status='Ready for Pickup'),0) AS ready_orders,
+                COALESCE((SELECT COUNT(*) FROM orders co WHERE co.production_status='Completed' AND left(co.production_updated_at,10)=to_char(CURRENT_DATE,'YYYY-MM-DD')),0) AS completed_today
         """).fetchone())
         connection.commit()
         connection.close()
