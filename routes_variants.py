@@ -54,19 +54,29 @@ def register_variant_routes(app):
             abort(404)
 
         enable = request.form.get('track_variants') == 'on'
+        was_enabled = bool(product['track_variants'])
         old_total = int(product['stock'])
         connection.execute('UPDATE products SET track_variants=? WHERE id=?', (1 if enable else 0, product_id))
 
         if enable:
             sync_product_variants(connection, product_id)
             variants = connection.execute(
-                'SELECT id,stock FROM product_variants WHERE product_id=? AND active=1 FOR UPDATE',
+                'SELECT id,stock FROM product_variants WHERE product_id=? AND active=1 ORDER BY id FOR UPDATE',
                 (product_id,),
             ).fetchall()
+            if not was_enabled and variants:
+                connection.execute('UPDATE product_variants SET stock=0 WHERE product_id=? AND active=1', (product_id,))
+                connection.execute('UPDATE product_variants SET stock=? WHERE id=?', (old_total, variants[0]['id']))
+                variants = connection.execute(
+                    'SELECT id,stock FROM product_variants WHERE product_id=? AND active=1 ORDER BY id FOR UPDATE',
+                    (product_id,),
+                ).fetchall()
             for variant in variants:
-                raw = request.form.get(f"stock_{variant['id']}", str(variant['stock']))
+                field_name = f"stock_{variant['id']}"
+                if field_name not in request.form:
+                    continue
                 try:
-                    quantity = max(0, int(raw))
+                    quantity = max(0, int(request.form.get(field_name, variant['stock'])))
                 except (TypeError, ValueError):
                     quantity = int(variant['stock'])
                 connection.execute('UPDATE product_variants SET stock=? WHERE id=?', (quantity, variant['id']))
