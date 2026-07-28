@@ -49,7 +49,7 @@ def register_public_routes(app):
         customer = payload.get("customer") or {}
         raw_items = payload.get("items") or []
         name = str(customer.get("name", "")).strip()
-        email = str(customer.get("email", "")).strip()
+        email = str(customer.get("email", "")).strip().lower()
         phone = str(customer.get("phone", "")).strip()
         method = str(customer.get("fulfillment_method", "shipping")).strip()
         if method not in {"shipping", "pickup"}:
@@ -101,9 +101,32 @@ def register_public_routes(app):
             tax = subtotal * float(settings.get("sales_tax_rate", "0") or 0)
             total = subtotal + name_fees + fulfillment_fees + shipping + tax
             created_at = datetime.now(timezone.utc).isoformat()
+            address1 = str(customer.get("address1", "")).strip()
+            address2 = str(customer.get("address2", "")).strip()
+            city = str(customer.get("city", "")).strip()
+            state = str(customer.get("state", "")).strip()
+            postal_code = str(customer.get("postal_code", "")).strip()
+
+            connection.execute("""
+                INSERT INTO customers (name,email,phone,address1,address2,city,state,postal_code,customer_since,last_order_date,total_orders,lifetime_spending)
+                VALUES (?,?,?,?,?,?,?,?,?,?,1,?)
+                ON CONFLICT(email) DO UPDATE SET
+                    name=excluded.name, phone=excluded.phone,
+                    address1=CASE WHEN excluded.address1!='' THEN excluded.address1 ELSE customers.address1 END,
+                    address2=CASE WHEN excluded.address2!='' THEN excluded.address2 ELSE customers.address2 END,
+                    city=CASE WHEN excluded.city!='' THEN excluded.city ELSE customers.city END,
+                    state=CASE WHEN excluded.state!='' THEN excluded.state ELSE customers.state END,
+                    postal_code=CASE WHEN excluded.postal_code!='' THEN excluded.postal_code ELSE customers.postal_code END,
+                    last_order_date=excluded.last_order_date,
+                    total_orders=customers.total_orders+1,
+                    lifetime_spending=customers.lifetime_spending+excluded.lifetime_spending,
+                    status='Active'
+            """, (name, email, phone, address1, address2, city, state, postal_code, created_at, created_at, round(total, 2)))
+            customer_id = connection.execute("SELECT id FROM customers WHERE email=? COLLATE NOCASE", (email,)).fetchone()["id"]
+
             cursor = connection.execute(
-                """INSERT INTO orders (order_number,created_at,customer_name,customer_email,customer_phone,fulfillment_method,address1,address2,city,state,postal_code,notes,payment_method,payment_status,status,subtotal,name_fees,fulfillment_fees,shipping,tax,total) VALUES ('PENDING',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (created_at, name, email, phone, method, str(customer.get("address1", "")).strip(), str(customer.get("address2", "")).strip(), str(customer.get("city", "")).strip(), str(customer.get("state", "")).strip(), str(customer.get("postal_code", "")).strip(), str(customer.get("notes", "")).strip(), str(customer.get("payment_method", "Venmo")).strip() or "Venmo", "Unpaid", "New", round(subtotal, 2), round(name_fees, 2), round(fulfillment_fees, 2), round(shipping, 2), round(tax, 2), round(total, 2)),
+                """INSERT INTO orders (order_number,created_at,customer_name,customer_email,customer_phone,fulfillment_method,address1,address2,city,state,postal_code,notes,payment_method,payment_status,status,subtotal,name_fees,fulfillment_fees,shipping,tax,total,customer_id) VALUES ('PENDING',?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (created_at, name, email, phone, method, address1, address2, city, state, postal_code, str(customer.get("notes", "")).strip(), str(customer.get("payment_method", "Venmo")).strip() or "Venmo", "Unpaid", "New", round(subtotal, 2), round(name_fees, 2), round(fulfillment_fees, 2), round(shipping, 2), round(tax, 2), round(total, 2), customer_id),
             )
             order_id = int(cursor.lastrowid)
             order_number = f"SS-{datetime.now().strftime('%y%m%d')}-{order_id:04d}"
