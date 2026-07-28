@@ -9,6 +9,7 @@ from config import SECRET_KEY
 from database import Cursor, init_db
 from routes_admin import register_admin_routes
 from routes_inventory import register_inventory_routes
+from routes_packing import register_packing_routes
 from routes_public import register_public_routes
 from routes_reports import register_report_routes
 from routes_variants import register_variant_routes
@@ -49,6 +50,7 @@ def create_app() -> Flask:
     register_admin_routes(application)
     register_inventory_routes(application)
     register_variant_routes(application)
+    register_packing_routes(application)
     register_report_routes(application)
 
     @application.before_request
