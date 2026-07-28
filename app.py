@@ -8,6 +8,7 @@ from flask import Flask, request
 from config import SECRET_KEY
 from database import Cursor, init_db
 from routes_admin import register_admin_routes
+from routes_customer import register_customer_routes
 from routes_email import register_email_routes
 from routes_inventory import register_inventory_routes
 from routes_menu import register_menu_routes
@@ -50,6 +51,7 @@ def create_app() -> Flask:
         MAX_CONTENT_LENGTH=32 * 1024 * 1024,
     )
     register_public_routes(application)
+    register_customer_routes(application)
     register_admin_routes(application)
     register_menu_routes(application)
     register_inventory_routes(application)
