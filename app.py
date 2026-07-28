@@ -69,6 +69,14 @@ def create_app() -> Flask:
     def website_asset(filename: str):
         return send_from_directory(BASE_DIR / "assets", filename)
 
+    @application.errorhandler(404)
+    def page_not_found(_error):
+        return send_from_directory(BASE_DIR / "site", "404.html"), 404
+
+    @application.errorhandler(500)
+    def server_error(_error):
+        return send_from_directory(BASE_DIR / "site", "500.html"), 500
+
     @application.before_request
     def initialize_database_when_needed():
         if request.endpoint == "health_check":
