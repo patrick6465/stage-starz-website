@@ -11,6 +11,7 @@ from routes_admin import register_admin_routes
 from routes_inventory import register_inventory_routes
 from routes_public import register_public_routes
 from routes_reports import register_report_routes
+from routes_variants import register_variant_routes
 
 
 def _postgres_lastrowid(cursor: Cursor) -> int:
@@ -18,8 +19,6 @@ def _postgres_lastrowid(cursor: Cursor) -> int:
     return int(row["id"])
 
 
-# Preserve the existing route code's cursor.lastrowid behavior while PostgreSQL
-# supplies IDs from SERIAL sequences.
 Cursor.lastrowid = property(_postgres_lastrowid)
 
 _database_ready = False
@@ -27,12 +26,6 @@ _database_lock = threading.Lock()
 
 
 def _ensure_database() -> None:
-    """Initialize PostgreSQL after the web process is already accepting traffic.
-
-    Railway can start the application before the private database network is
-    fully ready. Keeping this work out of module import allows /health to answer
-    immediately instead of causing Gunicorn to exit during deployment.
-    """
     global _database_ready
     if _database_ready:
         return
@@ -55,11 +48,11 @@ def create_app() -> Flask:
     register_public_routes(application)
     register_admin_routes(application)
     register_inventory_routes(application)
+    register_variant_routes(application)
     register_report_routes(application)
 
     @application.before_request
     def initialize_database_when_needed():
-        # The health endpoint must never depend on database availability.
         if request.endpoint == "health_check":
             return None
         _ensure_database()
