@@ -10,7 +10,7 @@ from services import login_required
 
 def _date_range() -> tuple[str, str, str]:
     today = date.today()
-    preset = request.args.get("range", "30")
+    preset = request.args.get("range", "all")
     start = request.args.get("start", "").strip()
     end = request.args.get("end", "").strip()
 
@@ -18,13 +18,13 @@ def _date_range() -> tuple[str, str, str]:
         return start, end, "custom"
     if preset == "7":
         return (today - timedelta(days=6)).isoformat(), today.isoformat(), preset
+    if preset == "30":
+        return (today - timedelta(days=29)).isoformat(), today.isoformat(), preset
     if preset == "90":
         return (today - timedelta(days=89)).isoformat(), today.isoformat(), preset
     if preset == "year":
         return date(today.year, 1, 1).isoformat(), today.isoformat(), preset
-    if preset == "all":
-        return "0001-01-01", today.isoformat(), preset
-    return (today - timedelta(days=29)).isoformat(), today.isoformat(), "30"
+    return "0001-01-01", "9999-12-31", "all"
 
 
 def register_report_routes(app):
