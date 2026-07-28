@@ -6,6 +6,7 @@ from flask import Response, abort, jsonify, render_template, request, send_from_
 
 from config import BASE_DIR
 from database import get_db
+from inventory import ensure_inventory_schema, record_inventory_movement
 from services import get_settings, rows_to_products, shipping_amount
 
 
@@ -60,17 +61,24 @@ def register_public_routes(app):
         connection = get_db()
         settings = get_settings(connection)
         validated = []
+        reserved_by_product: dict[int, int] = {}
         subtotal = name_fees = fulfillment_fees = 0.0
         total_quantity = 0
         try:
+            ensure_inventory_schema(connection)
             for raw in raw_items:
                 product_id = int(raw.get("id"))
                 quantity = max(1, min(20, int(raw.get("quantity", 1))))
-                product = connection.execute("SELECT * FROM products WHERE id=? AND active=1", (product_id,)).fetchone()
+                product = connection.execute(
+                    "SELECT * FROM products WHERE id=? AND active=1 FOR UPDATE", (product_id,)
+                ).fetchone()
                 if not product:
                     raise ValueError("A product in the cart is no longer available.")
-                if int(product["stock"]) < quantity:
-                    raise ValueError(f"Not enough stock is available for {product['name']}.")
+
+                requested_total = reserved_by_product.get(product_id, 0) + quantity
+                if int(product["stock"]) < requested_total:
+                    raise ValueError(f"Only {product['stock']} unit(s) of {product['name']} remain in stock.")
+                reserved_by_product[product_id] = requested_total
 
                 sizes = [x.strip() for x in product["sizes"].split(",") if x.strip()]
                 colors = [x.strip() for x in product["colors"].split(",") if x.strip()]
@@ -132,8 +140,20 @@ def register_public_routes(app):
             order_number = f"SS-{datetime.now().strftime('%y%m%d')}-{order_id:04d}"
             connection.execute("UPDATE orders SET order_number=? WHERE id=?", (order_number, order_id))
             connection.executemany("INSERT INTO order_items (order_id,product_id,product_name,size,color,requested_name,quantity,unit_price,name_fee,fulfillment_fee,line_total) VALUES (?,?,?,?,?,?,?,?,?,?,?)", [(order_id,) + item for item in validated])
-            for item in validated:
-                connection.execute("UPDATE products SET stock=MAX(0,stock-?) WHERE id=?", (item[5], item[0]))
+
+            for product_id, quantity in reserved_by_product.items():
+                updated = connection.execute(
+                    "UPDATE products SET stock=stock-? WHERE id=? RETURNING stock",
+                    (quantity, product_id),
+                ).fetchone()
+                record_inventory_movement(
+                    connection,
+                    product_id,
+                    -quantity,
+                    int(updated["stock"]),
+                    "Order placed",
+                    reference=order_number,
+                )
             connection.commit()
         except (ValueError, TypeError) as exc:
             connection.rollback()
