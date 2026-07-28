@@ -3,9 +3,9 @@ from __future__ import annotations
 import os
 import threading
 
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 
-from config import SECRET_KEY
+from config import BASE_DIR, SECRET_KEY
 from database import Cursor, init_db
 from routes_admin import register_admin_routes
 from routes_customer import register_customer_routes
@@ -60,6 +60,14 @@ def create_app() -> Flask:
     register_production_routes(application)
     register_report_routes(application)
     register_email_routes(application)
+
+    # The Railway application serves the website HTML from /site, while the
+    # complete original image library remains in the repository-level /assets
+    # directory. Give /assets URLs an explicit route so desktop and mobile
+    # pages can load those images without duplicating large binary files.
+    @application.route("/assets/<path:filename>")
+    def website_asset(filename: str):
+        return send_from_directory(BASE_DIR / "assets", filename)
 
     @application.before_request
     def initialize_database_when_needed():
