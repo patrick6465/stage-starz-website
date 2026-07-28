@@ -11,6 +11,13 @@ from services import get_settings, rows_to_products, shipping_amount
 from variants import refresh_product_stock
 
 
+STORE_HEADER_LINKS = (
+    '<a href="/" style="color:white;text-decoration:none;font-weight:800">Main Website</a>'
+    '<a href="/admin" style="color:white;text-decoration:none;font-weight:800;white-space:nowrap">Store Admin</a>'
+    '<button class="cart-btn" onclick="toggleCart()">Cart (<span id="cartCount">0</span>)</button>'
+)
+
+
 def register_public_routes(app):
     @app.route("/")
     def website_home():
@@ -22,7 +29,12 @@ def register_public_routes(app):
 
     @app.route("/store")
     def storefront():
-        return render_template("store.html")
+        page = render_template("store.html")
+        original_links = (
+            '<a href="/" style="color:white;text-decoration:none;font-weight:800">Main Website</a>'
+            '<button class="cart-btn" onclick="toggleCart()">Cart (<span id="cartCount">0</span>)</button>'
+        )
+        return page.replace(original_links, STORE_HEADER_LINKS, 1)
 
     @app.route("/product-image/<int:image_id>")
     def product_image(image_id: int):
