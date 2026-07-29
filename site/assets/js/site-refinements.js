@@ -14,6 +14,21 @@
     document.body.setAttribute('data-competition-team','true');
   }
 
+  // Replace the homepage performance artwork with the Stage Starz video.
+  var performanceArt=document.querySelector('.performance-art');
+  if(performanceArt){
+    var video=document.createElement('video');
+    video.className='homepage-performance-video';
+    video.controls=true;
+    video.playsInline=true;
+    video.preload='metadata';
+    video.setAttribute('aria-label','Stage Starz competition, recital, and community performance video');
+    video.innerHTML='<source src="/assets/videos/stage-starz-homepage-performance.mp4" type="video/mp4">Your browser does not support HTML5 video.';
+    video.addEventListener('loadedmetadata',function(){performanceArt.classList.add('has-video');});
+    video.addEventListener('error',function(){performanceArt.classList.remove('has-video');});
+    performanceArt.appendChild(video);
+  }
+
   // Reveal major content groups, but not navigation or live Jackrabbit rows.
   var targets=document.querySelectorAll('main > section, .section-head, .card, .panel, .program, .feature-card, .event-card, .testimonial-card, .jackrabbit-card');
   targets.forEach(function(el,index){
