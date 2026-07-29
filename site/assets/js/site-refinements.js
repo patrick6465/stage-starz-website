@@ -28,7 +28,7 @@
       display:'block',objectFit:window.matchMedia('(max-width:640px)').matches?'contain':'cover',
       background:'#050505',opacity:'0',transition:'opacity .35s ease'
     });
-    video.innerHTML='<source src="/assets/videos/stage-starz-homepage-performance.mp4" type="video/mp4">Your browser does not support HTML5 video.';
+    video.innerHTML='<source src="/assets/videos/stage-starz-homepage-performance-web.mp4" type="video/mp4">Your browser does not support HTML5 video.';
 
     var label=document.createElement('div');
     label.textContent='Competition • Recital • Community Performances';
