@@ -1,21 +1,31 @@
-STAGE STARZ COLOR TOGGLE UPDATE
+STAGE STARZ PHASE 1 — MEDIA MANAGER
 
-Replace these files in your local stage-starz-website project:
+Replace/add these files in the railway-deployment branch:
 
-1. app.py
-2. templates/admin.html
-3. templates/store.html
+REPLACE:
+- app.py
+- templates/admin.html
+- templates/store.html
 
-Then commit and push:
+ADD:
+- templates/media.html
 
+Then run:
 git checkout railway-deployment
-git add app.py templates/admin.html templates/store.html
-git commit -m "Add optional product color selection"
+git add app.py templates/admin.html templates/store.html templates/media.html
+git commit -m "Start Phase 1 media manager"
 git push origin railway-deployment
 
-What this update does:
-- Adds an Offer color selection checkbox in the admin.
-- Existing products default to showing colors.
-- Unchecking the option removes Color from the product page.
-- Color is also omitted from the cart and order email.
-- Existing Railway database/product data is preserved by an automatic migration.
+Railway will redeploy automatically.
+
+Your existing /data volume is used for uploaded photos. Optional Railway variable:
+UPLOAD_FOLDER=/data/uploads
+
+This update adds:
+- Direct product photo uploads
+- Persistent Railway image storage
+- Media Library at /admin/media
+- Safe image deletion
+- 10 MB image limit
+- Existing color toggle support
+- Automatic database migration with no product loss
