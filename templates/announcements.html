@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Announcement Manager | Stage Starz</title>
+<style>
+:root{--night:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--purple:#9b4dcc;--pink:#ef3d98;--teal:#50d6d0;--warning:#ffc867;--danger:#ff6c7d;--success:#62e6aa}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 8% 0%,rgba(155,77,204,.3),transparent 28rem),#0c0717;color:#fff;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+a{text-decoration:none;color:inherit}.header{display:flex;justify-content:space-between;gap:16px;align-items:center;padding:17px clamp(16px,4vw,48px);border-bottom:1px solid var(--line);background:rgba(12,7,23,.94);position:sticky;top:0;z-index:10;backdrop-filter:blur(18px)}
+.header h1{margin:0;font-size:1.25rem}.links{display:flex;gap:14px;flex-wrap:wrap;color:#ded5e8;font-weight:800}
+.wrap{width:min(1280px,calc(100% - 28px));margin:24px auto 60px}.card{background:rgba(255,255,255,.075);border:1px solid var(--line);border-radius:22px;padding:22px;margin-bottom:20px;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+h2{margin-top:0}.intro{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}.full{grid-column:1/-1}
+label{display:block;font-size:.82rem;font-weight:850;margin-bottom:5px}input,textarea{width:100%;padding:11px 12px;border:1px solid #4a3760;border-radius:10px;background:#100a1d;color:#fff}
+textarea{resize:vertical}.check{display:flex;align-items:center;gap:9px}.check input{width:auto}.check label{margin:0}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button{border:0;border-radius:10px;padding:10px 14px;font-weight:900;cursor:pointer}.primary{color:#fff;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}.secondary{background:#2b1e3d;color:#fff}.danger{background:rgba(255,108,125,.16);color:#ff9dab}.success{background:rgba(98,230,170,.14);color:var(--success)}
+.item{border-top:1px solid var(--line);padding:20px 0}.item:first-of-type{border-top:0}.summary{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:14px}.summary h3{margin:0 0 4px}.summary p{margin:0;color:var(--muted)}
+.badges{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.badge{font-size:.72rem;font-weight:900;border-radius:999px;padding:6px 9px;background:rgba(80,214,208,.12);color:var(--teal)}.badge.off{background:rgba(255,255,255,.08);color:#bbb}.badge.priority{background:rgba(255,200,103,.13);color:var(--warning)}
+.flash{padding:12px 14px;border-radius:11px;margin-bottom:15px;background:rgba(98,230,170,.12);border:1px solid rgba(98,230,170,.28)}
+.empty{text-align:center;color:var(--muted);padding:30px}@media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.summary{display:block}.badges{justify-content:flex-start;margin-top:10px}}
+</style></head>
+<body>
+<header class="header"><h1>📣 Announcement Manager</h1><nav class="links"><a href="/admin">Command Center</a><a href="/admin/website/homepage">Homepage Editor</a><a href="/" target="_blank">Preview Website</a></nav></header>
+<main class="wrap">
+{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
+<section class="card"><h2>Create Announcement</h2><p class="intro">The highest-priority active announcement within its date range appears automatically at the top of the homepage.</p>
+<form method="post" action="/admin/announcements/save"><div class="grid">
+<div><label>Internal title</label><input name="title" required placeholder="Fall registration"></div><div><label>Priority</label><input name="priority" type="number" value="0"></div>
+<div class="full"><label>Public message</label><textarea name="message" rows="3" required></textarea></div>
+<div><label>Button text (optional)</label><input name="button_text" placeholder="Register Now"></div><div><label>Button link (optional)</label><input name="button_link" placeholder="registration.html"></div>
+<div><label>Start date (optional)</label><input name="start_date" type="date"></div><div><label>End date (optional)</label><input name="end_date" type="date"></div>
+<div class="full check"><input id="active-new" name="active" type="checkbox" checked><label for="active-new">Active</label></div>
+</div><div class="actions"><button class="primary">Create Announcement</button></div></form></section>
+<section class="card"><h2>Existing Announcements</h2>
+{% for a in announcements %}<article class="item"><div class="summary"><div><h3>{{ a.title }}</h3><p>{{ a.message }}</p></div><div class="badges"><span class="badge priority">Priority {{ a.priority }}</span><span class="badge {% if not a.active %}off{% endif %}">{% if a.active %}Active{% else %}Paused{% endif %}</span>{% if a.start_date or a.end_date %}<span class="badge">{{ a.start_date or 'Any time' }} → {{ a.end_date or 'No end' }}</span>{% endif %}</div></div>
+<form method="post" action="/admin/announcements/save"><input type="hidden" name="id" value="{{ a.id }}"><div class="grid">
+<div><label>Internal title</label><input name="title" value="{{ a.title }}" required></div><div><label>Priority</label><input name="priority" type="number" value="{{ a.priority }}"></div>
+<div class="full"><label>Public message</label><textarea name="message" rows="3" required>{{ a.message }}</textarea></div><div><label>Button text</label><input name="button_text" value="{{ a.button_text }}"></div><div><label>Button link</label><input name="button_link" value="{{ a.button_link }}"></div>
+<div><label>Start date</label><input name="start_date" type="date" value="{{ a.start_date }}"></div><div><label>End date</label><input name="end_date" type="date" value="{{ a.end_date }}"></div><div class="full check"><input id="active-{{ a.id }}" name="active" type="checkbox" {% if a.active %}checked{% endif %}><label for="active-{{ a.id }}">Active</label></div>
+</div><div class="actions"><button class="primary">Save Changes</button></div></form>
+<div class="actions"><form method="post" action="/admin/announcements/{{ a.id }}/toggle"><button class="{% if a.active %}secondary{% else %}success{% endif %}">{% if a.active %}Pause{% else %}Activate{% endif %}</button></form><form method="post" action="/admin/announcements/{{ a.id }}/delete" onsubmit="return confirm('Delete this announcement?')"><button class="danger">Delete</button></form></div></article>
+{% else %}<div class="empty">No announcements have been created yet.</div>{% endfor %}</section>
+</main></body></html>

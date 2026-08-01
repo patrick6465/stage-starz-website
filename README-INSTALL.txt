@@ -1,15 +1,19 @@
-STAGE STARZ STORE ADMIN LINK
+STAGE STARZ ANNOUNCEMENT MANAGER V1
 
 REPLACE:
-- templates/store.html
+- app.py
+- templates/dashboard.html
+
+ADD:
+- templates/announcements.html
 
 INSTALL:
 git checkout railway-deployment
-git add templates/store.html
-git commit -m "Add Command Center links to storefront"
+git add app.py templates/dashboard.html templates/announcements.html
+git commit -m "Add announcement manager"
 git push origin railway-deployment
 
-RESULT:
-- The store header includes a discreet Command Center button.
-- The store footer includes a backup Admin Command Center link.
-- Both links open /admin and use the existing secure login.
+OPEN:
+- /admin/announcements
+
+The highest-priority active announcement within its start/end dates appears automatically on the homepage.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import json
 import sqlite3
+from datetime import date
 import uuid
 from functools import wraps
 from pathlib import Path
@@ -109,6 +110,23 @@ def init_db() -> None:
         CREATE TABLE IF NOT EXISTS homepage_settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS announcements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL,
+            button_text TEXT NOT NULL DEFAULT '',
+            button_link TEXT NOT NULL DEFAULT '',
+            start_date TEXT NOT NULL DEFAULT '',
+            end_date TEXT NOT NULL DEFAULT '',
+            priority INTEGER NOT NULL DEFAULT 0,
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
@@ -257,8 +275,27 @@ def get_homepage_settings() -> dict[str, str]:
     return {row["key"]: row["value"] for row in rows}
 
 
-def homepage_runtime_injection(settings: dict[str, str]) -> str:
+def get_active_announcement() -> dict[str, Any] | None:
+    today = date.today().isoformat()
+    connection = get_db()
+    row = connection.execute(
+        """
+        SELECT * FROM announcements
+        WHERE active = 1
+          AND (start_date = '' OR start_date <= ?)
+          AND (end_date = '' OR end_date >= ?)
+        ORDER BY priority DESC, id DESC
+        LIMIT 1
+        """,
+        (today, today),
+    ).fetchone()
+    connection.close()
+    return dict(row) if row else None
+
+
+def homepage_runtime_injection(settings: dict[str, str], announcement: dict[str, Any] | None = None) -> str:
     payload = json.dumps(settings).replace("</", "<\\/")
+    announcement_payload = json.dumps(announcement or {}).replace("</", "<\\/")
     return f"""
 <style id="stage-starz-homepage-runtime-styles">
   .ss-countdown {{
@@ -289,11 +326,18 @@ def homepage_runtime_injection(settings: dict[str, str]) -> str:
 <script>
 (() => {{
   const s = {payload};
+  const announcement = {announcement_payload};
   const on = value => value === "1" || value === "true";
 
   const topbar = document.querySelector(".topbar");
   if (topbar) {{
-    if (on(s.announcement_enabled) && s.announcement_text) {{
+    if (announcement.message) {{
+      const action = announcement.button_text && announcement.button_link
+        ? ` <a href="${{announcement.button_link}}" style="color:#fff;text-decoration:underline;font-weight:900">${{announcement.button_text}}</a>`
+        : "";
+      topbar.innerHTML = `<span>${{announcement.message}}${{action}}</span>`;
+      topbar.style.display = "";
+    }} else if (on(s.announcement_enabled) && s.announcement_text) {{
       topbar.innerHTML = `<span>${{s.announcement_text}}</span>`;
       topbar.style.display = "";
     }} else {{
@@ -379,7 +423,10 @@ def website_home():
         return ("Homepage not found", 404)
 
     html = homepage_path.read_text(encoding="utf-8")
-    injection = homepage_runtime_injection(get_homepage_settings())
+    injection = homepage_runtime_injection(
+        get_homepage_settings(),
+        get_active_announcement(),
+    )
     if "</body>" in html:
         html = html.replace("</body>", injection + "\n</body>", 1)
     else:
@@ -520,6 +567,13 @@ def admin_dashboard():
             "detail": "Upload reusable product and website images.",
         })
 
+    connection = get_db()
+    announcement_count = connection.execute(
+        "SELECT COUNT(*) AS count FROM announcements WHERE active = 1"
+    ).fetchone()["count"]
+    connection.close()
+    stats["active_announcements"] = announcement_count
+
     return render_template(
         "dashboard.html",
         stats=stats,
@@ -580,6 +634,108 @@ def admin_search():
         page_results=page_results,
         media_results=media_results,
     )
+
+
+@app.route("/admin/announcements")
+@login_required
+def announcement_manager():
+    connection = get_db()
+    rows = connection.execute(
+        "SELECT * FROM announcements ORDER BY active DESC, priority DESC, id DESC"
+    ).fetchall()
+    connection.close()
+    return render_template(
+        "announcements.html",
+        announcements=[dict(row) for row in rows],
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/admin/announcements/save", methods=["POST"])
+@login_required
+def save_announcement():
+    form = request.form
+    announcement_id = form.get("id", "").strip()
+    values = (
+        form.get("title", "").strip(),
+        form.get("message", "").strip(),
+        form.get("button_text", "").strip(),
+        form.get("button_link", "").strip(),
+        form.get("start_date", "").strip(),
+        form.get("end_date", "").strip(),
+        int(form.get("priority") or 0),
+        1 if form.get("active") == "on" else 0,
+    )
+    connection = get_db()
+    if announcement_id:
+        connection.execute(
+            """
+            UPDATE announcements SET
+                title=?, message=?, button_text=?, button_link=?,
+                start_date=?, end_date=?, priority=?, active=?
+            WHERE id=?
+            """,
+            values + (int(announcement_id),),
+        )
+        action = "Announcement updated"
+    else:
+        connection.execute(
+            """
+            INSERT INTO announcements (
+                title, message, button_text, button_link,
+                start_date, end_date, priority, active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            values,
+        )
+        action = "Announcement created"
+    connection.commit()
+    connection.close()
+    log_activity(action, form.get("title", "").strip())
+    flash("Announcement saved.", "success")
+    return redirect(url_for("announcement_manager"))
+
+
+@app.route("/admin/announcements/<int:announcement_id>/toggle", methods=["POST"])
+@login_required
+def toggle_announcement(announcement_id: int):
+    connection = get_db()
+    row = connection.execute(
+        "SELECT title, active FROM announcements WHERE id = ?",
+        (announcement_id,),
+    ).fetchone()
+    if row:
+        new_value = 0 if row["active"] else 1
+        connection.execute(
+            "UPDATE announcements SET active = ? WHERE id = ?",
+            (new_value, announcement_id),
+        )
+        connection.commit()
+        log_activity(
+            "Announcement activated" if new_value else "Announcement paused",
+            row["title"],
+        )
+    connection.close()
+    return redirect(url_for("announcement_manager"))
+
+
+@app.route("/admin/announcements/<int:announcement_id>/delete", methods=["POST"])
+@login_required
+def delete_announcement(announcement_id: int):
+    connection = get_db()
+    row = connection.execute(
+        "SELECT title FROM announcements WHERE id = ?",
+        (announcement_id,),
+    ).fetchone()
+    connection.execute("DELETE FROM announcements WHERE id = ?", (announcement_id,))
+    connection.commit()
+    connection.close()
+    log_activity(
+        "Announcement deleted",
+        row["title"] if row else f"Announcement #{announcement_id}",
+    )
+    flash("Announcement deleted.", "success")
+    return redirect(url_for("announcement_manager"))
 
 
 @app.route("/admin/website/homepage")
