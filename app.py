@@ -92,6 +92,17 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action TEXT NOT NULL,
+            detail TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
     cursor.execute("SELECT COUNT(*) AS count FROM products")
     if cursor.fetchone()["count"] == 0:
         starter_products = [
@@ -206,6 +217,16 @@ def get_settings() -> dict[str, str]:
     return {row["key"]: row["value"] for row in rows}
 
 
+def log_activity(action: str, detail: str = "") -> None:
+    connection = get_db()
+    connection.execute(
+        "INSERT INTO activity_log (action, detail) VALUES (?, ?)",
+        (action, detail),
+    )
+    connection.commit()
+    connection.close()
+
+
 @app.route("/")
 def website_home():
     return send_from_directory(BASE_DIR / "site", "index.html")
@@ -318,12 +339,91 @@ def admin_dashboard():
         "media_count": media_count,
     }
 
+    connection = get_db()
+    activities = connection.execute(
+        "SELECT action, detail, created_at FROM activity_log ORDER BY id DESC LIMIT 8"
+    ).fetchall()
+    connection.close()
+
+    notifications = []
+    if out_of_stock_products:
+        notifications.append({
+            "level": "danger",
+            "title": f"{len(out_of_stock_products)} product(s) out of stock",
+            "detail": "Restock or hide these products from the storefront.",
+        })
+    if low_stock_products:
+        notifications.append({
+            "level": "warning",
+            "title": f"{len(low_stock_products)} low-stock product(s)",
+            "detail": "Review inventory before accepting more orders.",
+        })
+    if media_count == 0:
+        notifications.append({
+            "level": "info",
+            "title": "Media library is empty",
+            "detail": "Upload reusable product and website images.",
+        })
+
     return render_template(
         "dashboard.html",
         stats=stats,
         low_stock_products=low_stock_products[:6],
         recent_products=active_products[:6],
+        activities=activities,
+        notifications=notifications,
         settings=get_settings(),
+    )
+
+
+@app.route("/admin/search")
+@login_required
+def admin_search():
+    query = request.args.get("q", "").strip()
+    product_results = []
+    page_results = []
+    media_results = []
+
+    if query:
+        like = f"%{query}%"
+        connection = get_db()
+        rows = connection.execute(
+            """
+            SELECT * FROM products
+            WHERE name LIKE ? OR category LIKE ? OR description LIKE ?
+            ORDER BY active DESC, name
+            LIMIT 30
+            """,
+            (like, like, like),
+        ).fetchall()
+        connection.close()
+        product_results = rows_to_products(rows)
+
+        lower_query = query.lower()
+        site_root = BASE_DIR / "site"
+        if site_root.exists():
+            for path in sorted(site_root.rglob("*.html")):
+                title = path.stem.replace("-", " ").replace("_", " ").title()
+                if lower_query in title.lower() or lower_query in path.name.lower():
+                    page_results.append({
+                        "title": title,
+                        "url": "/" if path.name == "index.html" else f"/{path.relative_to(site_root).as_posix()}",
+                    })
+                    if len(page_results) >= 20:
+                        break
+
+        for path in sorted(UPLOAD_FOLDER.iterdir()):
+            if path.is_file() and allowed_image(path.name) and lower_query in path.name.lower():
+                media_results.append({"name": path.name, "url": f"/uploads/{path.name}"})
+                if len(media_results) >= 20:
+                    break
+
+    return render_template(
+        "search.html",
+        query=query,
+        product_results=product_results,
+        page_results=page_results,
+        media_results=media_results,
     )
 
 
@@ -355,6 +455,8 @@ def media_upload():
     try:
         image_url = save_uploaded_image(request.files.get("image"))
         flash("Image uploaded successfully." if image_url else "Choose an image before uploading.", "success" if image_url else "error")
+        if image_url:
+            log_activity("Image uploaded", Path(image_url).name)
     except ValueError as error:
         flash(str(error), "error")
     return redirect(url_for("media_library"))
@@ -371,6 +473,7 @@ def media_delete():
         flash("That image is assigned to a product and cannot be deleted.", "error")
     else:
         delete_uploaded_image(image_url)
+        log_activity("Image deleted", Path(image_url).name)
         flash("Image deleted.", "success")
     return redirect(url_for("media_library"))
 
@@ -412,6 +515,7 @@ def save_product():
     if existing_image_url and existing_image_url != image_url:
         connection = get_db(); remaining = connection.execute("SELECT COUNT(*) AS count FROM products WHERE image_url = ?", (existing_image_url,)).fetchone()["count"]; connection.close()
         if remaining == 0: delete_uploaded_image(existing_image_url)
+    log_activity("Product updated" if product_id else "Product created", form.get("name", "").strip())
     flash("Product saved.", "success")
     return redirect(url_for("store_manager"))
 
@@ -420,9 +524,11 @@ def save_product():
 @login_required
 def delete_product(product_id: int):
     connection = get_db()
+    product = connection.execute("SELECT name FROM products WHERE id = ?", (product_id,)).fetchone()
     connection.execute("DELETE FROM products WHERE id = ?", (product_id,))
     connection.commit()
     connection.close()
+    log_activity("Product deleted", product["name"] if product else f"Product #{product_id}")
     return redirect(url_for("store_manager"))
 
 
@@ -453,6 +559,7 @@ def save_settings():
         )
     connection.commit()
     connection.close()
+    log_activity("Store settings updated", "Pricing, payment, or contact settings changed")
     return redirect(url_for("store_manager"))
 
 

@@ -1,27 +1,30 @@
-STAGE STARZ COMMAND CENTER V1
+STAGE STARZ COMMAND CENTER V2
 
 REPLACE:
 - app.py
+- templates/dashboard.html
 - templates/admin.html
-- templates/media.html
 
 ADD:
-- templates/dashboard.html
+- templates/search.html
 
-The existing templates/store.html is included as a matching backup but does not
-need to be replaced if your current store is working correctly.
+KEEP your existing store.html and media.html unless you deliberately want to replace them.
 
 INSTALL:
 git checkout railway-deployment
-git add app.py templates/admin.html templates/media.html templates/dashboard.html
-git commit -m "Add Stage Starz Command Center"
+git add app.py templates/dashboard.html templates/admin.html templates/search.html
+git commit -m "Upgrade Stage Starz Command Center"
 git push origin railway-deployment
 
-ROUTES:
-- /admin          New Command Center
-- /admin/store    Store Manager
-- /admin/media    Media Library
-- /               Main website
-- /store          Customer storefront
+NEW FEATURES:
+- Expandable module navigation
+- Global search for products, website pages, and uploaded media
+- Notification drawer
+- Administrator profile drawer
+- Quick-create panel
+- Automatic recent activity log
+- Inventory alert cards
+- Responsive mobile navigation
 
-This version uses the existing products database and does not delete or reset data.
+DATABASE:
+A new activity_log table is added automatically. Existing products and settings are preserved.
