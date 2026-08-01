@@ -751,11 +751,14 @@ def admin_dashboard():
 def admin_search():
     query = request.args.get("q", "").strip()
     product_results = []
+    customer_results = []
+    order_results = []
     page_results = []
     media_results = []
 
     if query:
         like = f"%{query}%"
+        lower_like = f"%{query.lower()}%"
         connection = get_db()
         rows = connection.execute(
             """
@@ -766,8 +769,38 @@ def admin_search():
             """,
             (like, like, like),
         ).fetchall()
-        connection.close()
         product_results = rows_to_products(rows)
+
+        customer_rows = connection.execute(
+            """
+            SELECT id, name, email, phone, status, order_count, lifetime_value
+            FROM customers
+            WHERE LOWER(name) LIKE ?
+               OR LOWER(email) LIKE ?
+               OR LOWER(phone) LIKE ?
+               OR LOWER(tags) LIKE ?
+            ORDER BY lifetime_value DESC, name
+            LIMIT 20
+            """,
+            (lower_like, lower_like, lower_like, lower_like),
+        ).fetchall()
+        customer_results = [dict(row) for row in customer_rows]
+
+        order_rows = connection.execute(
+            """
+            SELECT id, order_number, customer_name, customer_email,
+                   status, total, created_at
+            FROM orders
+            WHERE LOWER(order_number) LIKE ?
+               OR LOWER(customer_name) LIKE ?
+               OR LOWER(customer_email) LIKE ?
+            ORDER BY id DESC
+            LIMIT 20
+            """,
+            (lower_like, lower_like, lower_like),
+        ).fetchall()
+        order_results = [dict(row) for row in order_rows]
+        connection.close()
 
         lower_query = query.lower()
         site_root = BASE_DIR / "site"
@@ -792,6 +825,8 @@ def admin_search():
         "search.html",
         query=query,
         product_results=product_results,
+        customer_results=customer_results,
+        order_results=order_results,
         page_results=page_results,
         media_results=media_results,
     )
@@ -869,6 +904,8 @@ def customers_dashboard():
     backfill_customers_from_orders()
     query = request.args.get("q", "").strip()
     sort = request.args.get("sort", "last_order").strip()
+    selected_tag = request.args.get("tag", "").strip()
+    selected_status = request.args.get("status", "").strip()
 
     sort_options = {
         "name": "name ASC",
@@ -878,25 +915,46 @@ def customers_dashboard():
     }
     order_by = sort_options.get(sort, sort_options["last_order"])
 
-    connection = get_db()
+    conditions = []
+    parameters = []
+
     if query:
         like = f"%{query.lower()}%"
-        rows = connection.execute(
-            f"""
-            SELECT *
-            FROM customers
-            WHERE LOWER(name) LIKE ?
-               OR LOWER(email) LIKE ?
-               OR LOWER(phone) LIKE ?
-               OR LOWER(tags) LIKE ?
-            ORDER BY {order_by}
-            """,
-            (like, like, like, like),
-        ).fetchall()
-    else:
-        rows = connection.execute(
-            f"SELECT * FROM customers ORDER BY {order_by}"
-        ).fetchall()
+        conditions.append(
+            """
+            (
+                LOWER(name) LIKE ?
+                OR LOWER(email) LIKE ?
+                OR LOWER(phone) LIKE ?
+                OR LOWER(tags) LIKE ?
+            )
+            """
+        )
+        parameters.extend((like, like, like, like))
+
+    if selected_tag:
+        conditions.append("LOWER(tags) LIKE ?")
+        parameters.append(f"%{selected_tag.lower()}%")
+
+    if selected_status:
+        conditions.append("status = ?")
+        parameters.append(selected_status)
+
+    where_clause = (
+        "WHERE " + " AND ".join(conditions)
+        if conditions else ""
+    )
+
+    connection = get_db()
+    rows = connection.execute(
+        f"""
+        SELECT *
+        FROM customers
+        {where_clause}
+        ORDER BY {order_by}
+        """,
+        tuple(parameters),
+    ).fetchall()
 
     summary = connection.execute(
         """
@@ -908,7 +966,22 @@ def customers_dashboard():
         FROM customers
         """
     ).fetchone()
+
+    tag_rows = connection.execute(
+        """
+        SELECT tags
+        FROM customers
+        WHERE TRIM(tags) != ''
+        """
+    ).fetchall()
     connection.close()
+
+    available_tags = sorted({
+        tag.strip()
+        for row in tag_rows
+        for tag in (row["tags"] or "").split(",")
+        if tag.strip()
+    })
 
     return render_template(
         "customers.html",
@@ -916,6 +989,9 @@ def customers_dashboard():
         summary=dict(summary),
         query=query,
         selected_sort=sort,
+        selected_tag=selected_tag,
+        selected_status=selected_status,
+        available_tags=available_tags,
     )
 
 
@@ -953,11 +1029,49 @@ def customer_profile(customer_id: int):
     ).fetchall()
     connection.close()
 
+    order_list = [dict(row) for row in orders]
+    note_list = [dict(row) for row in notes]
+
+    timeline = []
+    for order in order_list:
+        timeline.append({
+            "kind": "order",
+            "title": f"Order {order['order_number']}",
+            "detail": (
+                f"{order['status']} · {order['payment_method']} · "
+                f"${float(order['total'] or 0):.2f}"
+            ),
+            "created_at": order["created_at"],
+            "url": url_for("order_detail", order_id=order["id"]),
+        })
+
+    for note in note_list:
+        timeline.append({
+            "kind": "note",
+            "title": "Customer note",
+            "detail": note["note"],
+            "created_at": note["created_at"],
+            "url": "",
+        })
+
+    timeline.sort(
+        key=lambda item: str(item["created_at"] or ""),
+        reverse=True,
+    )
+
+    customer_data = dict(customer)
+    customer_data["tag_list"] = [
+        tag.strip()
+        for tag in (customer_data.get("tags") or "").split(",")
+        if tag.strip()
+    ]
+
     return render_template(
         "customer_profile.html",
-        customer=dict(customer),
-        orders=[dict(row) for row in orders],
-        notes=[dict(row) for row in notes],
+        customer=customer_data,
+        orders=order_list,
+        notes=note_list,
+        timeline=timeline,
     )
 
 

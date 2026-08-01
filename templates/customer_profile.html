@@ -4,20 +4,45 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{ customer.name }} | Stage Starz CRM</title>
 <style>
-:root{--night:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0}
+:root{--night:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867}
 *{box-sizing:border-box}body{margin:0;background:#0c0717;color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}
-header{padding:18px 4vw;display:flex;justify-content:space-between;border-bottom:1px solid var(--line)}.wrap{width:min(1100px,calc(100% - 28px));margin:24px auto 60px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.card{background:#17102a;border:1px solid var(--line);border-radius:19px;padding:20px;margin-bottom:17px}h1,h2{margin-top:0}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{padding:15px;border:1px solid var(--line);border-radius:14px}.stat strong{font-size:1.5rem;display:block}.muted{color:var(--muted)}
+header{padding:18px 4vw;display:flex;justify-content:space-between;border-bottom:1px solid var(--line)}.wrap{width:min(1180px,calc(100% - 28px));margin:24px auto 60px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.card{background:#17102a;border:1px solid var(--line);border-radius:19px;padding:20px;margin-bottom:17px}h1,h2{margin-top:0}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.stat{padding:15px;border:1px solid var(--line);border-radius:14px}.stat strong{font-size:1.5rem;display:block}.muted{color:var(--muted)}
+.tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}.tag{padding:7px 10px;border-radius:999px;background:rgba(80,214,208,.12);color:var(--teal);font-size:.74rem;font-weight:900}
 label{display:block;font-size:.8rem;font-weight:850;margin-bottom:5px}input,textarea,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:9px;background:#100a1d;color:#fff}.fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.full{grid-column:1/-1}button{padding:11px 14px;border:0;border-radius:10px;color:#fff;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}
-.order,.note{padding:12px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px}.order:last-child,.note:last-child{border-bottom:0}
-@media(max-width:750px){.grid,.fields,.stats{grid-template-columns:1fr}.full{grid-column:auto}}
+.presets{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 12px}.preset{padding:7px 9px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.06);color:#fff;cursor:pointer;font-size:.72rem}
+.timeline{position:relative;padding-left:27px}.timeline:before{content:"";position:absolute;left:8px;top:5px;bottom:5px;width:2px;background:linear-gradient(var(--pink),var(--purple),var(--teal))}.event{position:relative;padding:0 0 20px}.event:before{content:"";position:absolute;left:-24px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--teal);box-shadow:0 0 0 4px #17102a}.event.note:before{background:var(--gold)}.event strong{display:block}.event small{color:var(--muted)}.event p{margin:5px 0 0;color:#ddd}
+.order{padding:12px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px}
+@media(max-width:780px){.grid,.fields,.stats{grid-template-columns:1fr}.full{grid-column:auto}}
 </style></head>
 <body>
 <header><strong>👤 Customer Profile</strong><nav><a href="/admin/customers">← Customers</a> &nbsp; <a href="/admin">Command Center</a></nav></header>
 <main class="wrap">
-<section class="card"><h1>{{ customer.name }}</h1><p class="muted">{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p><div class="stats"><div class="stat"><strong>{{ customer.order_count }}</strong><span class="muted">Orders</span></div><div class="stat"><strong>${{ "%.2f"|format(customer.lifetime_value or 0) }}</strong><span class="muted">Lifetime value</span></div><div class="stat"><strong>{{ customer.status }}</strong><span class="muted">Status</span></div></div></section>
+<section class="card"><h1>{{ customer.name }}</h1><p class="muted">{{ customer.email }}{% if customer.phone %} · {{ customer.phone }}{% endif %}</p>
+<div class="stats"><div class="stat"><strong>{{ customer.order_count }}</strong><span class="muted">Orders</span></div><div class="stat"><strong>${{ "%.2f"|format(customer.lifetime_value or 0) }}</strong><span class="muted">Lifetime value</span></div><div class="stat"><strong>{{ customer.status }}</strong><span class="muted">Status</span></div></div>
+{% if customer.tag_list %}<div class="tags">{% for tag in customer.tag_list %}<span class="tag">{{ tag }}</span>{% endfor %}</div>{% endif %}
+</section>
+
 <div class="grid">
-<section class="card"><h2>Profile</h2><form method="post" action="/admin/customers/{{ customer.id }}/save"><div class="fields"><div><label>Name</label><input name="name" value="{{ customer.name }}"></div><div><label>Phone</label><input name="phone" value="{{ customer.phone }}"></div><div><label>Status</label><select name="status">{% for s in ['Active','New','VIP','Inactive'] %}<option {% if customer.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div><div><label>Tags</label><input name="tags" value="{{ customer.tags }}" placeholder="Competition, VIP"></div><div class="full"><label>Profile notes</label><textarea name="notes" rows="5">{{ customer.notes }}</textarea></div></div><p><button>Save Customer</button></p></form></section>
-<section class="card"><h2>Add Note</h2><form method="post" action="/admin/customers/{{ customer.id }}/notes"><textarea name="note" rows="5" placeholder="Add a dated customer note"></textarea><p><button>Add Note</button></p></form><h2>Note History</h2>{% for note in notes %}<div class="note"><div>{{ note.note }}</div><small class="muted">{{ note.created_at }}</small></div>{% else %}<p class="muted">No notes yet.</p>{% endfor %}</section>
+<section class="card"><h2>Profile</h2>
+<form method="post" action="/admin/customers/{{ customer.id }}/save">
+<div class="fields"><div><label>Name</label><input name="name" value="{{ customer.name }}"></div><div><label>Phone</label><input name="phone" value="{{ customer.phone }}"></div>
+<div><label>Status</label><select name="status">{% for s in ['Active','New','VIP','Inactive'] %}<option {% if customer.status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
+<div><label>Tags</label><input id="tagsField" name="tags" value="{{ customer.tags }}" placeholder="Competition Team, VIP"></div>
+<div class="full"><label>Quick tag choices</label><div class="presets">{% for tag in ['VIP','Competition Team','Preschool','Recital','Picture Day','Birthday Club','Tuition Owed','Spirit Wear'] %}<button class="preset" type="button" onclick="addTag('{{ tag }}')">{{ tag }}</button>{% endfor %}</div></div>
+<div class="full"><label>Profile notes</label><textarea name="notes" rows="5">{{ customer.notes }}</textarea></div></div><p><button>Save Customer</button></p></form></section>
+
+<section class="card"><h2>Add Timeline Note</h2><form method="post" action="/admin/customers/{{ customer.id }}/notes"><textarea name="note" rows="4" placeholder="Add a dated customer note"></textarea><p><button>Add Note</button></p></form>
+<h2>Customer Timeline</h2><div class="timeline">{% for event in timeline %}<div class="event {{ event.kind }}"><strong>{% if event.url %}<a href="{{ event.url }}">{{ event.title }}</a>{% else %}{{ event.title }}{% endif %}</strong><small>{{ event.created_at }}</small><p>{{ event.detail }}</p></div>{% else %}<p class="muted">Timeline activity will appear here.</p>{% endfor %}</div></section>
 </div>
+
 <section class="card"><h2>Order History</h2>{% for o in orders %}<a class="order" href="/admin/orders/{{ o.id }}"><div><strong>{{ o.order_number }}</strong><div class="muted">{{ o.created_at }} · {{ o.payment_method }} · {{ o.status }}</div></div><strong>${{ "%.2f"|format(o.total) }}</strong></a>{% else %}<p class="muted">No linked orders.</p>{% endfor %}</section>
-</main></body></html>
+</main>
+<script>
+function addTag(tag){
+  const input=document.getElementById('tagsField');
+  const tags=input.value.split(',').map(x=>x.trim()).filter(Boolean);
+  if(!tags.some(x=>x.toLowerCase()===tag.toLowerCase())) tags.push(tag);
+  input.value=tags.join(', ');
+}
+</script>
+</body></html>

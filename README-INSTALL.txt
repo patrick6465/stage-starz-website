@@ -1,34 +1,35 @@
-STAGE STARZ CRM CUSTOMER SCHEMA FIX
-
-ERRORS FIXED:
-- column "order_count" of relation "customers" does not exist
-- column "last_order_at" does not exist
-
-CAUSE:
-An older customers table already existed. CREATE TABLE IF NOT EXISTS does not
-add new columns to an existing PostgreSQL table.
+STAGE STARZ CRM 2.0 — TIMELINE, TAGS & GLOBAL SEARCH
 
 REPLACE:
+- app.py
 - database.py
+- templates/customers.html
+- templates/customer_profile.html
+- templates/search.html
 
 INSTALL:
 git checkout railway-deployment
-git add database.py
-git commit -m "Upgrade existing customer CRM schema"
+git add app.py database.py templates/customers.html templates/customer_profile.html templates/search.html
+git commit -m "Upgrade Stage Starz CRM timeline and search"
 git push origin railway-deployment
 
-WHAT THIS DOES:
-- Adds missing CRM columns with ALTER TABLE ... ADD COLUMN IF NOT EXISTS
-- Preserves existing customer records
-- Adds order_count
-- Adds lifetime_value
-- Adds last_order_at
-- Adds phone, status, tags, notes, created_at, and updated_at when missing
-- Keeps SQLite local fallback compatible
+FEATURES:
+- Customer tag filters
+- Customer status filters
+- Tag shortcut buttons on profiles
+- Unified timeline combining orders and notes
+- Global search now finds customers and orders
+- Customer lifetime value in search
+- Order number, customer name, and email search
+- Existing PostgreSQL customer schema migration retained
+- Startup-safe customer backfill retained
+- /health and /ready behavior unchanged
 
-AFTER DEPLOYMENT:
-1. Confirm Railway is Active.
-2. Open /health.
-3. Open /ready.
+VERIFY:
+1. Railway becomes Active.
+2. /health returns ok.
+3. /ready returns ready.
 4. Open /admin/customers.
-5. Existing orders should backfill into customer records.
+5. Add tags to a profile and filter by them.
+6. Add a note and verify it appears in the timeline.
+7. Search a customer name or order number from /admin/search.
