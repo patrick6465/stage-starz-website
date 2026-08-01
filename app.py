@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import json
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 from urllib.parse import urlparse
 import uuid
 from functools import wraps
@@ -673,12 +673,11 @@ def database_status():
 @login_required
 def admin_dashboard():
     connection = get_db()
-    rows = connection.execute(
+
+    product_rows = connection.execute(
         "SELECT * FROM products ORDER BY active DESC, category, name"
     ).fetchall()
-    connection.close()
-
-    products = rows_to_products(rows)
+    products = rows_to_products(product_rows)
     active_products = [product for product in products if product["active"]]
     low_stock_products = [
         product for product in active_products
@@ -688,17 +687,88 @@ def admin_dashboard():
         product for product in active_products
         if int(product["stock"]) <= 0
     ]
+
     total_units = sum(max(int(product["stock"]), 0) for product in active_products)
     inventory_value = sum(
         max(int(product["stock"]), 0)
-        * float(product["sale_price"] if product["sale_price"] is not None else product["price"])
+        * float(
+            product["sale_price"]
+            if product["sale_price"] is not None
+            else product["price"]
+        )
         for product in active_products
     )
-    categories = sorted({
-        product["category"] for product in active_products if product["category"]
-    })
+
+    categories = {
+        product["category"]
+        for product in active_products
+        if product["category"]
+    }
+
+    order_summary = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS total_orders,
+            SUM(CASE WHEN status = 'New' THEN 1 ELSE 0 END) AS new_orders,
+            SUM(CASE WHEN status = 'Processing' THEN 1 ELSE 0 END) AS processing_orders,
+            SUM(CASE WHEN status = 'Ready' THEN 1 ELSE 0 END) AS ready_orders,
+            COALESCE(SUM(
+                CASE
+                    WHEN status != 'Cancelled'
+                     AND CAST(created_at AS DATE) = CURRENT_DATE
+                    THEN total ELSE 0
+                END
+            ), 0) AS sales_today,
+            COALESCE(SUM(
+                CASE
+                    WHEN status != 'Cancelled'
+                     AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+                     AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
+                    THEN total ELSE 0
+                END
+            ), 0) AS sales_month,
+            COALESCE(SUM(
+                CASE WHEN status != 'Cancelled' THEN total ELSE 0 END
+            ), 0) AS lifetime_revenue
+        FROM orders
+        """
+    ).fetchone()
+
+    recent_orders = connection.execute(
+        """
+        SELECT id, order_number, customer_name, total, status, created_at
+        FROM orders
+        ORDER BY id DESC
+        LIMIT 6
+        """
+    ).fetchall()
+
+    today = date.today().isoformat()
+    active_announcements = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM announcements
+        WHERE active = 1
+          AND (start_date = '' OR start_date <= ?)
+          AND (end_date = '' OR end_date >= ?)
+        """,
+        (today, today),
+    ).fetchone()["count"]
+
+    activities = connection.execute(
+        """
+        SELECT action, detail, created_at
+        FROM activity_log
+        ORDER BY id DESC
+        LIMIT 7
+        """
+    ).fetchall()
+
+    connection.close()
+
     media_count = sum(
-        1 for path in UPLOAD_FOLDER.iterdir()
+        1
+        for path in UPLOAD_FOLDER.iterdir()
         if path.is_file() and allowed_image(path.name)
     )
 
@@ -711,62 +781,67 @@ def admin_dashboard():
         "inventory_value": inventory_value,
         "categories": len(categories),
         "media_count": media_count,
+        "total_orders": int(order_summary["total_orders"] or 0),
+        "new_orders": int(order_summary["new_orders"] or 0),
+        "processing_orders": int(order_summary["processing_orders"] or 0),
+        "ready_orders": int(order_summary["ready_orders"] or 0),
+        "sales_today": float(order_summary["sales_today"] or 0),
+        "sales_month": float(order_summary["sales_month"] or 0),
+        "lifetime_revenue": float(order_summary["lifetime_revenue"] or 0),
+        "active_announcements": int(active_announcements or 0),
     }
 
-    connection = get_db()
-    activities = connection.execute(
-        "SELECT action, detail, created_at FROM activity_log ORDER BY id DESC LIMIT 8"
-    ).fetchall()
-    connection.close()
-
     notifications = []
-    if out_of_stock_products:
+    if stats["new_orders"]:
         notifications.append({
-            "level": "danger",
-            "title": f"{len(out_of_stock_products)} product(s) out of stock",
-            "detail": "Restock or hide these products from the storefront.",
+            "level": "info",
+            "title": f"{stats['new_orders']} new order(s)",
+            "detail": "Review new orders in the Orders Dashboard.",
+        })
+    if stats["ready_orders"]:
+        notifications.append({
+            "level": "info",
+            "title": f"{stats['ready_orders']} order(s) ready",
+            "detail": "These orders are waiting for pickup or delivery.",
         })
     if low_stock_products:
         notifications.append({
             "level": "warning",
             "title": f"{len(low_stock_products)} low-stock product(s)",
-            "detail": "Review inventory before accepting more orders.",
+            "detail": "Review inventory before items sell out.",
         })
-    if media_count == 0:
+    if out_of_stock_products:
         notifications.append({
-            "level": "info",
-            "title": "Media library is empty",
-            "detail": "Upload reusable product and website images.",
+            "level": "danger",
+            "title": f"{len(out_of_stock_products)} out-of-stock product(s)",
+            "detail": "Restock or hide unavailable products.",
+        })
+    if not USE_POSTGRES:
+        notifications.insert(0, {
+            "level": "danger",
+            "title": "PostgreSQL is not connected",
+            "detail": "The website is using the SQLite fallback.",
         })
 
-    connection = get_db()
-    announcement_count = connection.execute(
-        "SELECT COUNT(*) AS count FROM announcements WHERE active = 1"
-    ).fetchone()["count"]
-    connection.close()
-    stats["active_announcements"] = announcement_count
-    connection = get_db()
-    order_stats = connection.execute(
-        """
-        SELECT COUNT(*) AS total_orders,
-        SUM(CASE WHEN status='New' THEN 1 ELSE 0 END) AS new_orders,
-        COALESCE(SUM(CASE WHEN status!='Cancelled' THEN total ELSE 0 END),0) AS order_revenue
-        FROM orders
-        """
-    ).fetchone()
-    connection.close()
-    stats["total_orders"] = int(order_stats["total_orders"] or 0)
-    stats["new_orders"] = int(order_stats["new_orders"] or 0)
-    stats["order_revenue"] = float(order_stats["order_revenue"] or 0)
+    hour = datetime.now().hour
+    if hour < 12:
+        greeting = "Good morning"
+    elif hour < 18:
+        greeting = "Good afternoon"
+    else:
+        greeting = "Good evening"
 
     return render_template(
         "dashboard.html",
         stats=stats,
         low_stock_products=low_stock_products[:6],
         recent_products=active_products[:6],
-        activities=activities,
+        recent_orders=[dict(row) for row in recent_orders],
+        activities=[dict(row) for row in activities],
         notifications=notifications,
         settings=get_settings(),
+        greeting=greeting,
+        database_backend="PostgreSQL" if USE_POSTGRES else "SQLite fallback",
     )
 
 
