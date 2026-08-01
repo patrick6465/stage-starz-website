@@ -1,20 +1,15 @@
-STAGE STARZ HOMEPAGE EDITOR + ADMIN LINK FIX
+STAGE STARZ STORE ADMIN LINK
 
 REPLACE:
-- app.py
-- templates/dashboard.html
-
-KEEP/VERIFY:
-- templates/homepage_editor.html must already exist from the Homepage Editor update.
+- templates/store.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py templates/dashboard.html
-git commit -m "Fix homepage editor link and add admin shortcut"
+git add templates/store.html
+git commit -m "Add Command Center links to storefront"
 git push origin railway-deployment
 
-AFTER RAILWAY REDEPLOYS:
-- Open /admin
-- Homepage Editor should be an active link, with no "Next" label.
-- The main homepage will show a discreet Admin button in the lower-right corner.
-- The Admin button opens /admin and uses the existing secure login.
+RESULT:
+- The store header includes a discreet Command Center button.
+- The store footer includes a backup Admin Command Center link.
+- Both links open /admin and use the existing secure login.

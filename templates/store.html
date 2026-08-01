@@ -38,8 +38,12 @@
     <span style="opacity:.75;margin:0 10px">|</span>
     <span id="storeName">Stardust Ship-it-Shop</span>
   </div>
-  <div style="display:flex;align-items:center;gap:10px">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end">
     <a href="/" style="color:white;text-decoration:none;font-weight:800">Main Website</a>
+    <a href="/admin" title="Open Stage Starz Command Center"
+       style="color:white;text-decoration:none;font-weight:800;padding:9px 13px;border:1px solid rgba(255,255,255,.45);border-radius:999px;background:rgba(255,255,255,.10)">
+       ⚙ Command Center
+    </a>
     <button class="cart-btn" onclick="toggleCart()">Cart (<span id="cartCount">0</span>)</button>
   </div>
 </header>
@@ -52,7 +56,10 @@
   <section id="grid" class="grid"></section>
 </main>
 <footer style="padding:34px 18px;text-align:center;color:#6d7180">
-  <a href="/" style="color:#6f35c5;font-weight:800;text-decoration:none">Return to Stage Starz</a>
+  <div style="display:flex;justify-content:center;gap:18px;flex-wrap:wrap">
+    <a href="/" style="color:#6f35c5;font-weight:800;text-decoration:none">Return to Stage Starz</a>
+    <a href="/admin" style="color:#6f35c5;font-weight:800;text-decoration:none">⚙ Admin Command Center</a>
+  </div>
   <p>Stage Starz Academy of Dance • 6800 Lewis Ave, Temperance, MI 48182</p>
 </footer>
 
