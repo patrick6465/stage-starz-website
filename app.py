@@ -1,379 +1,58 @@
 from __future__ import annotations
 
-import os
 import json
-import sqlite3
-from datetime import date, datetime, timedelta
-from urllib.parse import urlparse
+import logging
 import uuid
+from datetime import date, datetime, timedelta
 from functools import wraps
 from pathlib import Path
-from typing import Any, Iterable
-
-from werkzeug.utils import secure_filename
-
-try:
-    import psycopg
-    from psycopg.rows import dict_row
-except ImportError:
-    psycopg = None
-    dict_row = None
+from typing import Any
+from urllib.parse import urlparse
 
 from flask import (
     Flask,
     flash,
-    send_from_directory,
     jsonify,
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
+from werkzeug.utils import secure_filename
 
-BASE_DIR = Path(__file__).resolve().parent
-
-ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
-MAX_IMAGE_BYTES = 10 * 1024 * 1024
-
-DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
-USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
-
-# Uploaded files still need persistent disk storage. PostgreSQL stores records,
-# while the Railway volume stores product and website images.
-VOLUME_MOUNT_PATH = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "").strip()
-UPLOAD_FOLDER = Path(
-    os.environ.get(
-        "UPLOAD_FOLDER",
-        str(Path(VOLUME_MOUNT_PATH) / "uploads" if VOLUME_MOUNT_PATH else BASE_DIR / "data" / "uploads"),
-    )
+from config import (
+    ADMIN_PASSWORD,
+    ADMIN_USERNAME,
+    ALLOWED_IMAGE_EXTENSIONS,
+    BASE_DIR,
+    DATABASE_URL,
+    FLASK_DEBUG,
+    FLASK_ENV,
+    MAX_IMAGE_BYTES,
+    PORT,
+    SECRET_KEY,
+    SQLITE_DB_PATH,
+    UPLOAD_FOLDER,
+    USE_POSTGRES,
 )
-UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+from database import get_db, init_db
 
-SQLITE_DB_PATH = Path(
-    os.environ.get("SQLITE_DATABASE_PATH", str(BASE_DIR / "data" / "store.db"))
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-SQLITE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-
-class DatabaseConnection:
-    """Small compatibility layer for PostgreSQL and SQLite."""
-
-    def __init__(self):
-        if USE_POSTGRES:
-            if psycopg is None:
-                raise RuntimeError(
-                    "DATABASE_URL is configured but psycopg is not installed."
-                )
-            self.backend = "postgresql"
-            self.connection = psycopg.connect(
-                DATABASE_URL,
-                row_factory=dict_row,
-                autocommit=False,
-            )
-        else:
-            self.backend = "sqlite"
-            self.connection = sqlite3.connect(SQLITE_DB_PATH)
-            self.connection.row_factory = sqlite3.Row
-
-    def _sql(self, statement: str) -> str:
-        if self.backend == "postgresql":
-            return statement.replace("?", "%s")
-        return statement
-
-    def execute(self, statement: str, parameters: Iterable[Any] = ()):
-        return self.connection.execute(self._sql(statement), tuple(parameters))
-
-    def executemany(self, statement: str, parameter_rows):
-        return self.connection.executemany(
-            self._sql(statement),
-            parameter_rows,
-        )
-
-    def commit(self) -> None:
-        self.connection.commit()
-
-    def rollback(self) -> None:
-        self.connection.rollback()
-
-    def close(self) -> None:
-        self.connection.close()
-
+logger = logging.getLogger("stage_starz")
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
+app.secret_key = SECRET_KEY
 app.config.update(
     MAX_CONTENT_LENGTH=MAX_IMAGE_BYTES,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=os.environ.get("FLASK_ENV") == "production",
+    SESSION_COOKIE_SECURE=FLASK_ENV == "production",
 )
-
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "StageStarz123!")
-
-
-def get_db() -> DatabaseConnection:
-    return DatabaseConnection()
-
-
-
-
-def init_db() -> None:
-    connection = get_db()
-    cursor = connection
-
-    if connection.backend == "postgresql":
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS products (
-                id SERIAL PRIMARY KEY,
-                name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                price DOUBLE PRECISION NOT NULL DEFAULT 0,
-                sale_price DOUBLE PRECISION,
-                fulfillment_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
-                stock INTEGER NOT NULL DEFAULT 0,
-                sizes TEXT NOT NULL DEFAULT 'One Size',
-                colors TEXT NOT NULL DEFAULT 'Default',
-                show_color INTEGER NOT NULL DEFAULT 1,
-                allow_name INTEGER NOT NULL DEFAULT 0,
-                active INTEGER NOT NULL DEFAULT 1,
-                image_url TEXT NOT NULL DEFAULT '',
-                emoji TEXT NOT NULL DEFAULT '⭐'
-            )
-            """
-        )
-        cursor.execute(
-            "ALTER TABLE products ADD COLUMN IF NOT EXISTS show_color INTEGER NOT NULL DEFAULT 1"
-        )
-    else:
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                category TEXT NOT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                price REAL NOT NULL DEFAULT 0,
-                sale_price REAL,
-                fulfillment_fee REAL NOT NULL DEFAULT 0,
-                stock INTEGER NOT NULL DEFAULT 0,
-                sizes TEXT NOT NULL DEFAULT 'One Size',
-                colors TEXT NOT NULL DEFAULT 'Default',
-                show_color INTEGER NOT NULL DEFAULT 1,
-                allow_name INTEGER NOT NULL DEFAULT 0,
-                active INTEGER NOT NULL DEFAULT 1,
-                image_url TEXT NOT NULL DEFAULT '',
-                emoji TEXT NOT NULL DEFAULT '⭐'
-            )
-            """
-        )
-        columns = {
-            row["name"]
-            for row in cursor.execute("PRAGMA table_info(products)").fetchall()
-        }
-        if "show_color" not in columns:
-            cursor.execute(
-                "ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1"
-            )
-
-    id_column = "SERIAL PRIMARY KEY" if connection.backend == "postgresql" else "INTEGER PRIMARY KEY AUTOINCREMENT"
-
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL
-        )
-        """
-    )
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS activity_log (
-            id {id_column},
-            action TEXT NOT NULL,
-            detail TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS homepage_settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL DEFAULT ''
-        )
-        """
-    )
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS announcements (
-            id {id_column},
-            title TEXT NOT NULL,
-            message TEXT NOT NULL,
-            button_text TEXT NOT NULL DEFAULT '',
-            button_link TEXT NOT NULL DEFAULT '',
-            start_date TEXT NOT NULL DEFAULT '',
-            end_date TEXT NOT NULL DEFAULT '',
-            priority INTEGER NOT NULL DEFAULT 0,
-            active INTEGER NOT NULL DEFAULT 1,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS orders (
-            id {id_column},
-            order_number TEXT NOT NULL UNIQUE,
-            customer_name TEXT NOT NULL,
-            customer_email TEXT NOT NULL,
-            customer_phone TEXT NOT NULL DEFAULT '',
-            payment_method TEXT NOT NULL,
-            fulfillment_method TEXT NOT NULL DEFAULT 'Studio Pickup',
-            notes TEXT NOT NULL DEFAULT '',
-            subtotal DOUBLE PRECISION NOT NULL DEFAULT 0,
-            name_fees DOUBLE PRECISION NOT NULL DEFAULT 0,
-            fulfillment_fees DOUBLE PRECISION NOT NULL DEFAULT 0,
-            shipping_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
-            tax DOUBLE PRECISION NOT NULL DEFAULT 0,
-            total DOUBLE PRECISION NOT NULL DEFAULT 0,
-            status TEXT NOT NULL DEFAULT 'New',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-        """
-    )
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS order_items (
-            id {id_column},
-            order_id INTEGER NOT NULL,
-            product_id INTEGER,
-            product_name TEXT NOT NULL,
-            size TEXT NOT NULL DEFAULT '',
-            color TEXT NOT NULL DEFAULT '',
-            requested_name TEXT NOT NULL DEFAULT '',
-            item_price DOUBLE PRECISION NOT NULL DEFAULT 0,
-            name_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
-            fulfillment_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
-            quantity INTEGER NOT NULL DEFAULT 1,
-            FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    # Early PostgreSQL versions may have created these date fields as TEXT.
-    # Convert them to proper TIMESTAMP columns before dashboard queries run.
-    if connection.backend == "postgresql":
-        for table_name in ("orders", "activity_log", "announcements"):
-            column_type = cursor.execute(
-                """
-                SELECT data_type
-                FROM information_schema.columns
-                WHERE table_schema = 'public'
-                  AND table_name = ?
-                  AND column_name = 'created_at'
-                """,
-                (table_name,),
-            ).fetchone()
-
-            if column_type and column_type["data_type"] in (
-                "text",
-                "character varying",
-            ):
-                cursor.execute(
-                    f"""
-                    ALTER TABLE {table_name}
-                    ALTER COLUMN created_at TYPE TIMESTAMP
-                    USING CASE
-                        WHEN created_at IS NULL
-                          OR BTRIM(created_at::text) = ''
-                        THEN CURRENT_TIMESTAMP
-                        ELSE created_at::timestamp
-                    END
-                    """
-                )
-
-    if cursor.execute("SELECT COUNT(*) AS count FROM products").fetchone()["count"] == 0:
-        starter_products = [
-            (
-                "Stage Starz Team Jersey", "Apparel",
-                "Moisture-wicking team jersey made for dance, stage, and studio events.",
-                32.00, 28.00, 5.00, 14,
-                "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL",
-                "Black,Purple,Teal", 1, 1, 1, "", "👕"
-            ),
-            (
-                "Signature Dance Jacket", "Apparel",
-                "Form-fitting four-way stretch jacket for dancers and team members.",
-                55.00, None, 5.00, 9,
-                "Youth S,Youth M,Youth L,Adult S,Adult M,Adult L,Adult XL",
-                "Black,Purple", 1, 1, 1, "", "🧥"
-            ),
-            (
-                "Stage Starz Duffle Bag", "Bags",
-                "Durable dance bag with shoulder strap and room for shoes and apparel.",
-                38.00, None, 6.00, 6,
-                "One Size", "Black,Purple,Teal", 1, 1, 1, "", "👜"
-            ),
-        ]
-        cursor.executemany(
-            """
-            INSERT INTO products (
-                name, category, description, price, sale_price,
-                fulfillment_fee, stock, sizes, colors, show_color,
-                allow_name, active, image_url, emoji
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            starter_products,
-        )
-
-    defaults = {
-        "store_name": "Stardust Ship-it-Shop",
-        "order_email": "stagestarzacademy@gmail.com",
-        "venmo_username": "@StageStarzDance",
-        "name_fee": "10.00",
-        "sales_tax_rate": "0.06",
-        "customer_shipping_fee": "0.00",
-        "allow_customer_shipping": "1",
-    }
-    for key, value in defaults.items():
-        cursor.execute(
-            """
-            INSERT INTO settings (key, value) VALUES (?, ?)
-            ON CONFLICT(key) DO NOTHING
-            """,
-            (key, value),
-        )
-
-    homepage_defaults = {
-        "announcement_enabled": "1",
-        "announcement_text": "Fall registration is now open!",
-        "hero_kicker": "Dance. Grow. Shine.",
-        "hero_title": "Where every dancer gets their moment to shine.",
-        "hero_subtitle": "Recreational and competitive dance training for ages 3 and up in Temperance, Michigan.",
-        "hero_image": "",
-        "primary_button_text": "Explore Classes",
-        "primary_button_link": "classes.html",
-        "secondary_button_text": "Register Now",
-        "secondary_button_link": "registration.html",
-        "countdown_enabled": "0",
-        "countdown_label": "Fall Classes Begin In",
-        "countdown_date": "",
-    }
-    for key, value in homepage_defaults.items():
-        cursor.execute(
-            """
-            INSERT INTO homepage_settings (key, value) VALUES (?, ?)
-            ON CONFLICT(key) DO NOTHING
-            """,
-            (key, value),
-        )
-
-    connection.commit()
-    connection.close()
 
 
 def login_required(view):
@@ -586,6 +265,44 @@ def log_activity(action: str, detail: str = "") -> None:
     connection.close()
 
 
+@app.route("/health")
+def health_check():
+    backend = "postgresql" if USE_POSTGRES else "sqlite"
+    try:
+        connection = get_db()
+        connection.execute("SELECT 1 AS ok").fetchone()
+        connection.close()
+        database_status = "connected"
+        status_code = 200
+    except Exception:
+        logger.exception("Database health check failed")
+        database_status = "unavailable"
+        status_code = 503
+
+    return jsonify({
+        "status": "ok" if status_code == 200 else "degraded",
+        "database": database_status,
+        "backend": backend,
+    }), status_code
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    logger.exception(
+        "Unhandled server error on %s %s",
+        request.method,
+        request.path,
+        exc_info=error,
+    )
+    return (
+        render_template(
+            "500.html",
+            request_id=datetime.utcnow().strftime("%Y%m%d%H%M%S"),
+        ),
+        500,
+    )
+
+
 @app.route("/")
 def website_home():
     homepage_path = BASE_DIR / "site" / "index.html"
@@ -602,11 +319,6 @@ def website_home():
     else:
         html += injection
     return app.response_class(html, mimetype="text/html")
-
-
-@app.route("/health")
-def health_check():
-    return jsonify({"status": "ok"})
 
 
 @app.route("/store")
@@ -1504,6 +1216,6 @@ init_db()
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=int(os.environ.get("PORT", "5000")),
-        debug=os.environ.get("FLASK_DEBUG") == "1",
+        port=PORT,
+        debug=FLASK_DEBUG,
     )

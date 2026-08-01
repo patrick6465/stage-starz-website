@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stage Starz | Temporary Error</title>
+<style>
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#0c0717;color:#fff;font-family:Inter,system-ui,sans-serif}
+.card{width:min(620px,100%);padding:32px;border:1px solid rgba(255,255,255,.15);border-radius:24px;background:rgba(255,255,255,.08);text-align:center}
+.star{font-size:3rem}h1{margin:12px 0}p{color:#c4b8cf;line-height:1.6}
+a{display:inline-block;margin-top:12px;padding:12px 17px;border-radius:12px;color:#fff;text-decoration:none;font-weight:900;background:linear-gradient(110deg,#ef3d98,#9b4dcc,#50d6d0)}
+small{display:block;margin-top:18px;color:#82768d}
+</style>
+</head>
+<body>
+<section class="card">
+<div class="star">★</div>
+<h1>We hit a temporary problem.</h1>
+<p>The Stage Starz system recorded the error. Please return to the Command Center and try again.</p>
+<a href="/admin">Return to Command Center</a>
+<small>Reference: {{ request_id }}</small>
+</section>
+</body>
+</html>
