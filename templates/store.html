@@ -29,7 +29,14 @@
     .row{display:flex;justify-content:space-between;gap:16px;margin:8px 0}.total{font-weight:900;font-size:1.15rem;border-top:1px solid var(--border);padding-top:12px}
     .checkout{width:100%;padding:12px;border:0;border-radius:10px;background:var(--purple);color:white;font-weight:900}
     @media(max-width:700px){.toolbar{grid-template-columns:1fr}.hero{padding:28px}}
-  </style>
+  
+    .checkout-modal{position:fixed;inset:0;display:none;place-items:center;padding:18px;background:rgba(0,0,0,.62);z-index:40}.checkout-modal.open{display:grid}
+    .checkout-card{width:min(560px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;box-shadow:0 25px 80px rgba(0,0,0,.3)}
+    .checkout-card h2{margin:0 0 6px}.checkout-card p{color:var(--muted)}.checkout-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.checkout-grid .full{grid-column:1/-1}
+    .checkout-card label{display:block;font-size:.82rem;font-weight:850;margin-bottom:5px}.checkout-card input,.checkout-card select,.checkout-card textarea{width:100%;padding:11px;border:1px solid #d3ccdd;border-radius:9px}
+    .checkout-actions{display:flex;gap:10px;margin-top:16px}.checkout-actions button{flex:1;padding:12px;border:0;border-radius:10px;font-weight:900}.cancel-checkout{background:#eee}.place-order{background:linear-gradient(110deg,var(--purple),var(--teal));color:#fff}
+
+</style>
 </head>
 <body>
 <header>
@@ -73,10 +80,20 @@
       <div class="row"><span>Fulfillment fees</span><strong id="fulfillmentFees">$0.00</strong></div>
       <div class="row"><span>Sales tax</span><strong id="tax">$0.00</strong></div>
       <div class="row total"><span>Total</span><strong id="total">$0.00</strong></div>
-      <button class="checkout" onclick="emailOrder()">Email Order to Stage Starz</button>
+      <button class="checkout" onclick="openCheckout()">Continue to Checkout</button>
     </div>
   </aside>
 </div>
+
+<div id="checkoutModal" class="checkout-modal">
+<section class="checkout-card"><h2>Complete Your Order</h2><p>Your order will be saved in the Stage Starz system.</p>
+<div class="checkout-grid">
+<div><label>Name</label><input id="customerName"></div><div><label>Email</label><input id="customerEmail" type="email"></div>
+<div><label>Phone</label><input id="customerPhone"></div><div><label>Payment method</label><select id="paymentMethod"><option>Venmo</option><option>Cash</option></select></div>
+<div><label>Fulfillment</label><select id="fulfillmentMethod"><option>Studio Pickup</option><option>Customer Shipping</option></select></div>
+<div class="full"><label>Order notes</label><textarea id="orderNotes" rows="3"></textarea></div>
+</div><div class="checkout-actions"><button class="cancel-checkout" onclick="closeCheckout()">Cancel</button><button class="place-order" onclick="submitOrder()">Place Order</button></div>
+</section></div>
 
 <script>
 let products=[], settings={}, cart=[];
@@ -163,20 +180,10 @@ function toggleCart(force){
   d.classList.toggle('open',force===undefined?!d.classList.contains('open'):force);
 }
 
-function emailOrder(){
-  if(!cart.length){alert('Your cart is empty.');return}
-  const subtotal=cart.reduce((s,x)=>s+x.price,0);
-  const nameFees=cart.reduce((s,x)=>s+x.nameFee,0);
-  const fulfillment=cart.reduce((s,x)=>s+x.fulfillmentFee,0);
-  const tax=subtotal*Number(settings.sales_tax_rate||0);
-  const total=subtotal+nameFees+fulfillment+tax;
-  const lines=cart.map((x,i)=>{
-    const colorLine=x.showColor?`\nColor: ${x.color}`:'';
-    return `${i+1}. ${x.name}\nSize: ${x.size}${colorLine}\nName: ${x.requestedName||'No'}\nItem: ${money(x.price)}\nName fee: ${money(x.nameFee)}\nFulfillment: ${money(x.fulfillmentFee)}`;
-  }).join('\n\n');
-  const body=`STAGE STARZ ORDER\n\n${lines}\n\nMerchandise: ${money(subtotal)}\nName charges: ${money(nameFees)}\nFulfillment fees: ${money(fulfillment)}\nSales tax: ${money(tax)}\nTOTAL: ${money(total)}`;
-  location.href=`mailto:${settings.order_email}?subject=${encodeURIComponent('New Stardust Ship-it-Shop Order')}&body=${encodeURIComponent(body)}`;
-}
+function cartTotals(){const subtotal=cart.reduce((s,x)=>s+x.price,0);const nameFees=cart.reduce((s,x)=>s+x.nameFee,0);const fulfillment=cart.reduce((s,x)=>s+x.fulfillmentFee,0);const tax=subtotal*Number(settings.sales_tax_rate||0);return{subtotal,nameFees,fulfillment,tax,shippingFee:0,total:subtotal+nameFees+fulfillment+tax}}
+function openCheckout(){if(!cart.length){alert('Your cart is empty.');return}document.getElementById('checkoutModal').classList.add('open')}
+function closeCheckout(){document.getElementById('checkoutModal').classList.remove('open')}
+async function submitOrder(){const name=document.getElementById('customerName').value.trim();const email=document.getElementById('customerEmail').value.trim();if(!name||!email){alert('Please enter your name and email.');return}const t=cartTotals();const response=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer:{name,email,phone:document.getElementById('customerPhone').value.trim(),payment_method:document.getElementById('paymentMethod').value,fulfillment_method:document.getElementById('fulfillmentMethod').value,notes:document.getElementById('orderNotes').value.trim()},items:cart,totals:{subtotal:t.subtotal,name_fees:t.nameFees,fulfillment_fees:t.fulfillment,shipping_fee:t.shippingFee,tax:t.tax,total:t.total}})});const result=await response.json();if(!response.ok){alert(result.error||'Order failed.');return}const instructions=document.getElementById('paymentMethod').value==='Venmo'?`Send ${money(t.total)} to ${settings.venmo_username}. Include ${result.order_number} in the note.`:`Pay ${money(t.total)} in cash at Stage Starz. Reference ${result.order_number}.`;alert(`Order ${result.order_number} submitted.\\n\\n${instructions}`);cart=[];renderCart();closeCheckout();toggleCart(false)}
 
 document.getElementById('search').addEventListener('input',render);
 document.getElementById('category').addEventListener('change',render);

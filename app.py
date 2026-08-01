@@ -131,6 +131,47 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_number TEXT NOT NULL UNIQUE,
+            customer_name TEXT NOT NULL,
+            customer_email TEXT NOT NULL,
+            customer_phone TEXT NOT NULL DEFAULT '',
+            payment_method TEXT NOT NULL,
+            fulfillment_method TEXT NOT NULL DEFAULT 'Studio Pickup',
+            notes TEXT NOT NULL DEFAULT '',
+            subtotal REAL NOT NULL DEFAULT 0,
+            name_fees REAL NOT NULL DEFAULT 0,
+            fulfillment_fees REAL NOT NULL DEFAULT 0,
+            shipping_fee REAL NOT NULL DEFAULT 0,
+            tax REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'New',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            product_id INTEGER,
+            product_name TEXT NOT NULL,
+            size TEXT NOT NULL DEFAULT '',
+            color TEXT NOT NULL DEFAULT '',
+            requested_name TEXT NOT NULL DEFAULT '',
+            item_price REAL NOT NULL DEFAULT 0,
+            name_fee REAL NOT NULL DEFAULT 0,
+            fulfillment_fee REAL NOT NULL DEFAULT 0,
+            quantity INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     cursor.execute("SELECT COUNT(*) AS count FROM products")
     if cursor.fetchone()["count"] == 0:
         starter_products = [
@@ -573,6 +614,19 @@ def admin_dashboard():
     ).fetchone()["count"]
     connection.close()
     stats["active_announcements"] = announcement_count
+    connection = get_db()
+    order_stats = connection.execute(
+        """
+        SELECT COUNT(*) AS total_orders,
+        SUM(CASE WHEN status='New' THEN 1 ELSE 0 END) AS new_orders,
+        COALESCE(SUM(CASE WHEN status!='Cancelled' THEN total ELSE 0 END),0) AS order_revenue
+        FROM orders
+        """
+    ).fetchone()
+    connection.close()
+    stats["total_orders"] = int(order_stats["total_orders"] or 0)
+    stats["new_orders"] = int(order_stats["new_orders"] or 0)
+    stats["order_revenue"] = float(order_stats["order_revenue"] or 0)
 
     return render_template(
         "dashboard.html",
@@ -634,6 +688,118 @@ def admin_search():
         page_results=page_results,
         media_results=media_results,
     )
+
+
+@app.route("/api/orders", methods=["POST"])
+def create_order():
+    data = request.get_json(silent=True) or {}
+    customer = data.get("customer") or {}
+    items = data.get("items") or []
+    totals = data.get("totals") or {}
+    name = str(customer.get("name", "")).strip()
+    email = str(customer.get("email", "")).strip()
+    payment = str(customer.get("payment_method", "")).strip()
+    if not name or not email or not payment:
+        return jsonify({"error": "Name, email, and payment method are required."}), 400
+    if not items:
+        return jsonify({"error": "The cart is empty."}), 400
+
+    connection = get_db()
+    next_id = connection.execute("SELECT COALESCE(MAX(id),0)+1 AS next_id FROM orders").fetchone()["next_id"]
+    order_number = f"SS-{date.today().strftime('%Y%m%d')}-{int(next_id):04d}"
+    cursor = connection.execute(
+        """
+        INSERT INTO orders (
+            order_number, customer_name, customer_email, customer_phone,
+            payment_method, fulfillment_method, notes,
+            subtotal, name_fees, fulfillment_fees, shipping_fee, tax, total, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New')
+        """,
+        (
+            order_number, name, email, str(customer.get("phone","")).strip(),
+            payment, str(customer.get("fulfillment_method","Studio Pickup")).strip(),
+            str(customer.get("notes","")).strip(),
+            float(totals.get("subtotal") or 0), float(totals.get("name_fees") or 0),
+            float(totals.get("fulfillment_fees") or 0), float(totals.get("shipping_fee") or 0),
+            float(totals.get("tax") or 0), float(totals.get("total") or 0),
+        ),
+    )
+    order_id = cursor.lastrowid
+    for item in items:
+        connection.execute(
+            """
+            INSERT INTO order_items (
+                order_id, product_id, product_name, size, color, requested_name,
+                item_price, name_fee, fulfillment_fee, quantity
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                order_id, item.get("id"), str(item.get("name","")).strip(),
+                str(item.get("size","")).strip(), str(item.get("color","")).strip(),
+                str(item.get("requestedName","")).strip(), float(item.get("price") or 0),
+                float(item.get("nameFee") or 0), float(item.get("fulfillmentFee") or 0),
+                int(item.get("quantity") or 1),
+            ),
+        )
+    connection.commit()
+    connection.close()
+    log_activity("New store order", order_number)
+    return jsonify({"ok": True, "order_number": order_number})
+
+
+@app.route("/admin/orders")
+@login_required
+def orders_dashboard():
+    status = request.args.get("status", "").strip()
+    connection = get_db()
+    rows = connection.execute(
+        "SELECT * FROM orders WHERE status = ? ORDER BY id DESC" if status else
+        "SELECT * FROM orders ORDER BY id DESC",
+        (status,) if status else (),
+    ).fetchall()
+    summary = connection.execute(
+        """
+        SELECT COUNT(*) AS total_orders,
+        SUM(CASE WHEN status='New' THEN 1 ELSE 0 END) AS new_orders,
+        SUM(CASE WHEN status='Processing' THEN 1 ELSE 0 END) AS processing_orders,
+        SUM(CASE WHEN status='Ready' THEN 1 ELSE 0 END) AS ready_orders,
+        COALESCE(SUM(CASE WHEN status!='Cancelled' THEN total ELSE 0 END),0) AS revenue
+        FROM orders
+        """
+    ).fetchone()
+    connection.close()
+    return render_template("orders.html", orders=[dict(r) for r in rows], summary=dict(summary), selected_status=status)
+
+
+@app.route("/admin/orders/<int:order_id>")
+@login_required
+def order_detail(order_id: int):
+    connection = get_db()
+    order = connection.execute("SELECT * FROM orders WHERE id=?", (order_id,)).fetchone()
+    items = connection.execute("SELECT * FROM order_items WHERE order_id=? ORDER BY id", (order_id,)).fetchall()
+    connection.close()
+    if not order:
+        return ("Order not found", 404)
+    return render_template("order_detail.html", order=dict(order), items=[dict(i) for i in items])
+
+
+@app.route("/admin/orders/<int:order_id>/status", methods=["POST"])
+@login_required
+def update_order_status(order_id: int):
+    allowed = {"New","Processing","Ready","Completed","Cancelled"}
+    status = request.form.get("status","").strip()
+    if status not in allowed:
+        flash("Invalid order status.", "error")
+        return redirect(url_for("order_detail", order_id=order_id))
+    connection = get_db()
+    order = connection.execute("SELECT order_number FROM orders WHERE id=?", (order_id,)).fetchone()
+    connection.execute("UPDATE orders SET status=? WHERE id=?", (status, order_id))
+    connection.commit()
+    connection.close()
+    if order:
+        log_activity("Order status updated", f"{order['order_number']} → {status}")
+    flash("Order status updated.", "success")
+    return redirect(url_for("order_detail", order_id=order_id))
 
 
 @app.route("/admin/announcements")
