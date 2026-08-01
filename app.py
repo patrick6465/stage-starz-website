@@ -124,6 +124,171 @@ def get_homepage_settings() -> dict[str, str]:
     return {row["key"]: row["value"] for row in rows}
 
 
+def infer_family_name(customer_name: str, email: str) -> str:
+    cleaned_name = " ".join((customer_name or "").split())
+    if cleaned_name:
+        parts = cleaned_name.split()
+        if len(parts) >= 2:
+            return f"The {parts[-1]} Family"
+        return f"{parts[0]} Family"
+
+    email_name = (email or "").split("@", 1)[0].replace(".", " ").replace("_", " ")
+    email_name = " ".join(part.capitalize() for part in email_name.split() if part)
+    return f"{email_name or 'Stage Starz'} Family"
+
+
+def refresh_family_metrics(family_id: int) -> None:
+    connection = get_db()
+    summary = connection.execute(
+        """
+        SELECT
+            COUNT(DISTINCT c.id) AS customer_count,
+            COALESCE(SUM(c.order_count), 0) AS order_count,
+            COALESCE(SUM(c.lifetime_value), 0) AS lifetime_value,
+            MAX(c.last_order_at) AS last_activity_at,
+            MAX(c.phone) AS primary_phone,
+            MAX(c.email) AS primary_email
+        FROM customers c
+        WHERE c.family_id = ?
+        """,
+        (family_id,),
+    ).fetchone()
+
+    connection.execute(
+        """
+        UPDATE families SET
+            customer_count=?,
+            order_count=?,
+            lifetime_value=?,
+            last_activity_at=?,
+            primary_phone=?,
+            primary_email=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (
+            int(summary["customer_count"] or 0),
+            int(summary["order_count"] or 0),
+            float(summary["lifetime_value"] or 0),
+            summary["last_activity_at"],
+            summary["primary_phone"] or "",
+            summary["primary_email"] or "",
+            family_id,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+
+def ensure_family_for_customer(customer_id: int) -> int | None:
+    connection = get_db()
+    customer = connection.execute(
+        """
+        SELECT id, name, email, phone, family_id
+        FROM customers
+        WHERE id = ?
+        """,
+        (customer_id,),
+    ).fetchone()
+
+    if not customer:
+        connection.close()
+        return None
+
+    if customer["family_id"]:
+        family_id = int(customer["family_id"])
+        connection.close()
+        refresh_family_metrics(family_id)
+        return family_id
+
+    email = (customer["email"] or "").strip().lower()
+    phone = (customer["phone"] or "").strip()
+
+    family = None
+    if email:
+        family = connection.execute(
+            """
+            SELECT id
+            FROM families
+            WHERE LOWER(primary_email) = ?
+            ORDER BY id
+            LIMIT 1
+            """,
+            (email,),
+        ).fetchone()
+
+    if not family and phone:
+        family = connection.execute(
+            """
+            SELECT id
+            FROM families
+            WHERE primary_phone = ?
+            ORDER BY id
+            LIMIT 1
+            """,
+            (phone,),
+        ).fetchone()
+
+    if family:
+        family_id = int(family["id"])
+    else:
+        insert_sql = """
+            INSERT INTO families (
+                family_name, primary_email, primary_phone
+            ) VALUES (?, ?, ?)
+        """
+        if connection.backend == "postgresql":
+            insert_sql += " RETURNING id"
+
+        cursor = connection.execute(
+            insert_sql,
+            (
+                infer_family_name(customer["name"], customer["email"]),
+                email,
+                phone,
+            ),
+        )
+        family_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+
+    connection.execute(
+        "UPDATE customers SET family_id=? WHERE id=?",
+        (family_id, customer_id),
+    )
+    connection.commit()
+    connection.close()
+
+    refresh_family_metrics(family_id)
+    return family_id
+
+
+def backfill_families_from_customers() -> None:
+    """Assign customers to families without blocking application startup."""
+    connection = get_db()
+    try:
+        customer_rows = connection.execute(
+            """
+            SELECT id
+            FROM customers
+            ORDER BY id
+            """
+        ).fetchall()
+    finally:
+        connection.close()
+
+    for row in customer_rows:
+        try:
+            ensure_family_for_customer(int(row["id"]))
+        except Exception:
+            logger.exception(
+                "Family assignment failed for customer %s",
+                row["id"],
+            )
+
+
 def backfill_customers_from_orders() -> None:
     """Refresh CRM customers without blocking application startup."""
     connection = get_db()
@@ -224,7 +389,16 @@ def sync_customer_from_email(email: str) -> None:
         )
         connection.commit()
 
+    customer = connection.execute(
+        "SELECT id, family_id FROM customers WHERE email = ?",
+        (normalized_email,),
+    ).fetchone()
     connection.close()
+
+    if customer:
+        family_id = ensure_family_for_customer(int(customer["id"]))
+        if family_id:
+            refresh_family_metrics(family_id)
 
 
 def get_active_announcement() -> dict[str, Any] | None:
@@ -896,6 +1070,203 @@ def create_order():
     sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+@app.route("/admin/families")
+@login_required
+def families_dashboard():
+    backfill_customers_from_orders()
+    backfill_families_from_customers()
+
+    query = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "activity").strip()
+
+    sort_options = {
+        "name": "family_name ASC",
+        "members": "customer_count DESC, family_name ASC",
+        "orders": "order_count DESC, family_name ASC",
+        "value": "lifetime_value DESC, family_name ASC",
+        "activity": "last_activity_at DESC NULLS LAST, family_name ASC",
+    }
+    order_by = sort_options.get(sort, sort_options["activity"])
+
+    connection = get_db()
+    if query:
+        like = f"%{query.lower()}%"
+        rows = connection.execute(
+            f"""
+            SELECT *
+            FROM families
+            WHERE LOWER(family_name) LIKE ?
+               OR LOWER(primary_email) LIKE ?
+               OR LOWER(primary_phone) LIKE ?
+               OR LOWER(tags) LIKE ?
+            ORDER BY {order_by}
+            """,
+            (like, like, like, like),
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            f"SELECT * FROM families ORDER BY {order_by}"
+        ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS family_count,
+            COALESCE(SUM(customer_count), 0) AS customer_count,
+            COALESCE(SUM(order_count), 0) AS order_count,
+            COALESCE(SUM(lifetime_value), 0) AS lifetime_value
+        FROM families
+        """
+    ).fetchone()
+    connection.close()
+
+    return render_template(
+        "families.html",
+        families=[dict(row) for row in rows],
+        summary=dict(summary),
+        query=query,
+        selected_sort=sort,
+    )
+
+
+@app.route("/admin/families/<int:family_id>")
+@login_required
+def family_profile(family_id: int):
+    refresh_family_metrics(family_id)
+    connection = get_db()
+
+    family = connection.execute(
+        "SELECT * FROM families WHERE id=?",
+        (family_id,),
+    ).fetchone()
+
+    if not family:
+        connection.close()
+        return ("Family not found", 404)
+
+    customers = connection.execute(
+        """
+        SELECT id, name, email, phone, status, tags,
+               order_count, lifetime_value, last_order_at
+        FROM customers
+        WHERE family_id=?
+        ORDER BY name
+        """,
+        (family_id,),
+    ).fetchall()
+
+    orders = connection.execute(
+        """
+        SELECT DISTINCT o.id, o.order_number, o.customer_name,
+               o.status, o.total, o.created_at
+        FROM orders o
+        JOIN customers c
+          ON LOWER(TRIM(c.email)) = LOWER(TRIM(o.customer_email))
+        WHERE c.family_id=?
+        ORDER BY o.id DESC
+        """,
+        (family_id,),
+    ).fetchall()
+
+    notes = connection.execute(
+        """
+        SELECT id, note, created_at
+        FROM family_notes
+        WHERE family_id=?
+        ORDER BY id DESC
+        """,
+        (family_id,),
+    ).fetchall()
+    connection.close()
+
+    timeline = []
+    for order in orders:
+        timeline.append({
+            "kind": "order",
+            "title": f"Order {order['order_number']}",
+            "detail": (
+                f"{order['customer_name']} · {order['status']} · "
+                f"${float(order['total'] or 0):.2f}"
+            ),
+            "created_at": order["created_at"],
+            "url": url_for("order_detail", order_id=order["id"]),
+        })
+
+    for note in notes:
+        timeline.append({
+            "kind": "note",
+            "title": "Family note",
+            "detail": note["note"],
+            "created_at": note["created_at"],
+            "url": "",
+        })
+
+    timeline.sort(
+        key=lambda item: str(item["created_at"] or ""),
+        reverse=True,
+    )
+
+    return render_template(
+        "family_profile.html",
+        family=dict(family),
+        customers=[dict(row) for row in customers],
+        orders=[dict(row) for row in orders],
+        notes=[dict(row) for row in notes],
+        timeline=timeline,
+    )
+
+
+@app.route("/admin/families/<int:family_id>/save", methods=["POST"])
+@login_required
+def save_family(family_id: int):
+    connection = get_db()
+    connection.execute(
+        """
+        UPDATE families SET
+            family_name=?,
+            primary_email=?,
+            primary_phone=?,
+            tags=?,
+            notes=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (
+            request.form.get("family_name", "").strip(),
+            request.form.get("primary_email", "").strip().lower(),
+            request.form.get("primary_phone", "").strip(),
+            request.form.get("tags", "").strip(),
+            request.form.get("notes", "").strip(),
+            family_id,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    log_activity(
+        "Family updated",
+        request.form.get("family_name", "").strip(),
+    )
+    flash("Family profile saved.", "success")
+    return redirect(url_for("family_profile", family_id=family_id))
+
+
+@app.route("/admin/families/<int:family_id>/notes", methods=["POST"])
+@login_required
+def add_family_note(family_id: int):
+    note = request.form.get("note", "").strip()
+    if note:
+        connection = get_db()
+        connection.execute(
+            "INSERT INTO family_notes (family_id, note) VALUES (?, ?)",
+            (family_id, note),
+        )
+        connection.commit()
+        connection.close()
+        log_activity("Family note added", f"Family #{family_id}")
+    return redirect(url_for("family_profile", family_id=family_id))
 
 
 @app.route("/admin/customers")

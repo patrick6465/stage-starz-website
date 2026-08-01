@@ -240,9 +240,41 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS families (
+            id {id_column},
+            family_name TEXT NOT NULL,
+            primary_email TEXT NOT NULL DEFAULT '',
+            primary_phone TEXT NOT NULL DEFAULT '',
+            tags TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            customer_count INTEGER NOT NULL DEFAULT 0,
+            order_count INTEGER NOT NULL DEFAULT 0,
+            lifetime_value DOUBLE PRECISION NOT NULL DEFAULT 0,
+            last_activity_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS family_notes (
+            id {id_column},
+            family_id INTEGER NOT NULL,
+            note TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         customer_columns = [
+            ("family_id", "INTEGER"),
             ("phone", "TEXT NOT NULL DEFAULT ''"),
             ("status", "TEXT NOT NULL DEFAULT 'Active'"),
             ("tags", "TEXT NOT NULL DEFAULT ''"),
@@ -268,6 +300,7 @@ def init_db() -> None:
             ).fetchall()
         }
         sqlite_customer_columns = [
+            ("family_id", "INTEGER"),
             ("phone", "TEXT NOT NULL DEFAULT ''"),
             ("status", "TEXT NOT NULL DEFAULT 'Active'"),
             ("tags", "TEXT NOT NULL DEFAULT ''"),
