@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import sqlite3
 import uuid
 from functools import wraps
@@ -103,6 +104,15 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS homepage_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+
     cursor.execute("SELECT COUNT(*) AS count FROM products")
     if cursor.fetchone()["count"] == 0:
         starter_products = [
@@ -150,6 +160,27 @@ def init_db() -> None:
     for key, value in defaults.items():
         cursor.execute(
             "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+            (key, value),
+        )
+
+    homepage_defaults = {
+        "announcement_enabled": "1",
+        "announcement_text": "Fall registration is now open!",
+        "hero_kicker": "Dance. Grow. Shine.",
+        "hero_title": "Where every dancer gets their moment to shine.",
+        "hero_subtitle": "Recreational and competitive dance training for ages 3 and up in Temperance, Michigan.",
+        "hero_image": "",
+        "primary_button_text": "Explore Classes",
+        "primary_button_link": "classes.html",
+        "secondary_button_text": "Register Now",
+        "secondary_button_link": "registration.html",
+        "countdown_enabled": "0",
+        "countdown_label": "Fall Classes Begin In",
+        "countdown_date": "",
+    }
+    for key, value in homepage_defaults.items():
+        cursor.execute(
+            "INSERT OR IGNORE INTO homepage_settings (key, value) VALUES (?, ?)",
             (key, value),
         )
 
@@ -217,6 +248,95 @@ def get_settings() -> dict[str, str]:
     return {row["key"]: row["value"] for row in rows}
 
 
+def get_homepage_settings() -> dict[str, str]:
+    connection = get_db()
+    rows = connection.execute(
+        "SELECT key, value FROM homepage_settings"
+    ).fetchall()
+    connection.close()
+    return {row["key"]: row["value"] for row in rows}
+
+
+def homepage_runtime_injection(settings: dict[str, str]) -> str:
+    payload = json.dumps(settings).replace("</", "<\\/")
+    return f"""
+<style id="stage-starz-homepage-runtime-styles">
+  .ss-countdown {{
+    max-width:1180px;margin:24px auto;padding:18px 22px;border-radius:20px;
+    color:#fff;text-align:center;
+    background:linear-gradient(110deg,#8c3cac,#e91e8c,#20bfc4);
+    box-shadow:0 18px 45px rgba(72,28,95,.2)
+  }}
+  .ss-countdown strong {{font-size:clamp(1.65rem,4vw,3rem);display:block;line-height:1.1}}
+  .ss-countdown span {{font-weight:900;letter-spacing:.04em}}
+</style>
+<script>
+(() => {{
+  const s = {payload};
+  const on = value => value === "1" || value === "true";
+
+  const topbar = document.querySelector(".topbar");
+  if (topbar) {{
+    if (on(s.announcement_enabled) && s.announcement_text) {{
+      topbar.innerHTML = `<span>${{s.announcement_text}}</span>`;
+      topbar.style.display = "";
+    }} else {{
+      topbar.style.display = "none";
+    }}
+  }}
+
+  const kicker = document.querySelector(".hero .kicker");
+  if (kicker && s.hero_kicker) kicker.textContent = s.hero_kicker;
+
+  const title = document.querySelector(".hero h1");
+  if (title && s.hero_title) title.textContent = s.hero_title;
+
+  const subtitle = document.querySelector(".hero-copy");
+  if (subtitle && s.hero_subtitle) subtitle.textContent = s.hero_subtitle;
+
+  const hero = document.querySelector(".hero");
+  if (hero && s.hero_image) {{
+    hero.style.backgroundImage =
+      `linear-gradient(90deg,rgba(0,0,0,.30),rgba(0,0,0,.90)), url("${{s.hero_image}}")`;
+  }}
+
+  const buttons = document.querySelectorAll(".hero .actions a");
+  if (buttons[0]) {{
+    if (s.primary_button_text) buttons[0].textContent = s.primary_button_text;
+    if (s.primary_button_link) buttons[0].href = s.primary_button_link;
+  }}
+  if (buttons[1]) {{
+    if (s.secondary_button_text) buttons[1].textContent = s.secondary_button_text;
+    if (s.secondary_button_link) buttons[1].href = s.secondary_button_link;
+  }}
+
+  if (on(s.countdown_enabled) && s.countdown_date) {{
+    const target = new Date(s.countdown_date + "T00:00:00");
+    const panel = document.createElement("section");
+    panel.className = "ss-countdown";
+    panel.innerHTML = `<span>${{s.countdown_label || "Countdown"}}</span><strong id="ssCountdownValue"></strong>`;
+    const heroSection = document.querySelector(".hero");
+    if (heroSection) heroSection.insertAdjacentElement("afterend", panel);
+
+    const update = () => {{
+      const difference = target.getTime() - Date.now();
+      const value = document.getElementById("ssCountdownValue");
+      if (!value) return;
+      if (difference <= 0) {{
+        value.textContent = "Today!";
+        return;
+      }}
+      const days = Math.ceil(difference / 86400000);
+      value.textContent = `${{days}} Day${{days === 1 ? "" : "s"}}`;
+    }};
+    update();
+    setInterval(update, 60000);
+  }}
+}})();
+</script>
+"""
+
+
 def log_activity(action: str, detail: str = "") -> None:
     connection = get_db()
     connection.execute(
@@ -229,7 +349,17 @@ def log_activity(action: str, detail: str = "") -> None:
 
 @app.route("/")
 def website_home():
-    return send_from_directory(BASE_DIR / "site", "index.html")
+    homepage_path = BASE_DIR / "site" / "index.html"
+    if not homepage_path.exists():
+        return ("Homepage not found", 404)
+
+    html = homepage_path.read_text(encoding="utf-8")
+    injection = homepage_runtime_injection(get_homepage_settings())
+    if "</body>" in html:
+        html = html.replace("</body>", injection + "\n</body>", 1)
+    else:
+        html += injection
+    return app.response_class(html, mimetype="text/html")
 
 
 @app.route("/health")
@@ -425,6 +555,81 @@ def admin_search():
         page_results=page_results,
         media_results=media_results,
     )
+
+
+@app.route("/admin/website/homepage")
+@login_required
+def homepage_editor():
+    media_files = sorted(
+        [
+            {"name": path.name, "url": f"/uploads/{path.name}"}
+            for path in UPLOAD_FOLDER.iterdir()
+            if path.is_file() and allowed_image(path.name)
+        ],
+        key=lambda item: item["name"].lower(),
+    )
+    return render_template(
+        "homepage_editor.html",
+        homepage=get_homepage_settings(),
+        media_files=media_files,
+    )
+
+
+@app.route("/admin/website/homepage/save", methods=["POST"])
+@login_required
+def save_homepage():
+    allowed = {
+        "announcement_enabled",
+        "announcement_text",
+        "hero_kicker",
+        "hero_title",
+        "hero_subtitle",
+        "hero_image",
+        "primary_button_text",
+        "primary_button_link",
+        "secondary_button_text",
+        "secondary_button_link",
+        "countdown_enabled",
+        "countdown_label",
+        "countdown_date",
+    }
+
+    hero_image = request.form.get("hero_image", "").strip()
+    try:
+        uploaded = save_uploaded_image(request.files.get("hero_image_upload"))
+        if uploaded:
+            hero_image = uploaded
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(url_for("homepage_editor"))
+
+    values = {
+        key: request.form.get(key, "").strip()
+        for key in allowed
+    }
+    values["announcement_enabled"] = (
+        "1" if request.form.get("announcement_enabled") == "on" else "0"
+    )
+    values["countdown_enabled"] = (
+        "1" if request.form.get("countdown_enabled") == "on" else "0"
+    )
+    values["hero_image"] = hero_image
+
+    connection = get_db()
+    for key, value in values.items():
+        connection.execute(
+            """
+            INSERT INTO homepage_settings (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value
+            """,
+            (key, value),
+        )
+    connection.commit()
+    connection.close()
+
+    log_activity("Homepage updated", "Hero, announcement, buttons, or countdown changed")
+    flash("Homepage changes published.", "success")
+    return redirect(url_for("homepage_editor"))
 
 
 @app.route("/admin/store")

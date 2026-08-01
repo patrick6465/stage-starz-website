@@ -1,30 +1,28 @@
-STAGE STARZ COMMAND CENTER V2
+STAGE STARZ HOMEPAGE EDITOR V1
 
 REPLACE:
 - app.py
 - templates/dashboard.html
-- templates/admin.html
 
 ADD:
-- templates/search.html
-
-KEEP your existing store.html and media.html unless you deliberately want to replace them.
+- templates/homepage_editor.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py templates/dashboard.html templates/admin.html templates/search.html
-git commit -m "Upgrade Stage Starz Command Center"
+git add app.py templates/dashboard.html templates/homepage_editor.html
+git commit -m "Add homepage editor"
 git push origin railway-deployment
 
-NEW FEATURES:
-- Expandable module navigation
-- Global search for products, website pages, and uploaded media
-- Notification drawer
-- Administrator profile drawer
-- Quick-create panel
-- Automatic recent activity log
-- Inventory alert cards
-- Responsive mobile navigation
+OPEN:
+- /admin/website/homepage
 
-DATABASE:
-A new activity_log table is added automatically. Existing products and settings are preserved.
+CONTROLS:
+- Announcement bar on/off and text
+- Hero kicker, headline and supporting text
+- Hero background image upload or media selection
+- Primary and secondary button text/links
+- Optional countdown label and date
+- Live homepage preview
+
+The editor does not rewrite site/index.html. It safely injects the saved settings
+at runtime, preserving the current design and main-site image paths.
