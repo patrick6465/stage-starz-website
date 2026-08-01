@@ -228,10 +228,15 @@ def uploaded_file(filename: str):
 
 @app.route("/<path:filename>")
 def website_file(filename: str):
-    """Serve the remaining existing website pages and assets."""
-    requested = BASE_DIR / "site" / filename
-    if requested.exists() and requested.is_file():
+    """Serve main website pages and shared root-level assets."""
+    site_file = BASE_DIR / "site" / filename
+    if site_file.exists() and site_file.is_file():
         return send_from_directory(BASE_DIR / "site", filename)
+
+    root_file = BASE_DIR / filename
+    if root_file.exists() and root_file.is_file():
+        return send_from_directory(BASE_DIR, filename)
+
     return ("Page not found", 404)
 
 
