@@ -264,6 +264,38 @@ def init_db() -> None:
         """
     )
 
+    # Early PostgreSQL versions may have created these date fields as TEXT.
+    # Convert them to proper TIMESTAMP columns before dashboard queries run.
+    if connection.backend == "postgresql":
+        for table_name in ("orders", "activity_log", "announcements"):
+            column_type = cursor.execute(
+                """
+                SELECT data_type
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = ?
+                  AND column_name = 'created_at'
+                """,
+                (table_name,),
+            ).fetchone()
+
+            if column_type and column_type["data_type"] in (
+                "text",
+                "character varying",
+            ):
+                cursor.execute(
+                    f"""
+                    ALTER TABLE {table_name}
+                    ALTER COLUMN created_at TYPE TIMESTAMP
+                    USING CASE
+                        WHEN created_at IS NULL
+                          OR BTRIM(created_at::text) = ''
+                        THEN CURRENT_TIMESTAMP
+                        ELSE created_at::timestamp
+                    END
+                    """
+                )
+
     if cursor.execute("SELECT COUNT(*) AS count FROM products").fetchone()["count"] == 0:
         starter_products = [
             (
@@ -744,8 +776,8 @@ def admin_dashboard():
             SELECT COALESCE(SUM(total), 0) AS amount
             FROM orders
             WHERE status != 'Cancelled'
-              AND created_at >= ?
-              AND created_at < ?
+              AND created_at::timestamp >= ?
+              AND created_at::timestamp < ?
             """,
             (today_start, tomorrow_start),
         ).fetchone()["amount"]
@@ -755,8 +787,8 @@ def admin_dashboard():
             SELECT COALESCE(SUM(total), 0) AS amount
             FROM orders
             WHERE status != 'Cancelled'
-              AND created_at >= ?
-              AND created_at < ?
+              AND created_at::timestamp >= ?
+              AND created_at::timestamp < ?
             """,
             (month_start, next_month_start),
         ).fetchone()["amount"]
