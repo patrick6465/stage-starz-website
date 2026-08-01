@@ -27,6 +27,7 @@ class DatabaseConnection:
                 DATABASE_URL,
                 row_factory=dict_row,
                 autocommit=False,
+                connect_timeout=5,
             )
         else:
             self.backend = "sqlite"

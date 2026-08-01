@@ -267,23 +267,37 @@ def log_activity(action: str, detail: str = "") -> None:
 
 @app.route("/health")
 def health_check():
+    """Railway liveness check: confirms the web process is accepting requests."""
+    return jsonify({
+        "status": "ok",
+        "service": "stage-starz-website",
+    }), 200
+
+
+@app.route("/ready")
+def readiness_check():
+    """Readiness diagnostic: verifies the configured database connection."""
     backend = "postgresql" if USE_POSTGRES else "sqlite"
+    connection = None
     try:
         connection = get_db()
         connection.execute("SELECT 1 AS ok").fetchone()
-        connection.close()
-        database_status = "connected"
-        status_code = 200
-    except Exception:
-        logger.exception("Database health check failed")
-        database_status = "unavailable"
-        status_code = 503
-
-    return jsonify({
-        "status": "ok" if status_code == 200 else "degraded",
-        "database": database_status,
-        "backend": backend,
-    }), status_code
+        return jsonify({
+            "status": "ready",
+            "database": "connected",
+            "backend": backend,
+        }), 200
+    except Exception as error:
+        logger.exception("Database readiness check failed")
+        return jsonify({
+            "status": "not_ready",
+            "database": "unavailable",
+            "backend": backend,
+            "error": type(error).__name__,
+        }), 503
+    finally:
+        if connection is not None:
+            connection.close()
 
 
 @app.errorhandler(500)
