@@ -1,28 +1,20 @@
-STAGE STARZ HOMEPAGE EDITOR V1
+STAGE STARZ HOMEPAGE EDITOR + ADMIN LINK FIX
 
 REPLACE:
 - app.py
 - templates/dashboard.html
 
-ADD:
-- templates/homepage_editor.html
+KEEP/VERIFY:
+- templates/homepage_editor.html must already exist from the Homepage Editor update.
 
 INSTALL:
 git checkout railway-deployment
-git add app.py templates/dashboard.html templates/homepage_editor.html
-git commit -m "Add homepage editor"
+git add app.py templates/dashboard.html
+git commit -m "Fix homepage editor link and add admin shortcut"
 git push origin railway-deployment
 
-OPEN:
-- /admin/website/homepage
-
-CONTROLS:
-- Announcement bar on/off and text
-- Hero kicker, headline and supporting text
-- Hero background image upload or media selection
-- Primary and secondary button text/links
-- Optional countdown label and date
-- Live homepage preview
-
-The editor does not rewrite site/index.html. It safely injects the saved settings
-at runtime, preserving the current design and main-site image paths.
+AFTER RAILWAY REDEPLOYS:
+- Open /admin
+- Homepage Editor should be an active link, with no "Next" label.
+- The main homepage will show a discreet Admin button in the lower-right corner.
+- The Admin button opens /admin and uses the existing secure login.

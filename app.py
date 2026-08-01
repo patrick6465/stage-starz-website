@@ -269,6 +269,22 @@ def homepage_runtime_injection(settings: dict[str, str]) -> str:
   }}
   .ss-countdown strong {{font-size:clamp(1.65rem,4vw,3rem);display:block;line-height:1.1}}
   .ss-countdown span {{font-weight:900;letter-spacing:.04em}}
+  .ss-admin-link {{
+    position:fixed;right:16px;bottom:16px;z-index:9998;
+    display:inline-flex;align-items:center;gap:7px;
+    padding:9px 13px;border-radius:999px;
+    color:#fff!important;background:rgba(12,7,23,.76);
+    border:1px solid rgba(255,255,255,.22);
+    box-shadow:0 10px 28px rgba(0,0,0,.25);
+    backdrop-filter:blur(14px);
+    font:800 12px/1 Inter,system-ui,sans-serif;
+    text-decoration:none!important;opacity:.72;
+    transition:.2s ease
+  }}
+  .ss-admin-link:hover {{opacity:1;transform:translateY(-2px)}}
+  @media(max-width:640px) {{
+    .ss-admin-link {{right:10px;bottom:10px;padding:8px 11px}}
+  }}
 </style>
 <script>
 (() => {{
@@ -308,6 +324,15 @@ def homepage_runtime_injection(settings: dict[str, str]) -> str:
   if (buttons[1]) {{
     if (s.secondary_button_text) buttons[1].textContent = s.secondary_button_text;
     if (s.secondary_button_link) buttons[1].href = s.secondary_button_link;
+  }}
+
+  if (!document.querySelector(".ss-admin-link")) {{
+    const adminLink = document.createElement("a");
+    adminLink.className = "ss-admin-link";
+    adminLink.href = "/admin";
+    adminLink.setAttribute("aria-label", "Stage Starz administrator login");
+    adminLink.innerHTML = "⚙ Admin";
+    document.body.appendChild(adminLink);
   }}
 
   if (on(s.countdown_enabled) && s.countdown_date) {{
