@@ -64,7 +64,7 @@ def login_required(view):
     return wrapped
 
 
-def rows_to_products(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
+def rows_to_products(rows: list[Any]) -> list[dict[str, Any]]:
     products = []
     for row in rows:
         item = dict(row)

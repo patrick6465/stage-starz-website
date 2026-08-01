@@ -57,19 +57,6 @@ class DatabaseConnection:
         self.connection.close()
 
 
-app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
-app.config.update(
-    MAX_CONTENT_LENGTH=MAX_IMAGE_BYTES,
-    SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE="Lax",
-    SESSION_COOKIE_SECURE=os.environ.get("FLASK_ENV") == "production",
-)
-
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "StageStarz123!")
-
-
 def get_db() -> DatabaseConnection:
     return DatabaseConnection()
 
