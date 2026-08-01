@@ -348,48 +348,5 @@ def init_db() -> None:
             (key, value),
         )
 
-    # Build or refresh customer records from all non-cancelled orders.
-    order_customers = cursor.execute(
-        """
-        SELECT
-            LOWER(TRIM(customer_email)) AS email_key,
-            MAX(customer_name) AS customer_name,
-            MAX(customer_email) AS customer_email,
-            MAX(customer_phone) AS customer_phone,
-            COUNT(*) AS order_count,
-            COALESCE(SUM(total), 0) AS lifetime_value,
-            MAX(created_at) AS last_order_at
-        FROM orders
-        WHERE status != 'Cancelled'
-          AND TRIM(customer_email) != ''
-        GROUP BY LOWER(TRIM(customer_email))
-        """
-    ).fetchall()
-
-    for customer in order_customers:
-        cursor.execute(
-            """
-            INSERT INTO customers (
-                name, email, phone, order_count,
-                lifetime_value, last_order_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(email) DO UPDATE SET
-                name=excluded.name,
-                phone=excluded.phone,
-                order_count=excluded.order_count,
-                lifetime_value=excluded.lifetime_value,
-                last_order_at=excluded.last_order_at,
-                updated_at=CURRENT_TIMESTAMP
-            """,
-            (
-                customer["customer_name"] or "Customer",
-                customer["email_key"],
-                customer["customer_phone"] or "",
-                int(customer["order_count"] or 0),
-                float(customer["lifetime_value"] or 0),
-                customer["last_order_at"],
-            ),
-        )
-
     connection.commit()
     connection.close()

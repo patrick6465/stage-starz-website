@@ -124,6 +124,58 @@ def get_homepage_settings() -> dict[str, str]:
     return {row["key"]: row["value"] for row in rows}
 
 
+def backfill_customers_from_orders() -> None:
+    """Refresh CRM customers without blocking application startup."""
+    connection = get_db()
+    try:
+        rows = connection.execute(
+            """
+            SELECT
+                LOWER(TRIM(customer_email)) AS email_key,
+                MAX(customer_name) AS customer_name,
+                MAX(customer_phone) AS customer_phone,
+                COUNT(*) AS order_count,
+                COALESCE(SUM(total), 0) AS lifetime_value,
+                MAX(created_at) AS last_order_at
+            FROM orders
+            WHERE status != 'Cancelled'
+              AND TRIM(customer_email) != ''
+            GROUP BY LOWER(TRIM(customer_email))
+            """
+        ).fetchall()
+
+        for customer in rows:
+            connection.execute(
+                """
+                INSERT INTO customers (
+                    name, email, phone, order_count,
+                    lifetime_value, last_order_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(email) DO UPDATE SET
+                    name=excluded.name,
+                    phone=excluded.phone,
+                    order_count=excluded.order_count,
+                    lifetime_value=excluded.lifetime_value,
+                    last_order_at=excluded.last_order_at,
+                    updated_at=CURRENT_TIMESTAMP
+                """,
+                (
+                    customer["customer_name"] or "Customer",
+                    customer["email_key"],
+                    customer["customer_phone"] or "",
+                    int(customer["order_count"] or 0),
+                    float(customer["lifetime_value"] or 0),
+                    customer["last_order_at"],
+                ),
+            )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        logger.exception("Customer CRM backfill failed")
+    finally:
+        connection.close()
+
+
 def sync_customer_from_email(email: str) -> None:
     normalized_email = email.strip().lower()
     if not normalized_email:
@@ -814,6 +866,7 @@ def create_order():
 @app.route("/admin/customers")
 @login_required
 def customers_dashboard():
+    backfill_customers_from_orders()
     query = request.args.get("q", "").strip()
     sort = request.args.get("sort", "last_order").strip()
 

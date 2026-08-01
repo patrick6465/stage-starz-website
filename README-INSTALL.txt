@@ -1,40 +1,30 @@
-STAGE STARZ CRM — CUSTOMERS V1
+STAGE STARZ CRM V1 — STARTUP-SAFE FIX
+
+WHY THE DEPLOYMENT FAILED:
+The CRM tried to backfill all customers while the application was starting.
+If that SQL operation failed for any reason, Gunicorn never opened the network
+port and Railway reported a network health-check failure.
 
 REPLACE:
 - app.py
 - database.py
-- templates/dashboard.html
-
-ADD:
-- templates/customers.html
-- templates/customer_profile.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py database.py templates/dashboard.html templates/customers.html templates/customer_profile.html
-git commit -m "Add Stage Starz customer CRM"
+git add app.py database.py
+git commit -m "Make CRM customer migration startup safe"
 git push origin railway-deployment
 
-WHAT THIS ADDS:
-- PostgreSQL customers table
-- PostgreSQL customer_notes table
-- Automatic backfill from existing non-cancelled orders
-- Automatic customer creation and updates after every new order
-- Customer totals refresh after order status changes
-- Searchable and sortable Customers page
-- Customer lifetime value and order counts
-- Customer profile pages
-- Editable name, phone, status, tags and profile notes
-- Dated customer note history
-- Linked order history
-- Customers navigation in Command Center
-
-OPEN:
-- /admin/customers
+HOW THIS VERSION WORKS:
+- Startup only creates the customers and customer_notes tables.
+- The web server becomes healthy before any CRM data backfill runs.
+- Existing orders are converted into customers when /admin/customers opens.
+- A backfill error is logged but cannot take the website offline.
+- New orders still create or update customers automatically.
 
 VERIFY:
-1. Railway deployment is Active.
-2. /health passes.
-3. /ready reports PostgreSQL ready.
-4. /admin/customers shows customers created from existing orders.
-5. Open a customer and confirm their linked order history.
+1. Railway deployment becomes Active.
+2. /health returns status ok.
+3. /ready returns status ready.
+4. Open /admin.
+5. Open /admin/customers and confirm existing order customers appear.
