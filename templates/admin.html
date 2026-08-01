@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Store Admin</title>
+<title>Stage Starz Store Manager</title>
 <style>
 :root{--purple:#6f35c5;--teal:#16a4b8;--bg:#f6f3fa;--border:#ded7e8}
 *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:#202234}
@@ -15,7 +15,7 @@ button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text
 @media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
 </style></head>
 <body>
-<header><div><strong>Stage Starz Command Center</strong></div><div><a href="/store" target="_blank">View Store</a> &nbsp; <a href="/admin/media">Media Library</a> &nbsp; <a href="/admin/logout">Log Out</a></div></header>
+<header><div><strong>Stage Starz Store Manager</strong></div><div><a href="/admin">Command Center</a> &nbsp; <a href="/store" target="_blank">View Store</a> &nbsp; <a href="/admin/media">Media Library</a> &nbsp; <a href="/admin/logout">Log Out</a></div></header>
 <div class="wrap">
   {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="card">{{ message }}</div>{% endfor %}{% endwith %}
   <section class="card">

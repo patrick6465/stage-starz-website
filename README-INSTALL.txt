@@ -1,31 +1,27 @@
-STAGE STARZ PHASE 1 — MEDIA MANAGER
-
-Replace/add these files in the railway-deployment branch:
+STAGE STARZ COMMAND CENTER V1
 
 REPLACE:
 - app.py
 - templates/admin.html
-- templates/store.html
-
-ADD:
 - templates/media.html
 
-Then run:
+ADD:
+- templates/dashboard.html
+
+The existing templates/store.html is included as a matching backup but does not
+need to be replaced if your current store is working correctly.
+
+INSTALL:
 git checkout railway-deployment
-git add app.py templates/admin.html templates/store.html templates/media.html
-git commit -m "Start Phase 1 media manager"
+git add app.py templates/admin.html templates/media.html templates/dashboard.html
+git commit -m "Add Stage Starz Command Center"
 git push origin railway-deployment
 
-Railway will redeploy automatically.
+ROUTES:
+- /admin          New Command Center
+- /admin/store    Store Manager
+- /admin/media    Media Library
+- /               Main website
+- /store          Customer storefront
 
-Your existing /data volume is used for uploaded photos. Optional Railway variable:
-UPLOAD_FOLDER=/data/uploads
-
-This update adds:
-- Direct product photo uploads
-- Persistent Railway image storage
-- Media Library at /admin/media
-- Safe image deletion
-- 10 MB image limit
-- Existing color toggle support
-- Automatic database migration with no product loss
+This version uses the existing products database and does not delete or reset data.

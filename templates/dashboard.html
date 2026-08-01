@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stage Starz Command Center</title>
+<style>
+:root{
+  --night:#0c0717;--night2:#17102a;--panel:rgba(255,255,255,.085);
+  --line:rgba(255,255,255,.14);--white:#fff;--muted:#bcb4cc;
+  --purple:#9b4dcc;--pink:#ef3d98;--teal:#50d6d0;--gold:#f0ca73;
+  --danger:#ff6c7d;--warning:#ffc867;--success:#62e6aa;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;color:var(--white);
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(155,77,204,.34),transparent 28rem),
+    radial-gradient(circle at 95% 12%,rgba(80,214,208,.18),transparent 28rem),
+    linear-gradient(145deg,var(--night),var(--night2));
+}
+a{text-decoration:none;color:inherit}
+.shell{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+.sidebar{
+  position:sticky;top:0;height:100vh;padding:24px 18px;
+  background:rgba(8,4,18,.72);border-right:1px solid var(--line);
+  backdrop-filter:blur(22px);
+}
+.brand{display:flex;gap:12px;align-items:center;padding:8px 8px 25px}
+.brand-mark{width:46px;height:46px;border-radius:16px;display:grid;place-items:center;font-size:1.4rem;background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal));box-shadow:0 12px 30px rgba(239,61,152,.26)}
+.brand strong{display:block;font-size:1.05rem}.brand small{color:var(--muted)}
+.nav-label{padding:15px 10px 8px;color:#8f849f;text-transform:uppercase;letter-spacing:.13em;font-size:.69rem;font-weight:900}
+.nav a{display:flex;align-items:center;gap:11px;padding:12px 13px;margin:4px 0;border-radius:13px;color:#e6dff0;font-weight:750}
+.nav a:hover,.nav a.active{background:linear-gradient(90deg,rgba(239,61,152,.18),rgba(80,214,208,.10));color:#fff}
+.sidebar-bottom{position:absolute;left:18px;right:18px;bottom:22px}
+.main{padding:28px clamp(18px,4vw,52px) 60px;min-width:0}
+.topbar{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:26px}
+.topbar h1{margin:0;font-size:clamp(1.7rem,4vw,2.75rem);letter-spacing:-.04em}
+.topbar p{margin:7px 0 0;color:var(--muted)}
+.live{display:flex;align-items:center;gap:8px;color:var(--success);font-weight:850;background:rgba(98,230,170,.09);border:1px solid rgba(98,230,170,.22);padding:9px 13px;border-radius:999px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--success);box-shadow:0 0 14px var(--success)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:22px}
+.card{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(16px);border-radius:22px;box-shadow:0 20px 60px rgba(0,0,0,.18)}
+.stat{padding:20px;position:relative;overflow:hidden}
+.stat:after{content:"";position:absolute;width:90px;height:90px;border-radius:50%;right:-28px;top:-35px;background:var(--glow,rgba(155,77,204,.22))}
+.stat-icon{font-size:1.4rem;margin-bottom:18px}.stat-value{font-size:clamp(1.75rem,4vw,2.55rem);font-weight:950;letter-spacing:-.05em}.stat-label{color:var(--muted);font-size:.88rem;margin-top:3px}
+.grid{display:grid;grid-template-columns:1.25fr .75fr;gap:18px;margin-bottom:18px}
+.section{padding:22px}.section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:17px}.section-head h2{font-size:1.15rem;margin:0}.section-head a{font-size:.84rem;color:var(--teal);font-weight:850}
+.quick-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.quick{padding:17px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.045);transition:.2s}
+.quick:hover{transform:translateY(-2px);border-color:rgba(80,214,208,.48)}.quick .icon{font-size:1.35rem}.quick strong{display:block;margin:9px 0 3px}.quick small{color:var(--muted)}
+.list{display:grid;gap:10px}.item{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:13px 14px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);border-radius:14px}
+.item strong{display:block}.item small{color:var(--muted)}.badge{font-size:.75rem;font-weight:900;border-radius:999px;padding:7px 10px;background:rgba(255,200,103,.12);color:var(--warning);white-space:nowrap}
+.empty{color:var(--muted);text-align:center;padding:25px}
+.system-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.system{padding:15px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.04)}.system span{display:block;color:var(--muted);font-size:.78rem}.system strong{display:block;margin-top:6px}
+.mobile-nav{display:none}
+@media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+@media(max-width:760px){
+  .shell{display:block}.sidebar{display:none}.main{padding:20px 14px 92px}.topbar{align-items:flex-start}.live{font-size:.78rem}.stats{grid-template-columns:1fr 1fr;gap:10px}.stat{padding:16px}.quick-grid,.system-grid{grid-template-columns:1fr}
+  .mobile-nav{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:10px;right:10px;bottom:10px;z-index:30;border:1px solid var(--line);background:rgba(12,7,23,.92);backdrop-filter:blur(22px);border-radius:18px;padding:7px}.mobile-nav a{text-align:center;font-size:.7rem;color:var(--muted)}.mobile-nav b{display:block;font-size:1.2rem;color:#fff}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark">★</div><div><strong>Stage Starz</strong><small>Command Center</small></div></div>
+    <div class="nav">
+      <div class="nav-label">Overview</div>
+      <a class="active" href="/admin">◈ Dashboard</a>
+      <div class="nav-label">Manage</div>
+      <a href="/admin/store">🛍 Store Manager</a>
+      <a href="/admin/media">🖼 Media Library</a>
+      <a href="/" target="_blank">🌐 Main Website</a>
+      <a href="/store" target="_blank">🛒 View Store</a>
+      <div class="nav-label">Coming Next</div>
+      <a href="#" onclick="return false">🏠 Homepage Editor</a>
+      <a href="#" onclick="return false">📦 Orders</a>
+      <a href="#" onclick="return false">📊 Reports</a>
+    </div>
+    <div class="sidebar-bottom"><a href="/admin/logout" style="display:block;padding:12px;color:#cfc5da">↪ Log Out</a></div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div><h1>Command Center</h1><p>Your Stage Starz website and store at a glance.</p></div>
+      <div class="live"><span class="dot"></span> System Online</div>
+    </div>
+
+    <section class="stats">
+      <article class="card stat" style="--glow:rgba(80,214,208,.22)"><div class="stat-icon">🛍</div><div class="stat-value">{{ stats.active_products }}</div><div class="stat-label">Active products</div></article>
+      <article class="card stat" style="--glow:rgba(255,200,103,.23)"><div class="stat-icon">⚠</div><div class="stat-value">{{ stats.low_stock }}</div><div class="stat-label">Low-stock products</div></article>
+      <article class="card stat" style="--glow:rgba(239,61,152,.24)"><div class="stat-icon">📦</div><div class="stat-value">{{ stats.total_units }}</div><div class="stat-label">Units in inventory</div></article>
+      <article class="card stat" style="--glow:rgba(155,77,204,.25)"><div class="stat-icon">💎</div><div class="stat-value">${{ "{:,.0f}".format(stats.inventory_value) }}</div><div class="stat-label">Retail inventory value</div></article>
+    </section>
+
+    <section class="grid">
+      <article class="card section">
+        <div class="section-head"><h2>Quick Actions</h2></div>
+        <div class="quick-grid">
+          <a class="quick" href="/admin/store"><span class="icon">➕</span><strong>Add or edit products</strong><small>Prices, inventory, options and photos</small></a>
+          <a class="quick" href="/admin/media"><span class="icon">🖼</span><strong>Manage media</strong><small>Upload and organize store images</small></a>
+          <a class="quick" href="/" target="_blank"><span class="icon">🌐</span><strong>Preview main website</strong><small>Open the public Stage Starz site</small></a>
+          <a class="quick" href="/store" target="_blank"><span class="icon">🛒</span><strong>Preview storefront</strong><small>See the customer shopping experience</small></a>
+        </div>
+      </article>
+
+      <article class="card section">
+        <div class="section-head"><h2>Inventory Alerts</h2><a href="/admin/store">Manage</a></div>
+        <div class="list">
+          {% for product in low_stock_products %}
+          <div class="item"><div><strong>{{ product.name }}</strong><small>{{ product.category }}</small></div><span class="badge">{{ product.stock }} left</span></div>
+          {% else %}
+          <div class="empty">No low-stock products right now.</div>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card section">
+        <div class="section-head"><h2>Current Catalog</h2><a href="/admin/store">Open Store Manager</a></div>
+        <div class="list">
+          {% for product in recent_products %}
+          <div class="item"><div><strong>{{ product.name }}</strong><small>{{ product.category }} · {{ product.stock }} in stock</small></div><span class="badge">${{ "%.2f"|format(product.sale_price if product.sale_price is not none else product.price) }}</span></div>
+          {% else %}
+          <div class="empty">No products have been added yet.</div>
+          {% endfor %}
+        </div>
+      </article>
+
+      <article class="card section">
+        <div class="section-head"><h2>System Snapshot</h2></div>
+        <div class="system-grid">
+          <div class="system"><span>Categories</span><strong>{{ stats.categories }}</strong></div>
+          <div class="system"><span>Media files</span><strong>{{ stats.media_count }}</strong></div>
+          <div class="system"><span>Hidden products</span><strong>{{ stats.hidden_products }}</strong></div>
+          <div class="system"><span>Out of stock</span><strong>{{ stats.out_of_stock }}</strong></div>
+          <div class="system"><span>Name charge</span><strong>${{ settings.name_fee }}</strong></div>
+          <div class="system"><span>Order email</span><strong style="font-size:.82rem;word-break:break-word">{{ settings.order_email }}</strong></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</div>
+
+<nav class="mobile-nav">
+  <a href="/admin"><b>◈</b>Home</a>
+  <a href="/admin/store"><b>🛍</b>Store</a>
+  <a href="/admin/media"><b>🖼</b>Media</a>
+  <a href="/"><b>🌐</b>Site</a>
+</nav>
+</body>
+</html>

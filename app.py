@@ -278,11 +278,68 @@ def admin_logout():
 @login_required
 def admin_dashboard():
     connection = get_db()
-    rows = connection.execute("SELECT * FROM products ORDER BY category, name").fetchall()
+    rows = connection.execute(
+        "SELECT * FROM products ORDER BY active DESC, category, name"
+    ).fetchall()
     connection.close()
+
     products = rows_to_products(rows)
-    settings = get_settings()
-    return render_template("admin.html", products=products, settings=settings)
+    active_products = [product for product in products if product["active"]]
+    low_stock_products = [
+        product for product in active_products
+        if 0 < int(product["stock"]) <= 5
+    ]
+    out_of_stock_products = [
+        product for product in active_products
+        if int(product["stock"]) <= 0
+    ]
+    total_units = sum(max(int(product["stock"]), 0) for product in active_products)
+    inventory_value = sum(
+        max(int(product["stock"]), 0)
+        * float(product["sale_price"] if product["sale_price"] is not None else product["price"])
+        for product in active_products
+    )
+    categories = sorted({
+        product["category"] for product in active_products if product["category"]
+    })
+    media_count = sum(
+        1 for path in UPLOAD_FOLDER.iterdir()
+        if path.is_file() and allowed_image(path.name)
+    )
+
+    stats = {
+        "active_products": len(active_products),
+        "hidden_products": len(products) - len(active_products),
+        "low_stock": len(low_stock_products),
+        "out_of_stock": len(out_of_stock_products),
+        "total_units": total_units,
+        "inventory_value": inventory_value,
+        "categories": len(categories),
+        "media_count": media_count,
+    }
+
+    return render_template(
+        "dashboard.html",
+        stats=stats,
+        low_stock_products=low_stock_products[:6],
+        recent_products=active_products[:6],
+        settings=get_settings(),
+    )
+
+
+@app.route("/admin/store")
+@login_required
+def store_manager():
+    connection = get_db()
+    rows = connection.execute(
+        "SELECT * FROM products ORDER BY category, name"
+    ).fetchall()
+    connection.close()
+    return render_template(
+        "admin.html",
+        products=rows_to_products(rows),
+        settings=get_settings(),
+    )
 
 
 @app.route("/admin/media")
@@ -356,7 +413,7 @@ def save_product():
         connection = get_db(); remaining = connection.execute("SELECT COUNT(*) AS count FROM products WHERE image_url = ?", (existing_image_url,)).fetchone()["count"]; connection.close()
         if remaining == 0: delete_uploaded_image(existing_image_url)
     flash("Product saved.", "success")
-    return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("store_manager"))
 
 
 @app.route("/admin/product/<int:product_id>/delete", methods=["POST"])
@@ -366,7 +423,7 @@ def delete_product(product_id: int):
     connection.execute("DELETE FROM products WHERE id = ?", (product_id,))
     connection.commit()
     connection.close()
-    return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("store_manager"))
 
 
 @app.route("/admin/settings/save", methods=["POST"])
@@ -396,7 +453,7 @@ def save_settings():
         )
     connection.commit()
     connection.close()
-    return redirect(url_for("admin_dashboard"))
+    return redirect(url_for("store_manager"))
 
 
 init_db()
