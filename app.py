@@ -32,6 +32,10 @@ from flask import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
+
+ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 
@@ -260,7 +264,6 @@ def init_db() -> None:
         """
     )
 
-    cursor.execute("SELECT COUNT(*) AS count FROM products")
     if cursor.execute("SELECT COUNT(*) AS count FROM products").fetchone()["count"] == 0:
         starter_products = [
             (
