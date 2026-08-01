@@ -1,1 +1,185 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Stage Starz Sales Reports</title><style>:root{--purple:#6f35c5;--teal:#16a4b8;--ink:#202234;--muted:#6d7180;--bg:#f4f2f7;--border:#ded7e8;--success:#16815d;--warning:#b66b08}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}header{padding:18px 5vw;background:linear-gradient(115deg,#4d1f91,var(--purple),var(--teal));color:#fff;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}header a{color:#fff;text-decoration:none;font-weight:900;margin-left:14px}.shell{width:min(1350px,calc(100% - 28px));margin:24px auto 50px}.small{color:var(--muted);font-size:.85rem}.filters,.card,.metric{background:#fff;border:1px solid var(--border);border-radius:15px;padding:16px}.filters{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:18px 0}.filters label{font-size:.78rem;font-weight:900;color:var(--muted)}.filters input,.filters select,.filters button{display:block;padding:10px;border-radius:9px;border:1px solid #cbc3d6;margin-top:5px}.filters button{background:var(--purple);color:#fff;border:0;font-weight:900}.metrics{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}.metric span{display:block;color:var(--muted);font-size:.72rem;font-weight:900;text-transform:uppercase}.metric strong{display:block;font-size:1.55rem;margin-top:7px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.wide{grid-column:1/-1}.card h2{margin:0 0 12px}.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:left;padding:9px;border-bottom:1px solid var(--border);font-size:.86rem}.table th{font-size:.73rem;text-transform:uppercase;color:var(--muted)}.bar-row{display:grid;grid-template-columns:110px 1fr 90px;gap:10px;align-items:center;margin:9px 0;font-size:.82rem}.bar{height:18px;background:#ece8f2;border-radius:999px;overflow:hidden}.fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--teal));border-radius:999px}.good{color:var(--success)}.warn{color:var(--warning)}@media(max-width:1050px){.metrics{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.metrics{grid-template-columns:1fr 1fr}.bar-row{grid-template-columns:85px 1fr 70px}}@media(max-width:480px){.metrics{grid-template-columns:1fr}}</style></head><body><header><strong>★ Stage Starz Sales Reports</strong><nav><a href="/admin">Products</a><a href="/admin/orders">Orders</a><a href="/admin/customers">Customers</a><a href="/store" target="_blank">View Store</a></nav></header><main class="shell"><h1>Sales Dashboard</h1><p class="small">Review sales performance, products, customers, payments, and order status.</p><form class="filters" method="get"><label>Quick range<select name="range"><option value="7" {% if selected_range=='7' %}selected{% endif %}>Last 7 days</option><option value="30" {% if selected_range=='30' %}selected{% endif %}>Last 30 days</option><option value="90" {% if selected_range=='90' %}selected{% endif %}>Last 90 days</option><option value="year" {% if selected_range=='year' %}selected{% endif %}>This year</option><option value="all" {% if selected_range=='all' %}selected{% endif %}>All time</option></select></label><label>Start date<input type="date" name="start" value="{{ start if selected_range=='custom' else '' }}"></label><label>End date<input type="date" name="end" value="{{ end if selected_range=='custom' else '' }}"></label><button>Update Report</button></form><section class="metrics"><div class="metric"><span>Gross sales</span><strong>${{ '%.2f'|format(summary.gross_sales or 0) }}</strong></div><div class="metric"><span>Paid sales</span><strong class="good">${{ '%.2f'|format(summary.paid_sales or 0) }}</strong></div><div class="metric"><span>Awaiting payment</span><strong class="warn">${{ '%.2f'|format(summary.unpaid_sales or 0) }}</strong></div><div class="metric"><span>Orders</span><strong>{{ summary.total_orders or 0 }}</strong></div><div class="metric"><span>Average order</span><strong>${{ '%.2f'|format(summary.average_order or 0) }}</strong></div><div class="metric"><span>Units sold</span><strong>{{ summary.units_sold or 0 }}</strong></div></section><section class="grid"><article class="card wide"><h2>Daily Sales</h2>{% for row in daily_sales %}<div class="bar-row"><span>{{ row.sale_date }}</span><div class="bar"><div class="fill" style="width:{{ ((row.sales or 0) / max_daily * 100) if max_daily else 0 }}%"></div></div><strong>${{ '%.2f'|format(row.sales or 0) }}</strong></div>{% else %}<p class="small">No sales were recorded during this period.</p>{% endfor %}</article><article class="card"><h2>Top Products</h2><table class="table"><thead><tr><th>Product</th><th>Units</th><th>Sales</th></tr></thead><tbody>{% for row in top_products %}<tr><td>{{ row.product_name }}</td><td>{{ row.units }}</td><td>${{ '%.2f'|format(row.sales or 0) }}</td></tr>{% else %}<tr><td colspan="3" class="small">No product sales yet.</td></tr>{% endfor %}</tbody></table></article><article class="card"><h2>Top Customers</h2><table class="table"><thead><tr><th>Customer</th><th>Orders</th><th>Spent</th></tr></thead><tbody>{% for row in top_customers %}<tr><td>{% if row.customer_id %}<a href="/admin/customer/{{ row.customer_id }}">{{ row.name }}</a>{% else %}{{ row.name }}{% endif %}<div class="small">{{ row.email }}</div></td><td>{{ row.orders }}</td><td>${{ '%.2f'|format(row.spending or 0) }}</td></tr>{% else %}<tr><td colspan="3" class="small">No customers in this period.</td></tr>{% endfor %}</tbody></table></article><article class="card"><h2>Revenue Breakdown</h2><table class="table"><tbody><tr><td>Merchandise</td><td>${{ '%.2f'|format(summary.merchandise_sales or 0) }}</td></tr><tr><td>Add-a-Name fees</td><td>${{ '%.2f'|format(summary.name_fees or 0) }}</td></tr><tr><td>Fulfillment fees</td><td>${{ '%.2f'|format(summary.fulfillment_fees or 0) }}</td></tr><tr><td>Shipping</td><td>${{ '%.2f'|format(summary.shipping or 0) }}</td></tr><tr><td>Tax collected</td><td>${{ '%.2f'|format(summary.tax or 0) }}</td></tr></tbody></table></article><article class="card"><h2>Order Status</h2><table class="table"><thead><tr><th>Status</th><th>Orders</th><th>Total</th></tr></thead><tbody>{% for row in status_breakdown %}<tr><td>{{ row.status }}</td><td>{{ row.orders }}</td><td>${{ '%.2f'|format(row.total or 0) }}</td></tr>{% else %}<tr><td colspan="3" class="small">No orders in this period.</td></tr>{% endfor %}</tbody></table></article></section></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reports & Analytics | Stage Starz</title>
+<style>
+:root{
+  --night:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;
+  --pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867;
+  --success:#62e6aa;--danger:#ff6c7d;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;color:#fff;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  background:
+    radial-gradient(circle at 8% 0%,rgba(155,77,204,.31),transparent 28rem),
+    radial-gradient(circle at 95% 8%,rgba(80,214,208,.14),transparent 28rem),
+    var(--night);
+}
+a{text-decoration:none;color:inherit}
+.header{
+  position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;
+  gap:16px;align-items:center;padding:17px clamp(16px,4vw,48px);
+  border-bottom:1px solid var(--line);background:rgba(12,7,23,.94);
+  backdrop-filter:blur(18px)
+}
+.header h1{margin:0;font-size:1.3rem}
+.links{display:flex;gap:14px;flex-wrap:wrap;color:#e3dae9;font-weight:800}
+.wrap{width:min(1380px,calc(100% - 28px));margin:24px auto 60px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.card{
+  background:rgba(255,255,255,.07);border:1px solid var(--line);
+  border-radius:20px;padding:20px;box-shadow:0 20px 55px rgba(0,0,0,.17)
+}
+.stat{position:relative;overflow:hidden}
+.stat:after{content:"";position:absolute;width:95px;height:95px;border-radius:50%;right:-35px;top:-38px;background:var(--glow)}
+.value{font-size:clamp(1.7rem,4vw,2.45rem);font-weight:950;letter-spacing:-.05em}
+.label{color:var(--muted);font-size:.87rem;margin-top:4px}
+.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-bottom:18px}
+h2{margin:0 0 16px;font-size:1.12rem}
+.chart{display:flex;align-items:end;gap:8px;height:250px;padding-top:18px}
+.bar-wrap{flex:1;min-width:0;text-align:center}
+.bar{
+  width:100%;min-height:3px;border-radius:8px 8px 3px 3px;
+  background:linear-gradient(180deg,var(--teal),var(--purple),var(--pink));
+  box-shadow:0 8px 20px rgba(80,214,208,.16)
+}
+.bar-label{font-size:.65rem;color:var(--muted);margin-top:7px;white-space:nowrap;overflow:hidden}
+.bar-value{font-size:.65rem;color:#fff;margin-bottom:5px}
+.list{display:grid;gap:10px}
+.item{
+  display:flex;justify-content:space-between;align-items:center;gap:14px;
+  padding:12px 13px;border:1px solid rgba(255,255,255,.08);
+  background:rgba(255,255,255,.04);border-radius:14px
+}
+.item strong{display:block}.item small{color:var(--muted)}
+.badge{padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.12);color:var(--teal);font-size:.74rem;font-weight:900;white-space:nowrap}
+.badge.warn{background:rgba(255,200,103,.13);color:var(--gold)}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line)}
+th{color:#cfc3da;font-size:.74rem;text-transform:uppercase;letter-spacing:.06em}
+.empty{text-align:center;color:var(--muted);padding:28px}
+.mini-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.mini{padding:16px;border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.04)}
+.mini span{display:block;color:var(--muted);font-size:.78rem}.mini strong{display:block;margin-top:6px;font-size:1.2rem}
+@media(max-width:1050px){.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+@media(max-width:650px){.stats{grid-template-columns:1fr 1fr;gap:9px}.card{padding:16px}.chart{height:210px}.mini-grid{grid-template-columns:1fr}.table-wrap{overflow:auto}table{min-width:620px}}
+</style>
+</head>
+<body>
+<header class="header">
+  <h1>📊 Reports & Analytics</h1>
+  <nav class="links">
+    <a href="/admin">Command Center</a>
+    <a href="/admin/orders">Orders</a>
+    <a href="/admin/store">Store Manager</a>
+    <a href="/store" target="_blank">View Store</a>
+  </nav>
+</header>
+
+<main class="wrap">
+  <section class="stats">
+    <article class="card stat" style="--glow:rgba(80,214,208,.22)">
+      <div class="value">${{ "{:,.2f}".format(overview.revenue or 0) }}</div>
+      <div class="label">Total order revenue</div>
+    </article>
+    <article class="card stat" style="--glow:rgba(155,77,204,.24)">
+      <div class="value">{{ overview.valid_orders or 0 }}</div>
+      <div class="label">Non-cancelled orders</div>
+    </article>
+    <article class="card stat" style="--glow:rgba(239,61,152,.23)">
+      <div class="value">${{ "{:,.2f}".format(overview.average_order or 0) }}</div>
+      <div class="label">Average order value</div>
+    </article>
+    <article class="card stat" style="--glow:rgba(255,200,103,.23)">
+      <div class="value">${{ "{:,.0f}".format(inventory_value) }}</div>
+      <div class="label">Current inventory value</div>
+    </article>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h2>Recent Daily Revenue</h2>
+      {% if recent_sales %}
+      <div class="chart">
+        {% for day in recent_sales %}
+        <div class="bar-wrap">
+          <div class="bar-value">${{ "%.0f"|format(day.revenue or 0) }}</div>
+          <div class="bar" style="height:{{ [((day.revenue or 0) / max_daily_revenue * 190)|round, 3]|max }}px"></div>
+          <div class="bar-label">{{ day.order_date[5:] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">Revenue charts will appear after orders are submitted.</div>
+      {% endif %}
+    </article>
+
+    <article class="card">
+      <h2>Business Snapshot</h2>
+      <div class="mini-grid">
+        <div class="mini"><span>Completed orders</span><strong>{{ overview.completed_orders or 0 }}</strong></div>
+        <div class="mini"><span>Cancelled orders</span><strong>{{ overview.cancelled_orders or 0 }}</strong></div>
+        <div class="mini"><span>Inventory units</span><strong>{{ inventory_units }}</strong></div>
+        <div class="mini"><span>Low-stock products</span><strong>{{ low_stock|length }}</strong></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h2>Best-Selling Products</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Product</th><th>Units</th><th>Revenue</th></tr></thead>
+          <tbody>
+          {% for product in best_sellers %}
+          <tr><td><strong>{{ product.product_name }}</strong></td><td>{{ product.units }}</td><td>${{ "%.2f"|format(product.revenue or 0) }}</td></tr>
+          {% else %}
+          <tr><td colspan="3" class="empty">Best sellers will appear after orders are placed.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Payment Mix</h2>
+      <div class="list">
+        {% for method in payment_mix %}
+        <div class="item"><div><strong>{{ method.payment_method }}</strong><small>{{ method.orders }} order(s)</small></div><span class="badge">${{ "%.2f"|format(method.revenue or 0) }}</span></div>
+        {% else %}
+        <div class="empty">No payment data yet.</div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h2>Order Status Breakdown</h2>
+      <div class="list">
+        {% for status in status_mix %}
+        <div class="item"><div><strong>{{ status.status }}</strong><small>{{ status.orders }} order(s)</small></div><span class="badge">${{ "%.2f"|format(status.revenue or 0) }}</span></div>
+        {% else %}
+        <div class="empty">No order statuses yet.</div>
+        {% endfor %}
+      </div>
+    </article>
+
+    <article class="card">
+      <h2>Inventory Attention</h2>
+      <div class="list">
+        {% for product in low_stock %}
+        <div class="item"><div><strong>{{ product.name }}</strong><small>{{ product.category }}</small></div><span class="badge warn">{{ product.stock }} left</span></div>
+        {% else %}
+        <div class="empty">No low-stock products.</div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+</main>
+</body>
+</html>

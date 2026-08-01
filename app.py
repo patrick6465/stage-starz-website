@@ -802,6 +802,103 @@ def update_order_status(order_id: int):
     return redirect(url_for("order_detail", order_id=order_id))
 
 
+@app.route("/admin/reports")
+@login_required
+def reports_dashboard():
+    connection = get_db()
+
+    overview = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS total_orders,
+            SUM(CASE WHEN status != 'Cancelled' THEN 1 ELSE 0 END) AS valid_orders,
+            COALESCE(SUM(CASE WHEN status != 'Cancelled' THEN total ELSE 0 END), 0) AS revenue,
+            COALESCE(AVG(CASE WHEN status != 'Cancelled' THEN total END), 0) AS average_order,
+            SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) AS completed_orders,
+            SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled_orders
+        FROM orders
+        """
+    ).fetchone()
+
+    recent_sales = connection.execute(
+        """
+        SELECT
+            substr(created_at, 1, 10) AS order_date,
+            COUNT(*) AS orders,
+            COALESCE(SUM(total), 0) AS revenue
+        FROM orders
+        WHERE status != 'Cancelled'
+        GROUP BY substr(created_at, 1, 10)
+        ORDER BY order_date DESC
+        LIMIT 14
+        """
+    ).fetchall()
+
+    payment_mix = connection.execute(
+        """
+        SELECT payment_method, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
+        FROM orders
+        WHERE status != 'Cancelled'
+        GROUP BY payment_method
+        ORDER BY orders DESC
+        """
+    ).fetchall()
+
+    status_mix = connection.execute(
+        """
+        SELECT status, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
+        FROM orders
+        GROUP BY status
+        ORDER BY orders DESC
+        """
+    ).fetchall()
+
+    best_sellers = connection.execute(
+        """
+        SELECT
+            product_name,
+            SUM(quantity) AS units,
+            COALESCE(SUM((item_price + name_fee + fulfillment_fee) * quantity), 0) AS revenue
+        FROM order_items
+        GROUP BY product_name
+        ORDER BY units DESC, revenue DESC
+        LIMIT 10
+        """
+    ).fetchall()
+
+    product_rows = connection.execute(
+        "SELECT * FROM products WHERE active = 1 ORDER BY stock ASC, name"
+    ).fetchall()
+    connection.close()
+
+    products = rows_to_products(product_rows)
+    low_stock = [p for p in products if int(p["stock"]) <= 5]
+    inventory_units = sum(max(int(p["stock"]), 0) for p in products)
+    inventory_value = sum(
+        max(int(p["stock"]), 0)
+        * float(p["sale_price"] if p["sale_price"] is not None else p["price"])
+        for p in products
+    )
+
+    recent_sales = list(reversed([dict(row) for row in recent_sales]))
+    max_daily_revenue = max(
+        [float(row["revenue"] or 0) for row in recent_sales] or [1]
+    )
+
+    return render_template(
+        "reports.html",
+        overview=dict(overview),
+        recent_sales=recent_sales,
+        payment_mix=[dict(row) for row in payment_mix],
+        status_mix=[dict(row) for row in status_mix],
+        best_sellers=[dict(row) for row in best_sellers],
+        low_stock=low_stock[:10],
+        inventory_units=inventory_units,
+        inventory_value=inventory_value,
+        max_daily_revenue=max_daily_revenue,
+    )
+
+
 @app.route("/admin/announcements")
 @login_required
 def announcement_manager():
