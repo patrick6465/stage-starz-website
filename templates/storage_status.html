@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>System Storage | Stage Starz</title>
+<style>
+:root{--night:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--success:#62e6aa;--danger:#ff6c7d}
+*{box-sizing:border-box}body{margin:0;background:#0c0717;color:#fff;font-family:Inter,system-ui,sans-serif}a{text-decoration:none;color:inherit}
+header{padding:18px 4vw;display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}
+.wrap{width:min(1050px,calc(100% - 28px));margin:24px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:21px;margin-bottom:17px}
+.status{display:flex;align-items:center;gap:12px;padding:15px;border-radius:14px;background:rgba(98,230,170,.1);border:1px solid rgba(98,230,170,.25)}
+.status.bad{background:rgba(255,108,125,.1);border-color:rgba(255,108,125,.3)}.dot{width:13px;height:13px;border-radius:50%;background:var(--success)}.bad .dot{background:var(--danger)}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:13px}.item{padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.04)}.item span{display:block;color:var(--muted);font-size:.78rem}.item strong{display:block;margin-top:5px;word-break:break-word}
+.counts{display:grid;grid-template-columns:repeat(5,1fr);gap:11px}.count{text-align:center;padding:16px;border:1px solid var(--line);border-radius:14px}.count strong{font-size:1.7rem;display:block}.count span{color:var(--muted);font-size:.75rem}
+code{display:block;padding:13px;border-radius:11px;background:#090512;overflow:auto}
+@media(max-width:750px){.grid,.counts{grid-template-columns:1fr 1fr}}@media(max-width:450px){.grid,.counts{grid-template-columns:1fr}}
+</style></head>
+<body>
+<header><strong>💾 System Storage</strong><nav><a href="/admin">Command Center</a> &nbsp; <a href="/admin/orders">Orders</a></nav></header>
+<main class="wrap">
+<section class="card">
+<div class="status {% if not info.is_persistent %}bad{% endif %}"><span class="dot"></span><div><strong>{% if info.is_persistent %}Persistent storage is active{% else %}Persistent storage is not confirmed{% endif %}</strong><div>{% if info.is_persistent %}Orders and uploads are stored on the Railway volume.{% else %}Fix the Railway volume before accepting real orders.{% endif %}</div></div></div>
+</section>
+<section class="card"><h2>Storage Details</h2><div class="grid">
+<div class="item"><span>Railway volume mount</span><strong>{{ info.volume_mount_path }}</strong></div>
+<div class="item"><span>Database path</span><strong>{{ info.database_path }}</strong></div>
+<div class="item"><span>Upload folder</span><strong>{{ info.upload_folder }}</strong></div>
+<div class="item"><span>Database size</span><strong>{{ info.database_size }} bytes</strong></div>
+<div class="item"><span>Startup result</span><strong>{{ info.startup_state }}</strong></div>
+<div class="item"><span>Persistent</span><strong>{{ 'Yes' if info.is_persistent else 'No' }}</strong></div>
+</div></section>
+<section class="card"><h2>Database Records</h2><div class="counts">
+{% for table,count in counts.items() %}<div class="count"><strong>{{ count }}</strong><span>{{ table }}</span></div>{% endfor %}
+</div></section>
+<section class="card"><h2>Required Railway Configuration</h2><p>Attach one volume to this service. Recommended mount path:</p><code>/data</code><p>The application now automatically uses <code>RAILWAY_VOLUME_MOUNT_PATH</code>. Optional explicit variables:</p><code>DATABASE_PATH=/data/store.db
+UPLOAD_FOLDER=/data/uploads</code></section>
+</main></body></html>

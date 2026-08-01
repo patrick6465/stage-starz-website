@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+import shutil
 import sqlite3
 from datetime import date
 import uuid
@@ -24,10 +25,59 @@ from flask import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = Path(os.environ.get("DATABASE_PATH", str(BASE_DIR / "data" / "store.db")))
+
+# Always prefer Railway's attached persistent volume. Railway provides
+# RAILWAY_VOLUME_MOUNT_PATH automatically when a volume is connected.
+VOLUME_MOUNT_PATH = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "").strip()
+EXPLICIT_DATABASE_PATH = os.environ.get("DATABASE_PATH", "").strip()
+EXPLICIT_UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "").strip()
+
+if EXPLICIT_DATABASE_PATH:
+    DB_PATH = Path(EXPLICIT_DATABASE_PATH)
+elif VOLUME_MOUNT_PATH:
+    DB_PATH = Path(VOLUME_MOUNT_PATH) / "store.db"
+else:
+    DB_PATH = BASE_DIR / "data" / "store.db"
+
+if EXPLICIT_UPLOAD_FOLDER:
+    UPLOAD_FOLDER = Path(EXPLICIT_UPLOAD_FOLDER)
+elif VOLUME_MOUNT_PATH:
+    UPLOAD_FOLDER = Path(VOLUME_MOUNT_PATH) / "uploads"
+else:
+    UPLOAD_FOLDER = DB_PATH.parent / "uploads"
+
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-UPLOAD_FOLDER = Path(os.environ.get("UPLOAD_FOLDER", str(DB_PATH.parent / "uploads")))
 UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+
+
+def recover_legacy_database() -> str:
+    """Copy an older database into the persistent target when possible."""
+    if DB_PATH.exists() and DB_PATH.stat().st_size > 0:
+        return "existing"
+
+    candidates = [
+        BASE_DIR / "data" / "store.db",
+        BASE_DIR / "store.db",
+        Path("/data/store.db"),
+        Path("/app/data/store.db"),
+    ]
+
+    for candidate in candidates:
+        try:
+            if (
+                candidate.resolve() != DB_PATH.resolve()
+                and candidate.exists()
+                and candidate.is_file()
+                and candidate.stat().st_size > 0
+            ):
+                shutil.copy2(candidate, DB_PATH)
+                return f"recovered:{candidate}"
+        except OSError:
+            continue
+    return "new"
+
+
+DATABASE_STARTUP_STATE = recover_legacy_database()
 ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
@@ -538,6 +588,41 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
+@app.route("/admin/system/storage")
+@login_required
+def storage_status():
+    connection = get_db()
+    tables = {
+        row["name"]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()
+    }
+    counts = {}
+    for table in ("products", "orders", "order_items", "announcements", "activity_log"):
+        if table in tables:
+            counts[table] = connection.execute(
+                f"SELECT COUNT(*) AS count FROM {table}"
+            ).fetchone()["count"]
+        else:
+            counts[table] = 0
+    connection.close()
+
+    info = {
+        "database_path": str(DB_PATH),
+        "database_exists": DB_PATH.exists(),
+        "database_size": DB_PATH.stat().st_size if DB_PATH.exists() else 0,
+        "upload_folder": str(UPLOAD_FOLDER),
+        "volume_mount_path": VOLUME_MOUNT_PATH or "Not detected",
+        "startup_state": DATABASE_STARTUP_STATE,
+        "is_persistent": bool(
+            VOLUME_MOUNT_PATH
+            and str(DB_PATH).startswith(str(Path(VOLUME_MOUNT_PATH)))
+        ),
+    }
+    return render_template("storage_status.html", info=info, counts=counts)
+
+
 @app.route("/admin")
 @login_required
 def admin_dashboard():
@@ -606,6 +691,19 @@ def admin_dashboard():
             "level": "info",
             "title": "Media library is empty",
             "detail": "Upload reusable product and website images.",
+        })
+
+    if not VOLUME_MOUNT_PATH:
+        notifications.insert(0, {
+            "level": "danger",
+            "title": "Persistent Railway volume not detected",
+            "detail": "Orders and uploads may disappear after the next deployment. Open System Storage.",
+        })
+    elif not str(DB_PATH).startswith(str(Path(VOLUME_MOUNT_PATH))):
+        notifications.insert(0, {
+            "level": "danger",
+            "title": "Database is outside the Railway volume",
+            "detail": f"Current database path: {DB_PATH}",
         })
 
     connection = get_db()
