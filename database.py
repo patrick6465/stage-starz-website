@@ -240,6 +240,53 @@ def init_db() -> None:
         """
     )
 
+    # Upgrade older customer tables created by earlier CRM versions.
+    if connection.backend == "postgresql":
+        customer_columns = [
+            ("phone", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Active'"),
+            ("tags", "TEXT NOT NULL DEFAULT ''"),
+            ("notes", "TEXT NOT NULL DEFAULT ''"),
+            ("order_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("lifetime_value", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+            ("last_order_at", "TIMESTAMP"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in customer_columns:
+            cursor.execute(
+                f"""
+                ALTER TABLE customers
+                ADD COLUMN IF NOT EXISTS {column_name} {column_definition}
+                """
+            )
+    else:
+        existing_customer_columns = {
+            row["name"]
+            for row in cursor.execute(
+                "PRAGMA table_info(customers)"
+            ).fetchall()
+        }
+        sqlite_customer_columns = [
+            ("phone", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Active'"),
+            ("tags", "TEXT NOT NULL DEFAULT ''"),
+            ("notes", "TEXT NOT NULL DEFAULT ''"),
+            ("order_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("lifetime_value", "REAL NOT NULL DEFAULT 0"),
+            ("last_order_at", "TIMESTAMP"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_customer_columns:
+            if column_name not in existing_customer_columns:
+                cursor.execute(
+                    f"""
+                    ALTER TABLE customers
+                    ADD COLUMN {column_name} {column_definition}
+                    """
+                )
+
     # Early PostgreSQL versions may have created these date fields as TEXT.
     # Convert them to proper TIMESTAMP columns before dashboard queries run.
     if connection.backend == "postgresql":
