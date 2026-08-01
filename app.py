@@ -124,6 +124,57 @@ def get_homepage_settings() -> dict[str, str]:
     return {row["key"]: row["value"] for row in rows}
 
 
+def sync_customer_from_email(email: str) -> None:
+    normalized_email = email.strip().lower()
+    if not normalized_email:
+        return
+
+    connection = get_db()
+    summary = connection.execute(
+        """
+        SELECT
+            MAX(customer_name) AS customer_name,
+            MAX(customer_email) AS customer_email,
+            MAX(customer_phone) AS customer_phone,
+            COUNT(*) AS order_count,
+            COALESCE(SUM(total), 0) AS lifetime_value,
+            MAX(created_at) AS last_order_at
+        FROM orders
+        WHERE status != 'Cancelled'
+          AND LOWER(TRIM(customer_email)) = ?
+        """,
+        (normalized_email,),
+    ).fetchone()
+
+    if summary and int(summary["order_count"] or 0) > 0:
+        connection.execute(
+            """
+            INSERT INTO customers (
+                name, email, phone, order_count,
+                lifetime_value, last_order_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(email) DO UPDATE SET
+                name=excluded.name,
+                phone=excluded.phone,
+                order_count=excluded.order_count,
+                lifetime_value=excluded.lifetime_value,
+                last_order_at=excluded.last_order_at,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                summary["customer_name"] or "Customer",
+                normalized_email,
+                summary["customer_phone"] or "",
+                int(summary["order_count"] or 0),
+                float(summary["lifetime_value"] or 0),
+                summary["last_order_at"],
+            ),
+        )
+        connection.commit()
+
+    connection.close()
+
+
 def get_active_announcement() -> dict[str, Any] | None:
     today = date.today().isoformat()
     connection = get_db()
@@ -755,8 +806,153 @@ def create_order():
         )
     connection.commit()
     connection.close()
+    sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+@app.route("/admin/customers")
+@login_required
+def customers_dashboard():
+    query = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "last_order").strip()
+
+    sort_options = {
+        "name": "name ASC",
+        "orders": "order_count DESC, name ASC",
+        "lifetime": "lifetime_value DESC, name ASC",
+        "last_order": "last_order_at DESC NULLS LAST, name ASC",
+    }
+    order_by = sort_options.get(sort, sort_options["last_order"])
+
+    connection = get_db()
+    if query:
+        like = f"%{query.lower()}%"
+        rows = connection.execute(
+            f"""
+            SELECT *
+            FROM customers
+            WHERE LOWER(name) LIKE ?
+               OR LOWER(email) LIKE ?
+               OR LOWER(phone) LIKE ?
+               OR LOWER(tags) LIKE ?
+            ORDER BY {order_by}
+            """,
+            (like, like, like, like),
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            f"SELECT * FROM customers ORDER BY {order_by}"
+        ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS customer_count,
+            COALESCE(SUM(order_count), 0) AS total_orders,
+            COALESCE(SUM(lifetime_value), 0) AS lifetime_value,
+            COALESCE(AVG(lifetime_value), 0) AS average_value
+        FROM customers
+        """
+    ).fetchone()
+    connection.close()
+
+    return render_template(
+        "customers.html",
+        customers=[dict(row) for row in rows],
+        summary=dict(summary),
+        query=query,
+        selected_sort=sort,
+    )
+
+
+@app.route("/admin/customers/<int:customer_id>")
+@login_required
+def customer_profile(customer_id: int):
+    connection = get_db()
+    customer = connection.execute(
+        "SELECT * FROM customers WHERE id = ?",
+        (customer_id,),
+    ).fetchone()
+
+    if not customer:
+        connection.close()
+        return ("Customer not found", 404)
+
+    orders = connection.execute(
+        """
+        SELECT id, order_number, status, total, payment_method, created_at
+        FROM orders
+        WHERE LOWER(TRIM(customer_email)) = ?
+        ORDER BY id DESC
+        """,
+        (customer["email"].strip().lower(),),
+    ).fetchall()
+
+    notes = connection.execute(
+        """
+        SELECT id, note, created_at
+        FROM customer_notes
+        WHERE customer_id = ?
+        ORDER BY id DESC
+        """,
+        (customer_id,),
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "customer_profile.html",
+        customer=dict(customer),
+        orders=[dict(row) for row in orders],
+        notes=[dict(row) for row in notes],
+    )
+
+
+@app.route("/admin/customers/<int:customer_id>/save", methods=["POST"])
+@login_required
+def save_customer(customer_id: int):
+    connection = get_db()
+    connection.execute(
+        """
+        UPDATE customers SET
+            name=?,
+            phone=?,
+            status=?,
+            tags=?,
+            notes=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (
+            request.form.get("name", "").strip(),
+            request.form.get("phone", "").strip(),
+            request.form.get("status", "Active").strip(),
+            request.form.get("tags", "").strip(),
+            request.form.get("notes", "").strip(),
+            customer_id,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    log_activity("Customer updated", request.form.get("name", "").strip())
+    flash("Customer profile saved.", "success")
+    return redirect(url_for("customer_profile", customer_id=customer_id))
+
+
+@app.route("/admin/customers/<int:customer_id>/notes", methods=["POST"])
+@login_required
+def add_customer_note(customer_id: int):
+    note = request.form.get("note", "").strip()
+    if note:
+        connection = get_db()
+        connection.execute(
+            "INSERT INTO customer_notes (customer_id, note) VALUES (?, ?)",
+            (customer_id, note),
+        )
+        connection.commit()
+        connection.close()
+        log_activity("Customer note added", f"Customer #{customer_id}")
+    return redirect(url_for("customer_profile", customer_id=customer_id))
 
 
 @app.route("/admin/orders")
@@ -809,6 +1005,14 @@ def update_order_status(order_id: int):
     connection.commit()
     connection.close()
     if order:
+        order_customer = get_db()
+        customer_row = order_customer.execute(
+            "SELECT customer_email FROM orders WHERE id = ?",
+            (order_id,),
+        ).fetchone()
+        order_customer.close()
+        if customer_row:
+            sync_customer_from_email(customer_row["customer_email"])
         log_activity("Order status updated", f"{order['order_number']} → {status}")
     flash("Order status updated.", "success")
     return redirect(url_for("order_detail", order_id=order_id))

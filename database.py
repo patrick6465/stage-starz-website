@@ -209,6 +209,37 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS customers (
+            id {id_column},
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            phone TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Active',
+            tags TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            order_count INTEGER NOT NULL DEFAULT 0,
+            lifetime_value DOUBLE PRECISION NOT NULL DEFAULT 0,
+            last_order_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS customer_notes (
+            id {id_column},
+            customer_id INTEGER NOT NULL,
+            note TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Early PostgreSQL versions may have created these date fields as TEXT.
     # Convert them to proper TIMESTAMP columns before dashboard queries run.
     if connection.backend == "postgresql":
@@ -315,6 +346,49 @@ def init_db() -> None:
             ON CONFLICT(key) DO NOTHING
             """,
             (key, value),
+        )
+
+    # Build or refresh customer records from all non-cancelled orders.
+    order_customers = cursor.execute(
+        """
+        SELECT
+            LOWER(TRIM(customer_email)) AS email_key,
+            MAX(customer_name) AS customer_name,
+            MAX(customer_email) AS customer_email,
+            MAX(customer_phone) AS customer_phone,
+            COUNT(*) AS order_count,
+            COALESCE(SUM(total), 0) AS lifetime_value,
+            MAX(created_at) AS last_order_at
+        FROM orders
+        WHERE status != 'Cancelled'
+          AND TRIM(customer_email) != ''
+        GROUP BY LOWER(TRIM(customer_email))
+        """
+    ).fetchall()
+
+    for customer in order_customers:
+        cursor.execute(
+            """
+            INSERT INTO customers (
+                name, email, phone, order_count,
+                lifetime_value, last_order_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(email) DO UPDATE SET
+                name=excluded.name,
+                phone=excluded.phone,
+                order_count=excluded.order_count,
+                lifetime_value=excluded.lifetime_value,
+                last_order_at=excluded.last_order_at,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                customer["customer_name"] or "Customer",
+                customer["email_key"],
+                customer["customer_phone"] or "",
+                int(customer["order_count"] or 0),
+                float(customer["lifetime_value"] or 0),
+                customer["last_order_at"],
+            ),
         )
 
     connection.commit()
