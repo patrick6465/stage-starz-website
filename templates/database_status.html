@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Database Status | Stage Starz</title>
+<style>
+:root{--night:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--teal:#50d6d0;--danger:#ff6c7d;--success:#62e6aa}
+*{box-sizing:border-box}body{margin:0;background:#0c0717;color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}
+header{padding:18px 4vw;display:flex;justify-content:space-between;border-bottom:1px solid var(--line)}.wrap{width:min(1000px,calc(100% - 28px));margin:24px auto}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:21px;margin-bottom:17px}.status{display:flex;align-items:center;gap:12px}.dot{width:14px;height:14px;border-radius:50%;background:var(--success);box-shadow:0 0 16px var(--success)}
+.bad .dot{background:var(--danger);box-shadow:0 0 16px var(--danger)}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.item{padding:14px;border:1px solid var(--line);border-radius:14px}.item span{display:block;color:var(--muted);font-size:.78rem}.item strong{display:block;margin-top:5px;word-break:break-word}
+.counts{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.count{text-align:center;padding:15px;border:1px solid var(--line);border-radius:14px}.count strong{display:block;font-size:1.6rem}.count span{color:var(--muted);font-size:.72rem}
+@media(max-width:700px){.grid,.counts{grid-template-columns:1fr 1fr}}@media(max-width:430px){.grid,.counts{grid-template-columns:1fr}}
+</style></head>
+<body>
+<header><strong>🗄 Database Status</strong><nav><a href="/admin">Command Center</a> &nbsp; <a href="/admin/orders">Orders</a></nav></header>
+<main class="wrap">
+<section class="card"><div class="status {% if not details.postgres_configured %}bad{% endif %}"><span class="dot"></span><div><strong>{% if details.postgres_configured %}PostgreSQL connected{% else %}SQLite fallback active{% endif %}</strong><div class="muted">{% if details.postgres_configured %}Orders and business records are stored in Railway PostgreSQL.{% else %}Add the DATABASE_URL reference to the website service before accepting orders.{% endif %}</div></div></div></section>
+<section class="card"><h2>Connection</h2><div class="grid"><div class="item"><span>Backend</span><strong>{{ details.backend }}</strong></div><div class="item"><span>Host</span><strong>{{ details.host }}</strong></div><div class="item"><span>Database</span><strong>{{ details.database }}</strong></div><div class="item"><span>Port</span><strong>{{ details.port or 'Default' }}</strong></div><div class="item"><span>Uploads</span><strong>{{ details.uploads_path }}</strong></div></div></section>
+<section class="card"><h2>Record Counts</h2><div class="counts">{% for name,count in counts.items() %}<div class="count"><strong>{{ count }}</strong><span>{{ name }}</span></div>{% endfor %}</div></section>
+</main></body></html>

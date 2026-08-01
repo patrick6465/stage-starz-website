@@ -2,15 +2,22 @@ from __future__ import annotations
 
 import os
 import json
-import shutil
 import sqlite3
 from datetime import date
+from urllib.parse import urlparse
 import uuid
 from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from werkzeug.utils import secure_filename
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:
+    psycopg = None
+    dict_row = None
 
 from flask import (
     Flask,
@@ -25,61 +32,69 @@ from flask import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+USE_POSTGRES = DATABASE_URL.startswith(("postgres://", "postgresql://"))
 
-# Always prefer Railway's attached persistent volume. Railway provides
-# RAILWAY_VOLUME_MOUNT_PATH automatically when a volume is connected.
+# Uploaded files still need persistent disk storage. PostgreSQL stores records,
+# while the Railway volume stores product and website images.
 VOLUME_MOUNT_PATH = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", "").strip()
-EXPLICIT_DATABASE_PATH = os.environ.get("DATABASE_PATH", "").strip()
-EXPLICIT_UPLOAD_FOLDER = os.environ.get("UPLOAD_FOLDER", "").strip()
-
-if EXPLICIT_DATABASE_PATH:
-    DB_PATH = Path(EXPLICIT_DATABASE_PATH)
-elif VOLUME_MOUNT_PATH:
-    DB_PATH = Path(VOLUME_MOUNT_PATH) / "store.db"
-else:
-    DB_PATH = BASE_DIR / "data" / "store.db"
-
-if EXPLICIT_UPLOAD_FOLDER:
-    UPLOAD_FOLDER = Path(EXPLICIT_UPLOAD_FOLDER)
-elif VOLUME_MOUNT_PATH:
-    UPLOAD_FOLDER = Path(VOLUME_MOUNT_PATH) / "uploads"
-else:
-    UPLOAD_FOLDER = DB_PATH.parent / "uploads"
-
-DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+UPLOAD_FOLDER = Path(
+    os.environ.get(
+        "UPLOAD_FOLDER",
+        str(Path(VOLUME_MOUNT_PATH) / "uploads" if VOLUME_MOUNT_PATH else BASE_DIR / "data" / "uploads"),
+    )
+)
 UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
 
-
-def recover_legacy_database() -> str:
-    """Copy an older database into the persistent target when possible."""
-    if DB_PATH.exists() and DB_PATH.stat().st_size > 0:
-        return "existing"
-
-    candidates = [
-        BASE_DIR / "data" / "store.db",
-        BASE_DIR / "store.db",
-        Path("/data/store.db"),
-        Path("/app/data/store.db"),
-    ]
-
-    for candidate in candidates:
-        try:
-            if (
-                candidate.resolve() != DB_PATH.resolve()
-                and candidate.exists()
-                and candidate.is_file()
-                and candidate.stat().st_size > 0
-            ):
-                shutil.copy2(candidate, DB_PATH)
-                return f"recovered:{candidate}"
-        except OSError:
-            continue
-    return "new"
+SQLITE_DB_PATH = Path(
+    os.environ.get("SQLITE_DATABASE_PATH", str(BASE_DIR / "data" / "store.db"))
+)
+SQLITE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 
-DATABASE_STARTUP_STATE = recover_legacy_database()
-ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif"}
-MAX_IMAGE_BYTES = 10 * 1024 * 1024
+class DatabaseConnection:
+    """Small compatibility layer for PostgreSQL and SQLite."""
+
+    def __init__(self):
+        if USE_POSTGRES:
+            if psycopg is None:
+                raise RuntimeError(
+                    "DATABASE_URL is configured but psycopg is not installed."
+                )
+            self.backend = "postgresql"
+            self.connection = psycopg.connect(
+                DATABASE_URL,
+                row_factory=dict_row,
+                autocommit=False,
+            )
+        else:
+            self.backend = "sqlite"
+            self.connection = sqlite3.connect(SQLITE_DB_PATH)
+            self.connection.row_factory = sqlite3.Row
+
+    def _sql(self, statement: str) -> str:
+        if self.backend == "postgresql":
+            return statement.replace("?", "%s")
+        return statement
+
+    def execute(self, statement: str, parameters: Iterable[Any] = ()):
+        return self.connection.execute(self._sql(statement), tuple(parameters))
+
+    def executemany(self, statement: str, parameter_rows):
+        return self.connection.executemany(
+            self._sql(statement),
+            parameter_rows,
+        )
+
+    def commit(self) -> None:
+        self.connection.commit()
+
+    def rollback(self) -> None:
+        self.connection.rollback()
+
+    def close(self) -> None:
+        self.connection.close()
+
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key")
@@ -94,46 +109,73 @@ ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "StageStarz123!")
 
 
-def get_db() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
-    return connection
+def get_db() -> DatabaseConnection:
+    return DatabaseConnection()
+
+
 
 
 def init_db() -> None:
     connection = get_db()
-    cursor = connection.cursor()
+    cursor = connection
 
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            category TEXT NOT NULL,
-            description TEXT NOT NULL DEFAULT '',
-            price REAL NOT NULL DEFAULT 0,
-            sale_price REAL,
-            fulfillment_fee REAL NOT NULL DEFAULT 0,
-            stock INTEGER NOT NULL DEFAULT 0,
-            sizes TEXT NOT NULL DEFAULT 'One Size',
-            colors TEXT NOT NULL DEFAULT 'Default',
-            show_color INTEGER NOT NULL DEFAULT 1,
-            allow_name INTEGER NOT NULL DEFAULT 0,
-            active INTEGER NOT NULL DEFAULT 1,
-            image_url TEXT NOT NULL DEFAULT '',
-            emoji TEXT NOT NULL DEFAULT '⭐'
-        )
-        """
-    )
-
-    # Safely upgrade existing Railway databases without deleting product data.
-    product_columns = {
-        row["name"] for row in cursor.execute("PRAGMA table_info(products)").fetchall()
-    }
-    if "show_color" not in product_columns:
+    if connection.backend == "postgresql":
         cursor.execute(
-            "ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1"
+            """
+            CREATE TABLE IF NOT EXISTS products (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                price DOUBLE PRECISION NOT NULL DEFAULT 0,
+                sale_price DOUBLE PRECISION,
+                fulfillment_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+                stock INTEGER NOT NULL DEFAULT 0,
+                sizes TEXT NOT NULL DEFAULT 'One Size',
+                colors TEXT NOT NULL DEFAULT 'Default',
+                show_color INTEGER NOT NULL DEFAULT 1,
+                allow_name INTEGER NOT NULL DEFAULT 0,
+                active INTEGER NOT NULL DEFAULT 1,
+                image_url TEXT NOT NULL DEFAULT '',
+                emoji TEXT NOT NULL DEFAULT '⭐'
+            )
+            """
         )
+        cursor.execute(
+            "ALTER TABLE products ADD COLUMN IF NOT EXISTS show_color INTEGER NOT NULL DEFAULT 1"
+        )
+    else:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                category TEXT NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                price REAL NOT NULL DEFAULT 0,
+                sale_price REAL,
+                fulfillment_fee REAL NOT NULL DEFAULT 0,
+                stock INTEGER NOT NULL DEFAULT 0,
+                sizes TEXT NOT NULL DEFAULT 'One Size',
+                colors TEXT NOT NULL DEFAULT 'Default',
+                show_color INTEGER NOT NULL DEFAULT 1,
+                allow_name INTEGER NOT NULL DEFAULT 0,
+                active INTEGER NOT NULL DEFAULT 1,
+                image_url TEXT NOT NULL DEFAULT '',
+                emoji TEXT NOT NULL DEFAULT '⭐'
+            )
+            """
+        )
+        columns = {
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(products)").fetchall()
+        }
+        if "show_color" not in columns:
+            cursor.execute(
+                "ALTER TABLE products ADD COLUMN show_color INTEGER NOT NULL DEFAULT 1"
+            )
+
+    id_column = "SERIAL PRIMARY KEY" if connection.backend == "postgresql" else "INTEGER PRIMARY KEY AUTOINCREMENT"
 
     cursor.execute(
         """
@@ -143,18 +185,16 @@ def init_db() -> None:
         )
         """
     )
-
     cursor.execute(
-        """
+        f"""
         CREATE TABLE IF NOT EXISTS activity_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_column},
             action TEXT NOT NULL,
             detail TEXT NOT NULL DEFAULT '',
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
-
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS homepage_settings (
@@ -163,11 +203,10 @@ def init_db() -> None:
         )
         """
     )
-
     cursor.execute(
-        """
+        f"""
         CREATE TABLE IF NOT EXISTS announcements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_column},
             title TEXT NOT NULL,
             message TEXT NOT NULL,
             button_text TEXT NOT NULL DEFAULT '',
@@ -176,15 +215,14 @@ def init_db() -> None:
             end_date TEXT NOT NULL DEFAULT '',
             priority INTEGER NOT NULL DEFAULT 0,
             active INTEGER NOT NULL DEFAULT 1,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
-
     cursor.execute(
-        """
+        f"""
         CREATE TABLE IF NOT EXISTS orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_column},
             order_number TEXT NOT NULL UNIQUE,
             customer_name TEXT NOT NULL,
             customer_email TEXT NOT NULL,
@@ -192,30 +230,30 @@ def init_db() -> None:
             payment_method TEXT NOT NULL,
             fulfillment_method TEXT NOT NULL DEFAULT 'Studio Pickup',
             notes TEXT NOT NULL DEFAULT '',
-            subtotal REAL NOT NULL DEFAULT 0,
-            name_fees REAL NOT NULL DEFAULT 0,
-            fulfillment_fees REAL NOT NULL DEFAULT 0,
-            shipping_fee REAL NOT NULL DEFAULT 0,
-            tax REAL NOT NULL DEFAULT 0,
-            total REAL NOT NULL DEFAULT 0,
+            subtotal DOUBLE PRECISION NOT NULL DEFAULT 0,
+            name_fees DOUBLE PRECISION NOT NULL DEFAULT 0,
+            fulfillment_fees DOUBLE PRECISION NOT NULL DEFAULT 0,
+            shipping_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+            tax DOUBLE PRECISION NOT NULL DEFAULT 0,
+            total DOUBLE PRECISION NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT 'New',
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
     cursor.execute(
-        """
+        f"""
         CREATE TABLE IF NOT EXISTS order_items (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {id_column},
             order_id INTEGER NOT NULL,
             product_id INTEGER,
             product_name TEXT NOT NULL,
             size TEXT NOT NULL DEFAULT '',
             color TEXT NOT NULL DEFAULT '',
             requested_name TEXT NOT NULL DEFAULT '',
-            item_price REAL NOT NULL DEFAULT 0,
-            name_fee REAL NOT NULL DEFAULT 0,
-            fulfillment_fee REAL NOT NULL DEFAULT 0,
+            item_price DOUBLE PRECISION NOT NULL DEFAULT 0,
+            name_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+            fulfillment_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
             quantity INTEGER NOT NULL DEFAULT 1,
             FOREIGN KEY(order_id) REFERENCES orders(id) ON DELETE CASCADE
         )
@@ -223,7 +261,7 @@ def init_db() -> None:
     )
 
     cursor.execute("SELECT COUNT(*) AS count FROM products")
-    if cursor.fetchone()["count"] == 0:
+    if cursor.execute("SELECT COUNT(*) AS count FROM products").fetchone()["count"] == 0:
         starter_products = [
             (
                 "Stage Starz Team Jersey", "Apparel",
@@ -268,7 +306,10 @@ def init_db() -> None:
     }
     for key, value in defaults.items():
         cursor.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+            """
+            INSERT INTO settings (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO NOTHING
+            """,
             (key, value),
         )
 
@@ -289,7 +330,10 @@ def init_db() -> None:
     }
     for key, value in homepage_defaults.items():
         cursor.execute(
-            "INSERT OR IGNORE INTO homepage_settings (key, value) VALUES (?, ?)",
+            """
+            INSERT INTO homepage_settings (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO NOTHING
+            """,
             (key, value),
         )
 
@@ -588,39 +632,38 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
-@app.route("/admin/system/storage")
+@app.route("/admin/system/database")
 @login_required
-def storage_status():
+def database_status():
     connection = get_db()
-    tables = {
-        row["name"]
-        for row in connection.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-        ).fetchall()
-    }
     counts = {}
-    for table in ("products", "orders", "order_items", "announcements", "activity_log"):
-        if table in tables:
+    for table in (
+        "products", "orders", "order_items",
+        "announcements", "activity_log"
+    ):
+        try:
             counts[table] = connection.execute(
                 f"SELECT COUNT(*) AS count FROM {table}"
             ).fetchone()["count"]
-        else:
-            counts[table] = 0
+        except Exception:
+            counts[table] = "Unavailable"
+    backend = connection.backend
     connection.close()
 
-    info = {
-        "database_path": str(DB_PATH),
-        "database_exists": DB_PATH.exists(),
-        "database_size": DB_PATH.stat().st_size if DB_PATH.exists() else 0,
-        "upload_folder": str(UPLOAD_FOLDER),
-        "volume_mount_path": VOLUME_MOUNT_PATH or "Not detected",
-        "startup_state": DATABASE_STARTUP_STATE,
-        "is_persistent": bool(
-            VOLUME_MOUNT_PATH
-            and str(DB_PATH).startswith(str(Path(VOLUME_MOUNT_PATH)))
-        ),
+    parsed = urlparse(DATABASE_URL) if DATABASE_URL else None
+    details = {
+        "backend": backend,
+        "host": parsed.hostname if parsed else "Local file",
+        "database": parsed.path.lstrip("/") if parsed else str(SQLITE_DB_PATH),
+        "port": parsed.port if parsed else "",
+        "postgres_configured": USE_POSTGRES,
+        "uploads_path": str(UPLOAD_FOLDER),
     }
-    return render_template("storage_status.html", info=info, counts=counts)
+    return render_template(
+        "database_status.html",
+        details=details,
+        counts=counts,
+    )
 
 
 @app.route("/admin")
@@ -691,19 +734,6 @@ def admin_dashboard():
             "level": "info",
             "title": "Media library is empty",
             "detail": "Upload reusable product and website images.",
-        })
-
-    if not VOLUME_MOUNT_PATH:
-        notifications.insert(0, {
-            "level": "danger",
-            "title": "Persistent Railway volume not detected",
-            "detail": "Orders and uploads may disappear after the next deployment. Open System Storage.",
-        })
-    elif not str(DB_PATH).startswith(str(Path(VOLUME_MOUNT_PATH))):
-        notifications.insert(0, {
-            "level": "danger",
-            "title": "Database is outside the Railway volume",
-            "detail": f"Current database path: {DB_PATH}",
         })
 
     connection = get_db()
@@ -805,14 +835,18 @@ def create_order():
     connection = get_db()
     next_id = connection.execute("SELECT COALESCE(MAX(id),0)+1 AS next_id FROM orders").fetchone()["next_id"]
     order_number = f"SS-{date.today().strftime('%Y%m%d')}-{int(next_id):04d}"
-    cursor = connection.execute(
-        """
+    insert_sql = """
         INSERT INTO orders (
             order_number, customer_name, customer_email, customer_phone,
             payment_method, fulfillment_method, notes,
             subtotal, name_fees, fulfillment_fees, shipping_fee, tax, total, status
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New')
-        """,
+    """
+    if connection.backend == "postgresql":
+        insert_sql += " RETURNING id"
+
+    cursor = connection.execute(
+        insert_sql,
         (
             order_number, name, email, str(customer.get("phone","")).strip(),
             payment, str(customer.get("fulfillment_method","Studio Pickup")).strip(),
@@ -822,7 +856,11 @@ def create_order():
             float(totals.get("tax") or 0), float(totals.get("total") or 0),
         ),
     )
-    order_id = cursor.lastrowid
+    order_id = (
+        cursor.fetchone()["id"]
+        if connection.backend == "postgresql"
+        else cursor.lastrowid
+    )
     for item in items:
         connection.execute(
             """
@@ -921,12 +959,12 @@ def reports_dashboard():
     recent_sales = connection.execute(
         """
         SELECT
-            substr(created_at, 1, 10) AS order_date,
+            CAST(created_at AS DATE) AS order_date,
             COUNT(*) AS orders,
             COALESCE(SUM(total), 0) AS revenue
         FROM orders
         WHERE status != 'Cancelled'
-        GROUP BY substr(created_at, 1, 10)
+        GROUP BY CAST(created_at AS DATE)
         ORDER BY order_date DESC
         LIMIT 14
         """
