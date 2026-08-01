@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import json
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
 import uuid
 from functools import wraps
@@ -674,103 +674,138 @@ def database_status():
 def admin_dashboard():
     connection = get_db()
 
-    product_rows = connection.execute(
-        "SELECT * FROM products ORDER BY active DESC, category, name"
-    ).fetchall()
-    products = rows_to_products(product_rows)
-    active_products = [product for product in products if product["active"]]
-    low_stock_products = [
-        product for product in active_products
-        if 0 < int(product["stock"]) <= 5
-    ]
-    out_of_stock_products = [
-        product for product in active_products
-        if int(product["stock"]) <= 0
-    ]
+    try:
+        product_rows = connection.execute(
+            "SELECT * FROM products ORDER BY active DESC, category, name"
+        ).fetchall()
+        products = rows_to_products(product_rows)
 
-    total_units = sum(max(int(product["stock"]), 0) for product in active_products)
-    inventory_value = sum(
-        max(int(product["stock"]), 0)
-        * float(
-            product["sale_price"]
-            if product["sale_price"] is not None
-            else product["price"]
+        active_products = [
+            product for product in products if product["active"]
+        ]
+        low_stock_products = [
+            product for product in active_products
+            if 0 < int(product["stock"]) <= 5
+        ]
+        out_of_stock_products = [
+            product for product in active_products
+            if int(product["stock"]) <= 0
+        ]
+
+        total_units = sum(
+            max(int(product["stock"]), 0)
+            for product in active_products
         )
-        for product in active_products
-    )
+        inventory_value = sum(
+            max(int(product["stock"]), 0)
+            * float(
+                product["sale_price"]
+                if product["sale_price"] is not None
+                else product["price"]
+            )
+            for product in active_products
+        )
 
-    categories = {
-        product["category"]
-        for product in active_products
-        if product["category"]
-    }
+        categories = {
+            product["category"]
+            for product in active_products
+            if product["category"]
+        }
 
-    order_summary = connection.execute(
-        """
-        SELECT
-            COUNT(*) AS total_orders,
-            SUM(CASE WHEN status = 'New' THEN 1 ELSE 0 END) AS new_orders,
-            SUM(CASE WHEN status = 'Processing' THEN 1 ELSE 0 END) AS processing_orders,
-            SUM(CASE WHEN status = 'Ready' THEN 1 ELSE 0 END) AS ready_orders,
-            COALESCE(SUM(
-                CASE
-                    WHEN status != 'Cancelled'
-                     AND CAST(created_at AS DATE) = CURRENT_DATE
-                    THEN total ELSE 0
-                END
-            ), 0) AS sales_today,
-            COALESCE(SUM(
-                CASE
-                    WHEN status != 'Cancelled'
-                     AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
-                     AND EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)
-                    THEN total ELSE 0
-                END
-            ), 0) AS sales_month,
-            COALESCE(SUM(
-                CASE WHEN status != 'Cancelled' THEN total ELSE 0 END
-            ), 0) AS lifetime_revenue
-        FROM orders
-        """
-    ).fetchone()
+        # Use Python-calculated date boundaries. These parameterized comparisons
+        # work reliably with PostgreSQL timestamps and SQLite text timestamps.
+        today_start = datetime.combine(date.today(), datetime.min.time())
+        tomorrow_start = today_start + timedelta(days=1)
+        month_start = today_start.replace(day=1)
+        if month_start.month == 12:
+            next_month_start = month_start.replace(
+                year=month_start.year + 1,
+                month=1,
+            )
+        else:
+            next_month_start = month_start.replace(
+                month=month_start.month + 1,
+            )
 
-    recent_orders = connection.execute(
-        """
-        SELECT id, order_number, customer_name, total, status, created_at
-        FROM orders
-        ORDER BY id DESC
-        LIMIT 6
-        """
-    ).fetchall()
+        basic_orders = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS total_orders,
+                COALESCE(SUM(CASE WHEN status = 'New' THEN 1 ELSE 0 END), 0) AS new_orders,
+                COALESCE(SUM(CASE WHEN status = 'Processing' THEN 1 ELSE 0 END), 0) AS processing_orders,
+                COALESCE(SUM(CASE WHEN status = 'Ready' THEN 1 ELSE 0 END), 0) AS ready_orders,
+                COALESCE(SUM(CASE WHEN status != 'Cancelled' THEN total ELSE 0 END), 0) AS lifetime_revenue
+            FROM orders
+            """
+        ).fetchone()
 
-    today = date.today().isoformat()
-    active_announcements = connection.execute(
-        """
-        SELECT COUNT(*) AS count
-        FROM announcements
-        WHERE active = 1
-          AND (start_date = '' OR start_date <= ?)
-          AND (end_date = '' OR end_date >= ?)
-        """,
-        (today, today),
-    ).fetchone()["count"]
+        sales_today = connection.execute(
+            """
+            SELECT COALESCE(SUM(total), 0) AS amount
+            FROM orders
+            WHERE status != 'Cancelled'
+              AND created_at >= ?
+              AND created_at < ?
+            """,
+            (today_start, tomorrow_start),
+        ).fetchone()["amount"]
 
-    activities = connection.execute(
-        """
-        SELECT action, detail, created_at
-        FROM activity_log
-        ORDER BY id DESC
-        LIMIT 7
-        """
-    ).fetchall()
+        sales_month = connection.execute(
+            """
+            SELECT COALESCE(SUM(total), 0) AS amount
+            FROM orders
+            WHERE status != 'Cancelled'
+              AND created_at >= ?
+              AND created_at < ?
+            """,
+            (month_start, next_month_start),
+        ).fetchone()["amount"]
 
-    connection.close()
+        recent_orders = connection.execute(
+            """
+            SELECT id, order_number, customer_name, total, status, created_at
+            FROM orders
+            ORDER BY id DESC
+            LIMIT 6
+            """
+        ).fetchall()
 
-    media_count = sum(
-        1
-        for path in UPLOAD_FOLDER.iterdir()
-        if path.is_file() and allowed_image(path.name)
-    )
+        today_text = date.today().isoformat()
+        active_announcements = connection.execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM announcements
+            WHERE active = 1
+              AND (start_date = '' OR start_date <= ?)
+              AND (end_date = '' OR end_date >= ?)
+            """,
+            (today_text, today_text),
+        ).fetchone()["count"]
+
+        activities = connection.execute(
+            """
+            SELECT action, detail, created_at
+            FROM activity_log
+            ORDER BY id DESC
+            LIMIT 7
+            """
+        ).fetchall()
+
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+    media_count = 0
+    try:
+        media_count = sum(
+            1
+            for path in UPLOAD_FOLDER.iterdir()
+            if path.is_file() and allowed_image(path.name)
+        )
+    except OSError:
+        media_count = 0
 
     stats = {
         "active_products": len(active_products),
@@ -781,13 +816,15 @@ def admin_dashboard():
         "inventory_value": inventory_value,
         "categories": len(categories),
         "media_count": media_count,
-        "total_orders": int(order_summary["total_orders"] or 0),
-        "new_orders": int(order_summary["new_orders"] or 0),
-        "processing_orders": int(order_summary["processing_orders"] or 0),
-        "ready_orders": int(order_summary["ready_orders"] or 0),
-        "sales_today": float(order_summary["sales_today"] or 0),
-        "sales_month": float(order_summary["sales_month"] or 0),
-        "lifetime_revenue": float(order_summary["lifetime_revenue"] or 0),
+        "total_orders": int(basic_orders["total_orders"] or 0),
+        "new_orders": int(basic_orders["new_orders"] or 0),
+        "processing_orders": int(basic_orders["processing_orders"] or 0),
+        "ready_orders": int(basic_orders["ready_orders"] or 0),
+        "sales_today": float(sales_today or 0),
+        "sales_month": float(sales_month or 0),
+        "lifetime_revenue": float(
+            basic_orders["lifetime_revenue"] or 0
+        ),
         "active_announcements": int(active_announcements or 0),
     }
 
@@ -824,12 +861,13 @@ def admin_dashboard():
         })
 
     hour = datetime.now().hour
-    if hour < 12:
-        greeting = "Good morning"
-    elif hour < 18:
-        greeting = "Good afternoon"
-    else:
-        greeting = "Good evening"
+    greeting = (
+        "Good morning"
+        if hour < 12
+        else "Good afternoon"
+        if hour < 18
+        else "Good evening"
+    )
 
     return render_template(
         "dashboard.html",
@@ -841,7 +879,9 @@ def admin_dashboard():
         notifications=notifications,
         settings=get_settings(),
         greeting=greeting,
-        database_backend="PostgreSQL" if USE_POSTGRES else "SQLite fallback",
+        database_backend=(
+            "PostgreSQL" if USE_POSTGRES else "SQLite fallback"
+        ),
     )
 
 
