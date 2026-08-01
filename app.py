@@ -205,6 +205,19 @@ MIGRATION_REGISTRY = [
             ],
         },
     },
+    {
+        "key": "008_student_foundation",
+        "title": "Student Foundation",
+        "description": "Student profiles, family links, photos, sizing, status, and notes.",
+        "required_tables": ["students", "student_notes"],
+        "required_columns": {
+            "students": [
+                "family_id", "first_name", "last_name", "preferred_name",
+                "birth_date", "status", "competition_team", "photo_url",
+                "costume_size", "shoe_size", "medical_notes", "tags"
+            ],
+        },
+    },
 ]
 
 
@@ -1345,6 +1358,320 @@ def create_order():
     sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+@app.route("/admin/students")
+@login_required
+def students_dashboard():
+    query = request.args.get("q", "").strip()
+    selected_status = request.args.get("status", "").strip()
+    selected_family = request.args.get("family_id", "").strip()
+    sort = request.args.get("sort", "name").strip()
+
+    sort_options = {
+        "name": "s.last_name ASC, s.first_name ASC",
+        "birthday": "s.birth_date ASC, s.last_name ASC",
+        "newest": "s.id DESC",
+        "family": "f.family_name ASC NULLS LAST, s.last_name ASC",
+    }
+    order_by = sort_options.get(sort, sort_options["name"])
+
+    conditions = []
+    parameters = []
+
+    if query:
+        like = f"%{query.lower()}%"
+        conditions.append(
+            """
+            (
+                LOWER(s.first_name) LIKE ?
+                OR LOWER(s.last_name) LIKE ?
+                OR LOWER(s.preferred_name) LIKE ?
+                OR LOWER(s.tags) LIKE ?
+                OR LOWER(f.family_name) LIKE ?
+            )
+            """
+        )
+        parameters.extend((like, like, like, like, like))
+
+    if selected_status:
+        conditions.append("s.status = ?")
+        parameters.append(selected_status)
+
+    if selected_family:
+        conditions.append("s.family_id = ?")
+        parameters.append(int(selected_family))
+
+    where_clause = (
+        "WHERE " + " AND ".join(conditions)
+        if conditions else ""
+    )
+
+    connection = get_db()
+    rows = connection.execute(
+        f"""
+        SELECT
+            s.*,
+            f.family_name
+        FROM students s
+        LEFT JOIN families f ON f.id = s.family_id
+        {where_clause}
+        ORDER BY {order_by}
+        """,
+        tuple(parameters),
+    ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS student_count,
+            COALESCE(SUM(CASE WHEN status='Active' THEN 1 ELSE 0 END), 0) AS active_count,
+            COALESCE(SUM(CASE WHEN status='Trial' THEN 1 ELSE 0 END), 0) AS trial_count,
+            COALESCE(SUM(CASE WHEN competition_team=1 THEN 1 ELSE 0 END), 0) AS competition_count
+        FROM students
+        """
+    ).fetchone()
+
+    families = connection.execute(
+        """
+        SELECT id, family_name
+        FROM families
+        ORDER BY family_name
+        """
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "students.html",
+        students=[dict(row) for row in rows],
+        families=[dict(row) for row in families],
+        summary=dict(summary),
+        query=query,
+        selected_status=selected_status,
+        selected_family=selected_family,
+        selected_sort=sort,
+    )
+
+
+@app.route("/admin/students/new")
+@login_required
+def new_student():
+    connection = get_db()
+    families = connection.execute(
+        "SELECT id, family_name FROM families ORDER BY family_name"
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "student_form.html",
+        student=None,
+        families=[dict(row) for row in families],
+    )
+
+
+@app.route("/admin/students/save", methods=["POST"])
+@login_required
+def save_student():
+    form = request.form
+    student_id = form.get("id", "").strip()
+    existing_photo = form.get("existing_photo_url", "").strip()
+    photo_url = existing_photo
+
+    try:
+        uploaded_photo = save_uploaded_image(
+            request.files.get("student_photo")
+        )
+        if uploaded_photo:
+            photo_url = uploaded_photo
+    except ValueError as error:
+        flash(str(error), "error")
+        return redirect(request.referrer or url_for("students_dashboard"))
+
+    if form.get("remove_photo") == "on":
+        photo_url = ""
+
+    family_value = form.get("family_id", "").strip()
+    family_id = int(family_value) if family_value else None
+
+    values = (
+        family_id,
+        form.get("first_name", "").strip(),
+        form.get("last_name", "").strip(),
+        form.get("preferred_name", "").strip(),
+        form.get("birth_date", "").strip(),
+        form.get("status", "Active").strip(),
+        1 if form.get("competition_team") == "on" else 0,
+        photo_url,
+        form.get("email", "").strip().lower(),
+        form.get("phone", "").strip(),
+        form.get("school", "").strip(),
+        form.get("grade", "").strip(),
+        form.get("leotard_size", "").strip(),
+        form.get("costume_size", "").strip(),
+        form.get("shoe_size", "").strip(),
+        form.get("warmup_size", "").strip(),
+        form.get("medical_notes", "").strip(),
+        form.get("general_notes", "").strip(),
+        form.get("tags", "").strip(),
+    )
+
+    connection = get_db()
+    if student_id:
+        connection.execute(
+            """
+            UPDATE students SET
+                family_id=?, first_name=?, last_name=?,
+                preferred_name=?, birth_date=?, status=?,
+                competition_team=?, photo_url=?, email=?, phone=?,
+                school=?, grade=?, leotard_size=?, costume_size=?,
+                shoe_size=?, warmup_size=?, medical_notes=?,
+                general_notes=?, tags=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            values + (int(student_id),),
+        )
+        action = "Student updated"
+    else:
+        insert_sql = """
+            INSERT INTO students (
+                family_id, first_name, last_name, preferred_name,
+                birth_date, status, competition_team, photo_url,
+                email, phone, school, grade, leotard_size,
+                costume_size, shoe_size, warmup_size,
+                medical_notes, general_notes, tags
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        if connection.backend == "postgresql":
+            insert_sql += " RETURNING id"
+
+        cursor = connection.execute(insert_sql, values)
+        student_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+        action = "Student created"
+
+    connection.commit()
+    connection.close()
+
+    if existing_photo and existing_photo != photo_url:
+        delete_uploaded_image(existing_photo)
+
+    display_name = " ".join(
+        part for part in (
+            form.get("first_name", "").strip(),
+            form.get("last_name", "").strip(),
+        )
+        if part
+    )
+    log_activity(action, display_name)
+    flash("Student profile saved.", "success")
+    return redirect(url_for("student_profile", student_id=int(student_id)))
+
+
+@app.route("/admin/students/<int:student_id>")
+@login_required
+def student_profile(student_id: int):
+    connection = get_db()
+    student = connection.execute(
+        """
+        SELECT s.*, f.family_name
+        FROM students s
+        LEFT JOIN families f ON f.id = s.family_id
+        WHERE s.id=?
+        """,
+        (student_id,),
+    ).fetchone()
+
+    if not student:
+        connection.close()
+        return ("Student not found", 404)
+
+    notes = connection.execute(
+        """
+        SELECT id, note, created_at
+        FROM student_notes
+        WHERE student_id=?
+        ORDER BY id DESC
+        """,
+        (student_id,),
+    ).fetchall()
+
+    families = connection.execute(
+        "SELECT id, family_name FROM families ORDER BY family_name"
+    ).fetchall()
+    connection.close()
+
+    student_data = dict(student)
+    student_data["competition_team"] = bool(
+        student_data["competition_team"]
+    )
+    student_data["tag_list"] = [
+        tag.strip()
+        for tag in (student_data.get("tags") or "").split(",")
+        if tag.strip()
+    ]
+
+    timeline = [
+        {
+            "title": "Student note",
+            "detail": note["note"],
+            "created_at": note["created_at"],
+        }
+        for note in notes
+    ]
+
+    return render_template(
+        "student_profile.html",
+        student=student_data,
+        notes=[dict(row) for row in notes],
+        timeline=timeline,
+        families=[dict(row) for row in families],
+    )
+
+
+@app.route("/admin/students/<int:student_id>/notes", methods=["POST"])
+@login_required
+def add_student_note(student_id: int):
+    note = request.form.get("note", "").strip()
+    if note:
+        connection = get_db()
+        connection.execute(
+            "INSERT INTO student_notes (student_id, note) VALUES (?, ?)",
+            (student_id, note),
+        )
+        connection.commit()
+        connection.close()
+        log_activity("Student note added", f"Student #{student_id}")
+    return redirect(url_for("student_profile", student_id=student_id))
+
+
+@app.route("/admin/students/<int:student_id>/delete", methods=["POST"])
+@login_required
+def delete_student(student_id: int):
+    connection = get_db()
+    student = connection.execute(
+        "SELECT first_name, last_name, photo_url FROM students WHERE id=?",
+        (student_id,),
+    ).fetchone()
+
+    connection.execute(
+        "DELETE FROM students WHERE id=?",
+        (student_id,),
+    )
+    connection.commit()
+    connection.close()
+
+    if student:
+        delete_uploaded_image(student["photo_url"] or "")
+        log_activity(
+            "Student deleted",
+            f"{student['first_name']} {student['last_name']}",
+        )
+
+    flash("Student deleted.", "success")
+    return redirect(url_for("students_dashboard"))
 
 
 @app.route("/admin/families")

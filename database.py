@@ -286,8 +286,79 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS students (
+            id {id_column},
+            family_id INTEGER,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            preferred_name TEXT NOT NULL DEFAULT '',
+            birth_date TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Active',
+            competition_team INTEGER NOT NULL DEFAULT 0,
+            photo_url TEXT NOT NULL DEFAULT '',
+            email TEXT NOT NULL DEFAULT '',
+            phone TEXT NOT NULL DEFAULT '',
+            school TEXT NOT NULL DEFAULT '',
+            grade TEXT NOT NULL DEFAULT '',
+            leotard_size TEXT NOT NULL DEFAULT '',
+            costume_size TEXT NOT NULL DEFAULT '',
+            shoe_size TEXT NOT NULL DEFAULT '',
+            warmup_size TEXT NOT NULL DEFAULT '',
+            medical_notes TEXT NOT NULL DEFAULT '',
+            general_notes TEXT NOT NULL DEFAULT '',
+            tags TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS student_notes (
+            id {id_column},
+            student_id INTEGER NOT NULL,
+            note TEXT NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        student_columns = [
+            ("family_id", "INTEGER"),
+            ("preferred_name", "TEXT NOT NULL DEFAULT ''"),
+            ("birth_date", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Active'"),
+            ("competition_team", "INTEGER NOT NULL DEFAULT 0"),
+            ("photo_url", "TEXT NOT NULL DEFAULT ''"),
+            ("email", "TEXT NOT NULL DEFAULT ''"),
+            ("phone", "TEXT NOT NULL DEFAULT ''"),
+            ("school", "TEXT NOT NULL DEFAULT ''"),
+            ("grade", "TEXT NOT NULL DEFAULT ''"),
+            ("leotard_size", "TEXT NOT NULL DEFAULT ''"),
+            ("costume_size", "TEXT NOT NULL DEFAULT ''"),
+            ("shoe_size", "TEXT NOT NULL DEFAULT ''"),
+            ("warmup_size", "TEXT NOT NULL DEFAULT ''"),
+            ("medical_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("general_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("tags", "TEXT NOT NULL DEFAULT ''"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in student_columns:
+            cursor.execute(
+                f"""
+                ALTER TABLE students
+                ADD COLUMN IF NOT EXISTS {column_name} {column_definition}
+                """
+            )
+
         customer_columns = [
             ("family_id", "INTEGER"),
             ("phone", "TEXT NOT NULL DEFAULT ''"),
@@ -314,6 +385,42 @@ def init_db() -> None:
                 "PRAGMA table_info(customers)"
             ).fetchall()
         }
+        existing_student_columns = {
+            row["name"]
+            for row in cursor.execute(
+                "PRAGMA table_info(students)"
+            ).fetchall()
+        }
+        sqlite_student_columns = [
+            ("family_id", "INTEGER"),
+            ("preferred_name", "TEXT NOT NULL DEFAULT ''"),
+            ("birth_date", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Active'"),
+            ("competition_team", "INTEGER NOT NULL DEFAULT 0"),
+            ("photo_url", "TEXT NOT NULL DEFAULT ''"),
+            ("email", "TEXT NOT NULL DEFAULT ''"),
+            ("phone", "TEXT NOT NULL DEFAULT ''"),
+            ("school", "TEXT NOT NULL DEFAULT ''"),
+            ("grade", "TEXT NOT NULL DEFAULT ''"),
+            ("leotard_size", "TEXT NOT NULL DEFAULT ''"),
+            ("costume_size", "TEXT NOT NULL DEFAULT ''"),
+            ("shoe_size", "TEXT NOT NULL DEFAULT ''"),
+            ("warmup_size", "TEXT NOT NULL DEFAULT ''"),
+            ("medical_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("general_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("tags", "TEXT NOT NULL DEFAULT ''"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_student_columns:
+            if column_name not in existing_student_columns:
+                cursor.execute(
+                    f"""
+                    ALTER TABLE students
+                    ADD COLUMN {column_name} {column_definition}
+                    """
+                )
+
         sqlite_customer_columns = [
             ("family_id", "INTEGER"),
             ("phone", "TEXT NOT NULL DEFAULT ''"),

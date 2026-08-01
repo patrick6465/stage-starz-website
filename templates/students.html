@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Students | Stage Starz</title>
+<style>
+:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 8% 0%,rgba(155,77,204,.3),transparent 30rem),var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}
+header{padding:18px 4vw;display:flex;justify-content:space-between;gap:14px;align-items:center;border-bottom:1px solid var(--line);background:rgba(12,7,23,.94);position:sticky;top:0;z-index:5}
+.wrap{width:min(1350px,calc(100% - 28px));margin:24px auto 60px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px}.card{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:19px;padding:19px}.value{font-size:2rem;font-weight:950}.label{color:var(--muted)}
+.actions{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}.primary{padding:11px 15px;border-radius:11px;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));font-weight:900}
+.toolbar{display:grid;grid-template-columns:1fr 180px 220px 190px auto;gap:10px;margin-bottom:15px}.toolbar input,.toolbar select,.toolbar button{padding:11px;border-radius:10px;border:1px solid var(--line)}.toolbar input,.toolbar select{background:#100a1d;color:#fff}.toolbar button{border:0;color:#fff;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:18px}table{width:100%;min-width:1000px;border-collapse:collapse;background:var(--panel)}th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left}th{font-size:.72rem;text-transform:uppercase;color:#cec3d9}
+.photo{width:54px;height:54px;border-radius:14px;object-fit:cover;background:#100a1d;display:grid;place-items:center;font-size:1.35rem}.student{display:flex;gap:11px;align-items:center}.muted{color:var(--muted)}.badge{display:inline-block;padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.13);color:var(--teal);font-size:.72rem;font-weight:900}.competition{color:var(--gold)}
+@media(max-width:950px){.stats{grid-template-columns:1fr 1fr}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}}@media(max-width:560px){.toolbar{grid-template-columns:1fr}.toolbar input{grid-column:auto}}
+</style></head>
+<body>
+<header><strong>🩰 Student Management</strong><nav><a href="/admin">Command Center</a> &nbsp; <a href="/admin/families">Families</a></nav></header>
+<main class="wrap">
+<section class="stats">
+<div class="card"><div class="value">{{ summary.student_count or 0 }}</div><div class="label">Students</div></div>
+<div class="card"><div class="value">{{ summary.active_count or 0 }}</div><div class="label">Active students</div></div>
+<div class="card"><div class="value">{{ summary.trial_count or 0 }}</div><div class="label">Trial students</div></div>
+<div class="card"><div class="value">{{ summary.competition_count or 0 }}</div><div class="label">Competition team</div></div>
+</section>
+<div class="actions"><div><h1>Students</h1><p class="muted">Manage dancer profiles, family links, photos and sizing.</p></div><a class="primary" href="/admin/students/new">+ Add Student</a></div>
+<form class="toolbar">
+<input name="q" value="{{ query }}" placeholder="Search student, family or tag">
+<select name="status"><option value="">All statuses</option>{% for s in ['Active','Trial','Inactive','Alumni'] %}<option value="{{ s }}" {% if selected_status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+<select name="family_id"><option value="">All families</option>{% for f in families %}<option value="{{ f.id }}" {% if selected_family|string==f.id|string %}selected{% endif %}>{{ f.family_name }}</option>{% endfor %}</select>
+<select name="sort"><option value="name" {% if selected_sort=='name' %}selected{% endif %}>Name</option><option value="family" {% if selected_sort=='family' %}selected{% endif %}>Family</option><option value="birthday" {% if selected_sort=='birthday' %}selected{% endif %}>Birthday</option><option value="newest" {% if selected_sort=='newest' %}selected{% endif %}>Newest</option></select>
+<button>Apply</button>
+</form>
+<div class="table-wrap"><table><thead><tr><th>Student</th><th>Family</th><th>Birthday</th><th>Status</th><th>Competition</th><th>Costume</th><th>Shoe</th><th>Tags</th></tr></thead><tbody>
+{% for s in students %}<tr>
+<td><a class="student" href="/admin/students/{{ s.id }}">{% if s.photo_url %}<img class="photo" src="{{ s.photo_url }}" alt="">{% else %}<span class="photo">🩰</span>{% endif %}<div><strong>{{ s.preferred_name or s.first_name }} {{ s.last_name }}</strong><div class="muted">{{ s.school or '' }}{% if s.grade %} · {{ s.grade }}{% endif %}</div></div></a></td>
+<td>{% if s.family_id %}<a href="/admin/families/{{ s.family_id }}">{{ s.family_name }}</a>{% else %}<span class="muted">Unassigned</span>{% endif %}</td>
+<td>{{ s.birth_date or '—' }}</td><td><span class="badge">{{ s.status }}</span></td><td>{% if s.competition_team %}<strong class="competition">Yes</strong>{% else %}No{% endif %}</td><td>{{ s.costume_size or '—' }}</td><td>{{ s.shoe_size or '—' }}</td><td>{{ s.tags or '—' }}</td>
+</tr>{% else %}<tr><td colspan="8" class="muted">No students have been added yet.</td></tr>{% endfor %}
+</tbody></table></div>
+</main></body></html>

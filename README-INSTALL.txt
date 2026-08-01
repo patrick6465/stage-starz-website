@@ -1,4 +1,4 @@
-STAGE STARZ MIGRATION CENTER V1
+STAGE STARZ STUDENT FOUNDATION V1
 
 REPLACE:
 - app.py
@@ -6,40 +6,46 @@ REPLACE:
 - templates/dashboard.html
 
 ADD:
-- templates/migration_center.html
+- templates/students.html
+- templates/student_form.html
+- templates/student_profile.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py database.py templates/dashboard.html templates/migration_center.html
-git commit -m "Add Stage Starz Migration Center"
+git add app.py database.py templates/dashboard.html templates/students.html templates/student_form.html templates/student_profile.html
+git commit -m "Add Stage Starz Student Foundation"
 git push origin railway-deployment
 
 FEATURES:
-- schema_migrations history table
-- Seven registered migration milestones
-- Applied, verified, and attention-required states
-- Required table verification
-- Required column verification
-- PostgreSQL/SQLite table inventory
-- Record counts by table
-- Column names and database types
-- Manual Run Verification button
-- Migration history timestamps
-- Command Center navigation link
+- PostgreSQL students table
+- PostgreSQL student_notes table
+- Family linking
+- Student list, search, filters, and sorting
+- Add and edit student profiles
+- Student photo uploads
+- Birthday tracking
+- Active, Trial, Inactive, and Alumni statuses
+- Competition-team designation
+- School and grade
+- Leotard, costume, shoe, and warmup sizes
+- Medical and general notes
+- Student tags
+- Dated student timeline notes
+- Student deletion
+- Migration Center milestone 008
+- Command Center Students navigation
 
 SAFETY:
-- No heavy migration work during Railway startup
-- Verification is read-only except recording healthy migration history
-- Existing business data is never deleted or rewritten
-- /health and /ready remain unchanged
-
-OPEN:
-- /admin/system/migrations
+- Schema-only startup migration
+- No student backfill during Railway deployment
+- Existing family, customer, order, and store data remains unchanged
+- /health and /ready behavior remains unchanged
 
 VERIFY:
-1. Railway becomes Active.
+1. Railway deployment becomes Active.
 2. /health returns ok.
 3. /ready returns ready.
-4. Open Migration Center.
-5. All seven migrations should show Applied or Verified.
-6. Any missing schema component will be displayed under Attention Required.
+4. Migration Center shows Student Foundation as Applied or Verified.
+5. Open /admin/students.
+6. Add one test student and link the student to a family.
+7. Upload a photo and confirm the student profile loads.
