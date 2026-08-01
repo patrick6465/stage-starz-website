@@ -271,6 +271,21 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            id {id_column},
+            migration_key TEXT NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'applied',
+            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            execution_ms INTEGER NOT NULL DEFAULT 0,
+            details TEXT NOT NULL DEFAULT ''
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         customer_columns = [

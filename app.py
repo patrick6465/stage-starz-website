@@ -124,6 +124,192 @@ def get_homepage_settings() -> dict[str, str]:
     return {row["key"]: row["value"] for row in rows}
 
 
+MIGRATION_REGISTRY = [
+    {
+        "key": "001_core_store",
+        "title": "Core Store Schema",
+        "description": "Products, settings, activity history, and homepage settings.",
+        "required_tables": [
+            "products", "settings", "activity_log", "homepage_settings"
+        ],
+        "required_columns": {},
+    },
+    {
+        "key": "002_orders",
+        "title": "Orders and Order Items",
+        "description": "Persistent customer orders and line items.",
+        "required_tables": ["orders", "order_items"],
+        "required_columns": {
+            "orders": [
+                "order_number", "customer_name", "customer_email",
+                "total", "status", "created_at"
+            ],
+        },
+    },
+    {
+        "key": "003_announcements",
+        "title": "Announcement Manager",
+        "description": "Scheduled homepage announcements and calls to action.",
+        "required_tables": ["announcements"],
+        "required_columns": {
+            "announcements": [
+                "title", "message", "priority", "active",
+                "start_date", "end_date"
+            ],
+        },
+    },
+    {
+        "key": "004_postgres_dates",
+        "title": "PostgreSQL Date Normalization",
+        "description": "Converts operational created_at fields to timestamp types.",
+        "required_tables": ["orders", "activity_log", "announcements"],
+        "required_columns": {
+            "orders": ["created_at"],
+            "activity_log": ["created_at"],
+            "announcements": ["created_at"],
+        },
+    },
+    {
+        "key": "005_customer_crm",
+        "title": "Customer CRM",
+        "description": "Customer profiles, lifetime value, tags, notes, and timelines.",
+        "required_tables": ["customers", "customer_notes"],
+        "required_columns": {
+            "customers": [
+                "name", "email", "phone", "status", "tags", "notes",
+                "order_count", "lifetime_value", "last_order_at"
+            ],
+        },
+    },
+    {
+        "key": "006_family_foundation",
+        "title": "Family Foundation",
+        "description": "Family households, member links, notes, and combined metrics.",
+        "required_tables": ["families", "family_notes"],
+        "required_columns": {
+            "customers": ["family_id"],
+            "families": [
+                "family_name", "primary_email", "primary_phone",
+                "customer_count", "order_count", "lifetime_value"
+            ],
+        },
+    },
+    {
+        "key": "007_migration_center",
+        "title": "Migration Center",
+        "description": "Schema version history, diagnostics, and verification.",
+        "required_tables": ["schema_migrations"],
+        "required_columns": {
+            "schema_migrations": [
+                "migration_key", "title", "status", "applied_at"
+            ],
+        },
+    },
+]
+
+
+def get_database_tables(connection) -> set[str]:
+    if connection.backend == "postgresql":
+        rows = connection.execute(
+            """
+            SELECT table_name AS name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+            """
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            """
+            SELECT name
+            FROM sqlite_master
+            WHERE type = 'table'
+            """
+        ).fetchall()
+    return {row["name"] for row in rows}
+
+
+def get_table_columns(connection, table_name: str) -> dict[str, str]:
+    if connection.backend == "postgresql":
+        rows = connection.execute(
+            """
+            SELECT column_name AS name, data_type AS type
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = ?
+            ORDER BY ordinal_position
+            """,
+            (table_name,),
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            f"PRAGMA table_info({table_name})"
+        ).fetchall()
+    return {
+        row["name"]: str(row.get("type", "") if isinstance(row, dict) else row["type"])
+        for row in rows
+    }
+
+
+def inspect_migration(connection, migration: dict[str, Any]) -> dict[str, Any]:
+    tables = get_database_tables(connection)
+    missing_tables = [
+        table for table in migration["required_tables"]
+        if table not in tables
+    ]
+    missing_columns = {}
+
+    for table_name, columns in migration["required_columns"].items():
+        if table_name not in tables:
+            missing_columns[table_name] = list(columns)
+            continue
+        existing = get_table_columns(connection, table_name)
+        absent = [column for column in columns if column not in existing]
+        if absent:
+            missing_columns[table_name] = absent
+
+    healthy = not missing_tables and not missing_columns
+    return {
+        **migration,
+        "healthy": healthy,
+        "missing_tables": missing_tables,
+        "missing_columns": missing_columns,
+    }
+
+
+def record_verified_migrations() -> None:
+    """Record verified migrations without altering business data."""
+    connection = get_db()
+    try:
+        for migration in MIGRATION_REGISTRY:
+            inspection = inspect_migration(connection, migration)
+            if inspection["healthy"]:
+                connection.execute(
+                    """
+                    INSERT INTO schema_migrations (
+                        migration_key, title, description,
+                        status, execution_ms, details
+                    ) VALUES (?, ?, ?, 'applied', 0, ?)
+                    ON CONFLICT(migration_key) DO UPDATE SET
+                        title=excluded.title,
+                        description=excluded.description,
+                        status='applied',
+                        details=excluded.details
+                    """,
+                    (
+                        migration["key"],
+                        migration["title"],
+                        migration["description"],
+                        "Verified from current database schema",
+                    ),
+                )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        logger.exception("Migration verification recording failed")
+    finally:
+        connection.close()
+
+
 def infer_family_name(customer_name: str, email: str) -> str:
     cleaned_name = " ".join((customer_name or "").split())
     if cleaned_name:
@@ -668,6 +854,95 @@ def admin_login():
 def admin_logout():
     session.clear()
     return redirect(url_for("admin_login"))
+
+
+@app.route("/admin/system/migrations")
+@login_required
+def migration_center():
+    record_verified_migrations()
+
+    connection = get_db()
+    migration_rows = connection.execute(
+        """
+        SELECT migration_key, title, description, status,
+               applied_at, execution_ms, details
+        FROM schema_migrations
+        ORDER BY migration_key
+        """
+    ).fetchall()
+    applied_map = {
+        row["migration_key"]: dict(row)
+        for row in migration_rows
+    }
+
+    inspections = [
+        inspect_migration(connection, migration)
+        for migration in MIGRATION_REGISTRY
+    ]
+
+    tables = sorted(get_database_tables(connection))
+    table_diagnostics = []
+    for table_name in tables:
+        columns = get_table_columns(connection, table_name)
+        try:
+            count = connection.execute(
+                f"SELECT COUNT(*) AS count FROM {table_name}"
+            ).fetchone()["count"]
+        except Exception:
+            connection.rollback()
+            count = "Unavailable"
+        table_diagnostics.append({
+            "name": table_name,
+            "column_count": len(columns),
+            "record_count": count,
+            "columns": columns,
+        })
+
+    backend = connection.backend
+    connection.close()
+
+    migrations = []
+    for inspection in inspections:
+        history = applied_map.get(inspection["key"])
+        migrations.append({
+            **inspection,
+            "recorded": bool(history),
+            "history": history,
+            "state": (
+                "Applied"
+                if inspection["healthy"] and history
+                else "Verified"
+                if inspection["healthy"]
+                else "Attention Required"
+            ),
+        })
+
+    summary = {
+        "total": len(migrations),
+        "healthy": sum(1 for item in migrations if item["healthy"]),
+        "attention": sum(1 for item in migrations if not item["healthy"]),
+        "tables": len(tables),
+        "backend": backend,
+    }
+
+    return render_template(
+        "migration_center.html",
+        migrations=migrations,
+        summary=summary,
+        table_diagnostics=table_diagnostics,
+    )
+
+
+@app.route("/admin/system/migrations/verify", methods=["POST"])
+@login_required
+def verify_migrations():
+    record_verified_migrations()
+    log_activity(
+        "Database migrations verified",
+        "Migration Center schema verification completed",
+    )
+    flash("Migration verification completed.", "success")
+    return redirect(url_for("migration_center"))
 
 
 @app.route("/admin/system/database")

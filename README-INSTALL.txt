@@ -1,4 +1,4 @@
-STAGE STARZ FAMILY FOUNDATION V1
+STAGE STARZ MIGRATION CENTER V1
 
 REPLACE:
 - app.py
@@ -6,36 +6,40 @@ REPLACE:
 - templates/dashboard.html
 
 ADD:
-- templates/families.html
-- templates/family_profile.html
+- templates/migration_center.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py database.py templates/dashboard.html templates/families.html templates/family_profile.html
-git commit -m "Add Stage Starz family foundation"
+git add app.py database.py templates/dashboard.html templates/migration_center.html
+git commit -m "Add Stage Starz Migration Center"
 git push origin railway-deployment
 
 FEATURES:
-- PostgreSQL families table
-- PostgreSQL family_notes table
-- Safe family_id migration on existing customers
-- Automatic family creation from customer name, email, and phone
-- Existing customers assigned to families when Families opens
-- New order customers automatically linked to families
-- Family metrics: members, orders, lifetime value, last activity
-- Searchable family list
-- Family profile with members, orders, notes, tags, and timeline
-- Command Center Families navigation
+- schema_migrations history table
+- Seven registered migration milestones
+- Applied, verified, and attention-required states
+- Required table verification
+- Required column verification
+- PostgreSQL/SQLite table inventory
+- Record counts by table
+- Column names and database types
+- Manual Run Verification button
+- Migration history timestamps
+- Command Center navigation link
 
-STARTUP SAFETY:
-- No family backfill runs during Railway startup
+SAFETY:
+- No heavy migration work during Railway startup
+- Verification is read-only except recording healthy migration history
+- Existing business data is never deleted or rewritten
 - /health and /ready remain unchanged
-- Family assignment errors are logged without taking the site offline
+
+OPEN:
+- /admin/system/migrations
 
 VERIFY:
-1. Railway deployment becomes Active.
+1. Railway becomes Active.
 2. /health returns ok.
 3. /ready returns ready.
-4. Open /admin/families.
-5. Existing customers should be assigned to family records.
-6. Open a family and verify members and orders.
+4. Open Migration Center.
+5. All seven migrations should show Applied or Verified.
+6. Any missing schema component will be displayed under Attention Required.
