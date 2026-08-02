@@ -20,6 +20,7 @@ from flask import (
     session,
     url_for,
 )
+from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 from config import (
@@ -64,6 +65,37 @@ def login_required(view):
     return wrapped
 
 
+ROLE_DEFINITIONS = {
+    "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, orders, content and reports.","permissions":{"dashboard","families","customers","students","orders","website","announcements","media","search","reports"}},
+    "teacher": {"label":"Teacher","description":"Student and family access. Classes and attendance come next.","permissions":{"dashboard","families","students","search"}},
+    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, media and reports.","permissions":{"dashboard","store","orders","customers","reports","media","search"}},
+}
+
+def current_admin():
+    user_id=session.get("admin_user_id")
+    if not user_id: return None
+    connection=get_db()
+    row=connection.execute("SELECT id,username,display_name,email,role,active FROM admin_users WHERE id=?",(int(user_id),)).fetchone()
+    connection.close()
+    return dict(row) if row else None
+
+def has_permission(permission):
+    info=ROLE_DEFINITIONS.get(session.get("admin_role",""))
+    return bool(info and ("*" in info["permissions"] or permission in info["permissions"]))
+
+def permission_required(permission):
+    def decorator(view):
+        @wraps(view)
+        def wrapped(*args,**kwargs):
+            if not session.get("admin_logged_in"): return redirect(url_for("admin_login"))
+            if not has_permission(permission):
+                flash("You do not have permission to open that module.","error")
+                return redirect(url_for("admin_dashboard"))
+            return view(*args,**kwargs)
+        return wrapped
+    return decorator
+
 def rows_to_products(rows: list[Any]) -> list[dict[str, Any]]:
     products = []
     for row in rows:
@@ -101,6 +133,10 @@ def delete_uploaded_image(image_url: str) -> None:
         if target.exists() and target.is_file():
             target.unlink()
 
+
+@app.context_processor
+def inject_access_context():
+    return {"has_permission":has_permission,"current_admin_user":current_admin(),"role_definitions":ROLE_DEFINITIONS}
 
 @app.errorhandler(413)
 def image_too_large(_error):
@@ -217,6 +253,13 @@ MIGRATION_REGISTRY = [
                 "costume_size", "shoe_size", "medical_notes", "tags"
             ],
         },
+    },
+    {
+        "key": "009_roles_permissions",
+        "title": "Users, Roles, and Permissions",
+        "description": "Administrator accounts, role-based access, and login history.",
+        "required_tables": ["admin_users", "admin_login_history"],
+        "required_columns": {"admin_users": ["username","display_name","password_hash","role","active","last_login_at"]},
     },
 ]
 
@@ -850,23 +893,81 @@ def api_settings():
     return jsonify(get_settings())
 
 
-@app.route("/admin/login", methods=["GET", "POST"])
+@app.route("/admin/login", methods=["GET","POST"])
 def admin_login():
-    error = ""
-    if request.method == "POST":
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
-            session["admin_logged_in"] = True
+    if request.method=="POST":
+        username=request.form.get("username","").strip()
+        password=request.form.get("password","")
+        connection=get_db()
+        user=connection.execute("SELECT * FROM admin_users WHERE LOWER(username)=LOWER(?) AND active=1",(username,)).fetchone()
+        success=bool(user and user["password_hash"] and check_password_hash(user["password_hash"],password))
+        if not success and username==ADMIN_USERNAME and password==ADMIN_PASSWORD:
+            user=connection.execute("SELECT * FROM admin_users WHERE username=?",(ADMIN_USERNAME,)).fetchone()
+            password_hash=generate_password_hash(ADMIN_PASSWORD)
+            if user:
+                connection.execute("UPDATE admin_users SET password_hash=?,role='owner',active=1,updated_at=CURRENT_TIMESTAMP WHERE id=?",(password_hash,user["id"]))
+                user=connection.execute("SELECT * FROM admin_users WHERE id=?",(user["id"],)).fetchone()
+            else:
+                sql="INSERT INTO admin_users (username,display_name,password_hash,role,active) VALUES (?,?,?,'owner',1)"
+                if connection.backend=="postgresql": sql+=" RETURNING id"
+                cur=connection.execute(sql,(ADMIN_USERNAME,"Stage Starz Owner",password_hash))
+                uid=cur.fetchone()["id"] if connection.backend=="postgresql" else cur.lastrowid
+                user=connection.execute("SELECT * FROM admin_users WHERE id=?",(uid,)).fetchone()
+            success=True
+        connection.execute("INSERT INTO admin_login_history (admin_user_id,username,success,ip_address,user_agent) VALUES (?,?,?,?,?)",(user["id"] if user else None,username,1 if success else 0,request.headers.get("X-Forwarded-For",request.remote_addr or "")[:200],request.headers.get("User-Agent","")[:500]))
+        if success and user:
+            connection.execute("UPDATE admin_users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?",(user["id"],))
+            connection.commit(); connection.close()
+            session.clear()
+            session.update(admin_logged_in=True,admin_user_id=int(user["id"]),admin_username=user["username"],admin_display_name=user["display_name"],admin_role=user["role"])
             return redirect(url_for("admin_dashboard"))
-        error = "Invalid username or password."
-    return render_template("login.html", error=error)
-
+        connection.commit(); connection.close()
+        flash("Invalid username or password.","error")
+    return render_template("admin_login.html")
 
 @app.route("/admin/logout")
 def admin_logout():
     session.clear()
     return redirect(url_for("admin_login"))
+
+
+@app.route("/admin/system/users")
+@permission_required("users")
+def admin_users():
+    connection=get_db()
+    users=connection.execute("SELECT id,username,display_name,email,role,active,last_login_at,created_at FROM admin_users ORDER BY active DESC,display_name").fetchall()
+    history=connection.execute("SELECT username,success,ip_address,created_at FROM admin_login_history ORDER BY id DESC LIMIT 20").fetchall()
+    connection.close()
+    return render_template("admin_users.html",users=[dict(r) for r in users],login_history=[dict(r) for r in history],roles=ROLE_DEFINITIONS,current_user_id=session.get("admin_user_id"))
+
+@app.route("/admin/system/users/save",methods=["POST"])
+@permission_required("users")
+def save_admin_user():
+    f=request.form; uid=f.get("id","").strip(); username=f.get("username","").strip(); name=f.get("display_name","").strip(); email=f.get("email","").strip().lower(); role=f.get("role","office_staff").strip(); password=f.get("password",""); active=1 if f.get("active")=="on" else 0
+    if role not in ROLE_DEFINITIONS or not username or not name:
+        flash("Valid username, display name, and role are required.","error"); return redirect(url_for("admin_users"))
+    c=get_db()
+    try:
+        if uid:
+            vals=[username,name,email,role,active]; sql="UPDATE admin_users SET username=?,display_name=?,email=?,role=?,active=?,updated_at=CURRENT_TIMESTAMP"
+            if password: sql+=",password_hash=?"; vals.append(generate_password_hash(password))
+            sql+=" WHERE id=?"; vals.append(int(uid)); c.execute(sql,tuple(vals))
+        else:
+            if not password: flash("A password is required for a new user.","error"); c.close(); return redirect(url_for("admin_users"))
+            c.execute("INSERT INTO admin_users (username,display_name,email,password_hash,role,active) VALUES (?,?,?,?,?,?)",(username,name,email,generate_password_hash(password),role,active))
+        c.commit()
+    except Exception:
+        c.rollback(); c.close(); logger.exception("Administrator save failed"); flash("That username may already exist.","error"); return redirect(url_for("admin_users"))
+    c.close(); flash("Administrator account saved.","success"); return redirect(url_for("admin_users"))
+
+@app.route("/admin/system/users/<int:user_id>/toggle",methods=["POST"])
+@permission_required("users")
+def toggle_admin_user(user_id):
+    if int(session.get("admin_user_id") or 0)==user_id:
+        flash("You cannot deactivate your own account.","error"); return redirect(url_for("admin_users"))
+    c=get_db(); u=c.execute("SELECT active FROM admin_users WHERE id=?",(user_id,)).fetchone()
+    if u: c.execute("UPDATE admin_users SET active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",(0 if u["active"] else 1,user_id)); c.commit()
+    c.close(); return redirect(url_for("admin_users"))
 
 
 @app.route("/admin/system/migrations")
@@ -1209,7 +1310,7 @@ def admin_dashboard():
 
 
 @app.route("/admin/search")
-@login_required
+@permission_required("search")
 def admin_search():
     query = request.args.get("q", "").strip()
     product_results = []
@@ -1361,7 +1462,7 @@ def create_order():
 
 
 @app.route("/admin/students")
-@login_required
+@permission_required("students")
 def students_dashboard():
     query = request.args.get("q", "").strip()
     selected_status = request.args.get("status", "").strip()
@@ -1675,7 +1776,7 @@ def delete_student(student_id: int):
 
 
 @app.route("/admin/families")
-@login_required
+@permission_required("families")
 def families_dashboard():
     backfill_customers_from_orders()
     backfill_families_from_customers()
@@ -1872,7 +1973,7 @@ def add_family_note(family_id: int):
 
 
 @app.route("/admin/customers")
-@login_required
+@permission_required("customers")
 def customers_dashboard():
     backfill_customers_from_orders()
     query = request.args.get("q", "").strip()
@@ -2096,7 +2197,7 @@ def add_customer_note(customer_id: int):
 
 
 @app.route("/admin/orders")
-@login_required
+@permission_required("orders")
 def orders_dashboard():
     status = request.args.get("status", "").strip()
     connection = get_db()
@@ -2159,7 +2260,7 @@ def update_order_status(order_id: int):
 
 
 @app.route("/admin/reports")
-@login_required
+@permission_required("reports")
 def reports_dashboard():
     connection = get_db()
 
@@ -2256,7 +2357,7 @@ def reports_dashboard():
 
 
 @app.route("/admin/announcements")
-@login_required
+@permission_required("announcements")
 def announcement_manager():
     connection = get_db()
     rows = connection.execute(
@@ -2433,7 +2534,7 @@ def save_homepage():
 
 
 @app.route("/admin/store")
-@login_required
+@permission_required("store")
 def store_manager():
     connection = get_db()
     rows = connection.execute(
@@ -2448,7 +2549,7 @@ def store_manager():
 
 
 @app.route("/admin/media")
-@login_required
+@permission_required("media")
 def media_library():
     files = sorted([{"name": x.name, "url": f"/uploads/{x.name}", "size_kb": round(x.stat().st_size/1024,1)} for x in UPLOAD_FOLDER.iterdir() if x.is_file() and allowed_image(x.name)], key=lambda x: x["name"].lower())
     return render_template("media.html", files=files)

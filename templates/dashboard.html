@@ -64,12 +64,12 @@ a{text-decoration:none;color:inherit}button,input{font:inherit}
 <div class="shell">
 <aside class="sidebar">
   <div class="brand"><div class="brand-mark">★</div><div><strong>Stage Starz</strong><small>Command Center 2.0</small></div></div>
-  <div class="module"><div class="module-title">Overview</div><a class="active" href="/admin">◈ Dashboard</a><a href="/admin/search">⌕ Global Search</a><a href="/admin/system/database">🗄 Database Status</a><a href="/admin/system/migrations">🧬 Migration Center</a></div>
+  <div class="module"><div class="module-title">Overview</div><a class="active" href="/admin">◈ Dashboard</a><a href="/admin/search">⌕ Global Search</a><a href="/admin/system/database">🗄 Database Status</a><a href="/admin/system/migrations">🧬 Migration Center</a>{% if has_permission("users") %}<a href="/admin/system/users">🔐 Users & Roles</a>{% endif %}</div>
   <div class="module"><div class="module-title">Website</div><a href="/" target="_blank">🌐 Main Website</a><a href="/admin/website/homepage">🏠 Homepage Editor</a><a href="/admin/announcements">📣 Announcements</a></div>
   <div class="module"><div class="module-title">Commerce</div><a href="/admin/store">🛍 Store Manager</a><a href="/admin/orders">📦 Orders {% if stats.new_orders %}<small>{{ stats.new_orders }} new</small>{% endif %}</a><a href="/admin/reports">📊 Reports & Analytics</a><a href="/store" target="_blank">🛒 View Store</a></div>
   <div class="module"><div class="module-title">Content</div><a href="/admin/media">🖼 Media Library</a><a href="#" onclick="return false">📅 Events <small>Next</small></a></div>
   <div class="module"><div class="module-title">Relationships</div><a href="/admin/families">🏠 Families</a><a href="/admin/customers">👥 Customers</a><a href="/admin/students">🩰 Students</a><a href="#" onclick="return false">👨‍👩‍👧 Parent Portal <small>Later</small></a></div><div class="module"><div class="module-title">Future</div><a href="#" onclick="return false">✨ AI Assistant</a></div>
-  <div class="profile"><div class="avatar">PV</div><strong>Administrator</strong><small>Stage Starz</small></div>
+  <div class="profile"><div class="avatar">{{ (current_admin_user.display_name[:2] if current_admin_user else 'SS')|upper }}</div><strong>{{ current_admin_user.display_name if current_admin_user else 'Administrator' }}</strong><small>{{ role_definitions.get(current_admin_user.role, {}).get('label', 'Stage Starz') if current_admin_user else 'Stage Starz' }}</small></div>
 </aside>
 
 <main class="main">

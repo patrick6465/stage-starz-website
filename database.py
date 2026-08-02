@@ -328,8 +328,52 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS admin_users (
+            id {id_column},
+            username TEXT NOT NULL UNIQUE,
+            display_name TEXT NOT NULL,
+            email TEXT NOT NULL DEFAULT '',
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'office_staff',
+            active INTEGER NOT NULL DEFAULT 1,
+            last_login_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS admin_login_history (
+            id {id_column},
+            admin_user_id INTEGER,
+            username TEXT NOT NULL,
+            success INTEGER NOT NULL DEFAULT 0,
+            ip_address TEXT NOT NULL DEFAULT '',
+            user_agent TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(admin_user_id) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        admin_user_columns = [
+            ("display_name", "TEXT NOT NULL DEFAULT 'Administrator'"),
+            ("email", "TEXT NOT NULL DEFAULT ''"),
+            ("password_hash", "TEXT NOT NULL DEFAULT ''"),
+            ("role", "TEXT NOT NULL DEFAULT 'office_staff'"),
+            ("active", "INTEGER NOT NULL DEFAULT 1"),
+            ("last_login_at", "TIMESTAMP"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in admin_user_columns:
+            cursor.execute(f"ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS {column_name} {column_definition}")
+
         student_columns = [
             ("family_id", "INTEGER"),
             ("preferred_name", "TEXT NOT NULL DEFAULT ''"),
@@ -385,6 +429,23 @@ def init_db() -> None:
                 "PRAGMA table_info(customers)"
             ).fetchall()
         }
+        existing_admin_user_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(admin_users)").fetchall()
+        }
+        sqlite_admin_user_columns = [
+            ("display_name", "TEXT NOT NULL DEFAULT 'Administrator'"),
+            ("email", "TEXT NOT NULL DEFAULT ''"),
+            ("password_hash", "TEXT NOT NULL DEFAULT ''"),
+            ("role", "TEXT NOT NULL DEFAULT 'office_staff'"),
+            ("active", "INTEGER NOT NULL DEFAULT 1"),
+            ("last_login_at", "TIMESTAMP"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_admin_user_columns:
+            if column_name not in existing_admin_user_columns:
+                cursor.execute(f"ALTER TABLE admin_users ADD COLUMN {column_name} {column_definition}")
+
         existing_student_columns = {
             row["name"]
             for row in cursor.execute(
