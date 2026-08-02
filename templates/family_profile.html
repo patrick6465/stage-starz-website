@@ -11,7 +11,7 @@ label{display:block;font-size:.8rem;font-weight:850;margin-bottom:5px}input,text
 @media(max-width:780px){.grid,.fields,.stats{grid-template-columns:1fr}.full{grid-column:auto}}
 </style></head>
 <body>
-<header><strong>🏠 Family Profile</strong><nav><a href="/admin/families">← Families</a> &nbsp; <a href="/admin">Command Center</a></nav></header>
+<header><strong>🏠 Family Profile</strong><nav><a href="/admin/families">← Families</a> &nbsp; <a href="/admin/billing/families/{{ family.id }}">Billing</a> &nbsp; <a href="/admin">Command Center</a></nav></header>
 <main class="wrap">
 <section class="card"><h1>{{ family.family_name }}</h1><p class="muted">{{ family.primary_email }}{% if family.primary_phone %} · {{ family.primary_phone }}{% endif %}</p><div class="stats"><div class="stat"><strong>{{ family.customer_count }}</strong><span class="muted">Members</span></div><div class="stat"><strong>{{ family.order_count }}</strong><span class="muted">Orders</span></div><div class="stat"><strong>${{ "%.2f"|format(family.lifetime_value or 0) }}</strong><span class="muted">Lifetime value</span></div></div></section>
 <div class="grid">

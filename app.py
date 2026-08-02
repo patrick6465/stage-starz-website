@@ -67,7 +67,7 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","orders","website","announcements","media","search","reports"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
     "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, media and reports.","permissions":{"dashboard","store","orders","customers","reports","media","search"}},
 }
@@ -311,6 +311,22 @@ MIGRATION_REGISTRY = [
             "attendance_records": [
                 "session_id", "student_id", "status",
                 "minutes_late", "note", "marked_by"
+            ],
+        },
+    },
+    {
+        "key": "012_billing_tuition",
+        "title": "Billing and Tuition Center",
+        "description": "Family charges, payments, balances, receipts, due dates, and audit history.",
+        "required_tables": ["billing_charges", "billing_payments"],
+        "required_columns": {
+            "billing_charges": [
+                "family_id", "student_id", "charge_type",
+                "description", "amount", "due_date", "status"
+            ],
+            "billing_payments": [
+                "family_id", "amount", "payment_method",
+                "payment_date", "status", "received_by"
             ],
         },
     },
@@ -1512,6 +1528,476 @@ def create_order():
     sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+def get_family_billing_summary(connection, family_id: int) -> dict:
+    charges = connection.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM billing_charges
+        WHERE family_id=? AND status!='Voided'
+        """,
+        (family_id,),
+    ).fetchone()
+
+    payments = connection.execute(
+        """
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM billing_payments
+        WHERE family_id=? AND status!='Voided'
+        """,
+        (family_id,),
+    ).fetchone()
+
+    overdue = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS count,
+            COALESCE(SUM(amount), 0) AS total
+        FROM billing_charges
+        WHERE family_id=?
+          AND status='Open'
+          AND due_date!=''
+          AND due_date<?
+        """,
+        (family_id, date.today().isoformat()),
+    ).fetchone()
+
+    total_charges = float(charges["total"] or 0)
+    total_payments = float(payments["total"] or 0)
+
+    return {
+        "charges": total_charges,
+        "payments": total_payments,
+        "balance": total_charges - total_payments,
+        "overdue_count": int(overdue["count"] or 0),
+        "overdue_total": float(overdue["total"] or 0),
+    }
+
+
+@app.route("/admin/billing")
+@permission_required("billing")
+def billing_center():
+    query = request.args.get("q", "").strip()
+    balance_filter = request.args.get("balance", "all").strip()
+
+    conditions = []
+    parameters = []
+
+    if query:
+        like = f"%{query.lower()}%"
+        conditions.append(
+            """
+            (
+                LOWER(f.family_name) LIKE ?
+                OR LOWER(f.primary_email) LIKE ?
+                OR LOWER(f.primary_phone) LIKE ?
+            )
+            """
+        )
+        parameters.extend((like, like, like))
+
+    connection = get_db()
+    where_clause = (
+        "WHERE " + " AND ".join(conditions)
+        if conditions else ""
+    )
+
+    rows = connection.execute(
+        f"""
+        SELECT
+            f.id,
+            f.family_name,
+            f.primary_email,
+            f.primary_phone,
+            COALESCE(ch.total_charges, 0) AS total_charges,
+            COALESCE(py.total_payments, 0) AS total_payments,
+            COALESCE(ch.total_charges, 0)
+              - COALESCE(py.total_payments, 0) AS balance,
+            COALESCE(ch.overdue_count, 0) AS overdue_count,
+            ch.next_due_date
+        FROM families f
+        LEFT JOIN (
+            SELECT
+                family_id,
+                SUM(CASE WHEN status!='Voided' THEN amount ELSE 0 END) AS total_charges,
+                SUM(
+                    CASE
+                        WHEN status='Open'
+                         AND due_date!=''
+                         AND due_date<?
+                        THEN 1 ELSE 0
+                    END
+                ) AS overdue_count,
+                MIN(
+                    CASE
+                        WHEN status='Open'
+                         AND due_date!=''
+                        THEN due_date
+                    END
+                ) AS next_due_date
+            FROM billing_charges
+            GROUP BY family_id
+        ) ch ON ch.family_id=f.id
+        LEFT JOIN (
+            SELECT
+                family_id,
+                SUM(CASE WHEN status!='Voided' THEN amount ELSE 0 END) AS total_payments
+            FROM billing_payments
+            GROUP BY family_id
+        ) py ON py.family_id=f.id
+        {where_clause}
+        ORDER BY balance DESC, f.family_name
+        """,
+        tuple([date.today().isoformat()] + parameters),
+    ).fetchall()
+
+    accounts = []
+    for row in rows:
+        item = dict(row)
+        balance = float(item["balance"] or 0)
+        if balance_filter == "due" and balance <= 0:
+            continue
+        if balance_filter == "credit" and balance >= 0:
+            continue
+        if balance_filter == "zero" and abs(balance) >= 0.005:
+            continue
+        accounts.append(item)
+
+    summary = connection.execute(
+        """
+        SELECT
+            COALESCE(
+                (SELECT SUM(amount) FROM billing_charges WHERE status!='Voided'),
+                0
+            ) AS charges,
+            COALESCE(
+                (SELECT SUM(amount) FROM billing_payments WHERE status!='Voided'),
+                0
+            ) AS payments,
+            COALESCE(
+                (
+                    SELECT SUM(amount)
+                    FROM billing_charges
+                    WHERE status='Open'
+                      AND due_date!=''
+                      AND due_date<?
+                ),
+                0
+            ) AS overdue
+        """,
+        (date.today().isoformat(),),
+    ).fetchone()
+    connection.close()
+
+    summary_data = dict(summary)
+    summary_data["balance"] = (
+        float(summary_data["charges"] or 0)
+        - float(summary_data["payments"] or 0)
+    )
+
+    return render_template(
+        "billing_center.html",
+        accounts=accounts,
+        summary=summary_data,
+        query=query,
+        balance_filter=balance_filter,
+    )
+
+
+@app.route("/admin/billing/families/<int:family_id>")
+@permission_required("billing")
+def family_billing(family_id: int):
+    connection = get_db()
+    family = connection.execute(
+        "SELECT * FROM families WHERE id=?",
+        (family_id,),
+    ).fetchone()
+
+    if not family:
+        connection.close()
+        return ("Family not found", 404)
+
+    students = connection.execute(
+        """
+        SELECT id, first_name, last_name, preferred_name, status
+        FROM students
+        WHERE family_id=?
+        ORDER BY last_name, first_name
+        """,
+        (family_id,),
+    ).fetchall()
+
+    charges = connection.execute(
+        """
+        SELECT
+            ch.*,
+            s.first_name,
+            s.last_name,
+            s.preferred_name,
+            a.display_name AS created_by_name
+        FROM billing_charges ch
+        LEFT JOIN students s ON s.id=ch.student_id
+        LEFT JOIN admin_users a ON a.id=ch.created_by
+        WHERE ch.family_id=?
+        ORDER BY ch.id DESC
+        """,
+        (family_id,),
+    ).fetchall()
+
+    payments = connection.execute(
+        """
+        SELECT
+            py.*,
+            a.display_name AS received_by_name
+        FROM billing_payments py
+        LEFT JOIN admin_users a ON a.id=py.received_by
+        WHERE py.family_id=?
+        ORDER BY py.payment_date DESC, py.id DESC
+        """,
+        (family_id,),
+    ).fetchall()
+
+    summary = get_family_billing_summary(connection, family_id)
+    connection.close()
+
+    ledger = []
+    for row in charges:
+        item = dict(row)
+        ledger.append({
+            "kind": "charge",
+            "id": item["id"],
+            "date": str(item["created_at"] or ""),
+            "description": item["description"],
+            "detail": item["charge_type"],
+            "amount": float(item["amount"] or 0),
+            "status": item["status"],
+        })
+    for row in payments:
+        item = dict(row)
+        ledger.append({
+            "kind": "payment",
+            "id": item["id"],
+            "date": item["payment_date"],
+            "description": f"{item['payment_method']} payment",
+            "detail": item["reference"] or item["note"],
+            "amount": -float(item["amount"] or 0),
+            "status": item["status"],
+        })
+    ledger.sort(key=lambda item: (str(item["date"]), item["id"]), reverse=True)
+
+    return render_template(
+        "family_billing.html",
+        family=dict(family),
+        students=[dict(row) for row in students],
+        charges=[dict(row) for row in charges],
+        payments=[dict(row) for row in payments],
+        ledger=ledger,
+        summary=summary,
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/admin/billing/families/<int:family_id>/charges", methods=["POST"])
+@permission_required("billing")
+def add_billing_charge(family_id: int):
+    amount = float(request.form.get("amount", "0") or 0)
+    description = request.form.get("description", "").strip()
+    if amount <= 0 or not description:
+        flash("Charge description and a positive amount are required.", "error")
+        return redirect(url_for("family_billing", family_id=family_id))
+
+    student_value = request.form.get("student_id", "").strip()
+    student_id = int(student_value) if student_value else None
+
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO billing_charges (
+            family_id, student_id, charge_type,
+            description, amount, due_date,
+            status, reference, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, 'Open', ?, ?)
+        """,
+        (
+            family_id,
+            student_id,
+            request.form.get("charge_type", "Tuition").strip(),
+            description,
+            amount,
+            request.form.get("due_date", "").strip(),
+            request.form.get("reference", "").strip(),
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    log_activity(
+        "Billing charge added",
+        f"Family #{family_id} · {description} · ${amount:.2f}",
+    )
+    flash("Charge added.", "success")
+    return redirect(url_for("family_billing", family_id=family_id))
+
+
+@app.route("/admin/billing/families/<int:family_id>/payments", methods=["POST"])
+@permission_required("billing")
+def add_billing_payment(family_id: int):
+    amount = float(request.form.get("amount", "0") or 0)
+    if amount <= 0:
+        flash("Payment amount must be greater than zero.", "error")
+        return redirect(url_for("family_billing", family_id=family_id))
+
+    connection = get_db()
+    insert_sql = """
+        INSERT INTO billing_payments (
+            family_id, amount, payment_method,
+            payment_date, reference, note,
+            status, received_by
+        ) VALUES (?, ?, ?, ?, ?, ?, 'Posted', ?)
+    """
+    if connection.backend == "postgresql":
+        insert_sql += " RETURNING id"
+
+    cursor = connection.execute(
+        insert_sql,
+        (
+            family_id,
+            amount,
+            request.form.get("payment_method", "Cash").strip(),
+            request.form.get(
+                "payment_date",
+                date.today().isoformat(),
+            ).strip(),
+            request.form.get("reference", "").strip(),
+            request.form.get("note", "").strip(),
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    payment_id = (
+        int(cursor.fetchone()["id"])
+        if connection.backend == "postgresql"
+        else int(cursor.lastrowid)
+    )
+    connection.commit()
+    connection.close()
+
+    log_activity(
+        "Billing payment recorded",
+        f"Family #{family_id} · ${amount:.2f}",
+    )
+    flash("Payment recorded.", "success")
+    return redirect(url_for("billing_receipt", payment_id=payment_id))
+
+
+@app.route("/admin/billing/charges/<int:charge_id>/void", methods=["POST"])
+@permission_required("billing")
+def void_billing_charge(charge_id: int):
+    reason = request.form.get("void_reason", "").strip()
+    connection = get_db()
+    charge = connection.execute(
+        "SELECT family_id, status FROM billing_charges WHERE id=?",
+        (charge_id,),
+    ).fetchone()
+    if charge and charge["status"] != "Voided":
+        connection.execute(
+            """
+            UPDATE billing_charges SET
+                status='Voided',
+                voided_at=CURRENT_TIMESTAMP,
+                voided_by=?,
+                void_reason=?
+            WHERE id=?
+            """,
+            (
+                int(session.get("admin_user_id") or 0) or None,
+                reason,
+                charge_id,
+            ),
+        )
+        connection.commit()
+    connection.close()
+    flash("Charge voided.", "success")
+    return redirect(
+        url_for(
+            "family_billing",
+            family_id=int(charge["family_id"]) if charge else 0,
+        )
+    )
+
+
+@app.route("/admin/billing/payments/<int:payment_id>/void", methods=["POST"])
+@permission_required("billing")
+def void_billing_payment(payment_id: int):
+    reason = request.form.get("void_reason", "").strip()
+    connection = get_db()
+    payment = connection.execute(
+        "SELECT family_id, status FROM billing_payments WHERE id=?",
+        (payment_id,),
+    ).fetchone()
+    if payment and payment["status"] != "Voided":
+        connection.execute(
+            """
+            UPDATE billing_payments SET
+                status='Voided',
+                voided_at=CURRENT_TIMESTAMP,
+                voided_by=?,
+                void_reason=?
+            WHERE id=?
+            """,
+            (
+                int(session.get("admin_user_id") or 0) or None,
+                reason,
+                payment_id,
+            ),
+        )
+        connection.commit()
+    connection.close()
+    flash("Payment voided.", "success")
+    return redirect(
+        url_for(
+            "family_billing",
+            family_id=int(payment["family_id"]) if payment else 0,
+        )
+    )
+
+
+@app.route("/admin/billing/receipts/<int:payment_id>")
+@permission_required("billing")
+def billing_receipt(payment_id: int):
+    connection = get_db()
+    payment = connection.execute(
+        """
+        SELECT
+            py.*,
+            f.family_name,
+            f.primary_email,
+            f.primary_phone,
+            a.display_name AS received_by_name
+        FROM billing_payments py
+        JOIN families f ON f.id=py.family_id
+        LEFT JOIN admin_users a ON a.id=py.received_by
+        WHERE py.id=?
+        """,
+        (payment_id,),
+    ).fetchone()
+
+    if not payment:
+        connection.close()
+        return ("Receipt not found", 404)
+
+    summary = get_family_billing_summary(
+        connection,
+        int(payment["family_id"]),
+    )
+    connection.close()
+
+    return render_template(
+        "billing_receipt.html",
+        payment=dict(payment),
+        summary=summary,
+    )
 
 
 def teacher_can_access_class(connection, class_id: int) -> bool:

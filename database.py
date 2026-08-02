@@ -454,8 +454,95 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS billing_charges (
+            id {id_column},
+            family_id INTEGER NOT NULL,
+            student_id INTEGER,
+            charge_type TEXT NOT NULL DEFAULT 'Tuition',
+            description TEXT NOT NULL,
+            amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+            due_date TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Open',
+            reference TEXT NOT NULL DEFAULT '',
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            voided_at TIMESTAMP,
+            voided_by INTEGER,
+            void_reason TEXT NOT NULL DEFAULT '',
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+            FOREIGN KEY(voided_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS billing_payments (
+            id {id_column},
+            family_id INTEGER NOT NULL,
+            amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+            payment_method TEXT NOT NULL DEFAULT 'Cash',
+            payment_date TEXT NOT NULL,
+            reference TEXT NOT NULL DEFAULT '',
+            note TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Posted',
+            received_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            voided_at TIMESTAMP,
+            voided_by INTEGER,
+            void_reason TEXT NOT NULL DEFAULT '',
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE,
+            FOREIGN KEY(received_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+            FOREIGN KEY(voided_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        billing_charge_columns = [
+            ("family_id", "INTEGER"),
+            ("student_id", "INTEGER"),
+            ("charge_type", "TEXT NOT NULL DEFAULT 'Tuition'"),
+            ("description", "TEXT NOT NULL DEFAULT ''"),
+            ("amount", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+            ("due_date", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Open'"),
+            ("reference", "TEXT NOT NULL DEFAULT ''"),
+            ("created_by", "INTEGER"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("voided_at", "TIMESTAMP"),
+            ("voided_by", "INTEGER"),
+            ("void_reason", "TEXT NOT NULL DEFAULT ''"),
+        ]
+        for column_name, column_definition in billing_charge_columns:
+            cursor.execute(
+                f"ALTER TABLE billing_charges ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        billing_payment_columns = [
+            ("family_id", "INTEGER"),
+            ("amount", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+            ("payment_method", "TEXT NOT NULL DEFAULT 'Cash'"),
+            ("payment_date", "TEXT NOT NULL DEFAULT ''"),
+            ("reference", "TEXT NOT NULL DEFAULT ''"),
+            ("note", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Posted'"),
+            ("received_by", "INTEGER"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("voided_at", "TIMESTAMP"),
+            ("voided_by", "INTEGER"),
+            ("void_reason", "TEXT NOT NULL DEFAULT ''"),
+        ]
+        for column_name, column_definition in billing_payment_columns:
+            cursor.execute(
+                f"ALTER TABLE billing_payments ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
         class_session_columns = [
             ("class_id", "INTEGER"),
             ("session_date", "TEXT NOT NULL DEFAULT ''"),
@@ -590,6 +677,59 @@ def init_db() -> None:
                 "PRAGMA table_info(customers)"
             ).fetchall()
         }
+        existing_billing_charge_columns = {
+            row["name"]
+            for row in cursor.execute(
+                "PRAGMA table_info(billing_charges)"
+            ).fetchall()
+        }
+        sqlite_billing_charge_columns = [
+            ("family_id", "INTEGER"),
+            ("student_id", "INTEGER"),
+            ("charge_type", "TEXT NOT NULL DEFAULT 'Tuition'"),
+            ("description", "TEXT NOT NULL DEFAULT ''"),
+            ("amount", "REAL NOT NULL DEFAULT 0"),
+            ("due_date", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Open'"),
+            ("reference", "TEXT NOT NULL DEFAULT ''"),
+            ("created_by", "INTEGER"),
+            ("created_at", "TIMESTAMP"),
+            ("voided_at", "TIMESTAMP"),
+            ("voided_by", "INTEGER"),
+            ("void_reason", "TEXT NOT NULL DEFAULT ''"),
+        ]
+        for column_name, column_definition in sqlite_billing_charge_columns:
+            if column_name not in existing_billing_charge_columns:
+                cursor.execute(
+                    f"ALTER TABLE billing_charges ADD COLUMN {column_name} {column_definition}"
+                )
+
+        existing_billing_payment_columns = {
+            row["name"]
+            for row in cursor.execute(
+                "PRAGMA table_info(billing_payments)"
+            ).fetchall()
+        }
+        sqlite_billing_payment_columns = [
+            ("family_id", "INTEGER"),
+            ("amount", "REAL NOT NULL DEFAULT 0"),
+            ("payment_method", "TEXT NOT NULL DEFAULT 'Cash'"),
+            ("payment_date", "TEXT NOT NULL DEFAULT ''"),
+            ("reference", "TEXT NOT NULL DEFAULT ''"),
+            ("note", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Posted'"),
+            ("received_by", "INTEGER"),
+            ("created_at", "TIMESTAMP"),
+            ("voided_at", "TIMESTAMP"),
+            ("voided_by", "INTEGER"),
+            ("void_reason", "TEXT NOT NULL DEFAULT ''"),
+        ]
+        for column_name, column_definition in sqlite_billing_payment_columns:
+            if column_name not in existing_billing_payment_columns:
+                cursor.execute(
+                    f"ALTER TABLE billing_payments ADD COLUMN {column_name} {column_definition}"
+                )
+
         existing_class_session_columns = {
             row["name"]
             for row in cursor.execute(
