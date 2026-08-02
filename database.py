@@ -416,8 +416,75 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS class_sessions (
+            id {id_column},
+            class_id INTEGER NOT NULL,
+            session_date TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Scheduled',
+            topic TEXT NOT NULL DEFAULT '',
+            teacher_notes TEXT NOT NULL DEFAULT '',
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(class_id, session_date),
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS attendance_records (
+            id {id_column},
+            session_id INTEGER NOT NULL,
+            student_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Unmarked',
+            minutes_late INTEGER NOT NULL DEFAULT 0,
+            note TEXT NOT NULL DEFAULT '',
+            marked_by INTEGER,
+            marked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(session_id, student_id),
+            FOREIGN KEY(session_id) REFERENCES class_sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+            FOREIGN KEY(marked_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        class_session_columns = [
+            ("class_id", "INTEGER"),
+            ("session_date", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Scheduled'"),
+            ("topic", "TEXT NOT NULL DEFAULT ''"),
+            ("teacher_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("created_by", "INTEGER"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in class_session_columns:
+            cursor.execute(
+                f"ALTER TABLE class_sessions ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        attendance_columns = [
+            ("session_id", "INTEGER"),
+            ("student_id", "INTEGER"),
+            ("status", "TEXT NOT NULL DEFAULT 'Unmarked'"),
+            ("minutes_late", "INTEGER NOT NULL DEFAULT 0"),
+            ("note", "TEXT NOT NULL DEFAULT ''"),
+            ("marked_by", "INTEGER"),
+            ("marked_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in attendance_columns:
+            cursor.execute(
+                f"ALTER TABLE attendance_records ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
         teacher_columns = [
             ("admin_user_id", "INTEGER"),
             ("first_name", "TEXT NOT NULL DEFAULT ''"),
@@ -523,6 +590,49 @@ def init_db() -> None:
                 "PRAGMA table_info(customers)"
             ).fetchall()
         }
+        existing_class_session_columns = {
+            row["name"]
+            for row in cursor.execute(
+                "PRAGMA table_info(class_sessions)"
+            ).fetchall()
+        }
+        sqlite_class_session_columns = [
+            ("class_id", "INTEGER"),
+            ("session_date", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Scheduled'"),
+            ("topic", "TEXT NOT NULL DEFAULT ''"),
+            ("teacher_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("created_by", "INTEGER"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_class_session_columns:
+            if column_name not in existing_class_session_columns:
+                cursor.execute(
+                    f"ALTER TABLE class_sessions ADD COLUMN {column_name} {column_definition}"
+                )
+
+        existing_attendance_columns = {
+            row["name"]
+            for row in cursor.execute(
+                "PRAGMA table_info(attendance_records)"
+            ).fetchall()
+        }
+        sqlite_attendance_columns = [
+            ("session_id", "INTEGER"),
+            ("student_id", "INTEGER"),
+            ("status", "TEXT NOT NULL DEFAULT 'Unmarked'"),
+            ("minutes_late", "INTEGER NOT NULL DEFAULT 0"),
+            ("note", "TEXT NOT NULL DEFAULT ''"),
+            ("marked_by", "INTEGER"),
+            ("marked_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_attendance_columns:
+            if column_name not in existing_attendance_columns:
+                cursor.execute(
+                    f"ALTER TABLE attendance_records ADD COLUMN {column_name} {column_definition}"
+                )
+
         existing_teacher_columns = {
             row["name"]
             for row in cursor.execute("PRAGMA table_info(teachers)").fetchall()

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Attendance Center | Stage Starz</title>
+<style>
+:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867;--danger:#ff6c7d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 8% 0%,rgba(155,77,204,.3),transparent 30rem),var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}
+header{padding:18px 4vw;display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid var(--line)}.wrap{width:min(1350px,calc(100% - 28px));margin:24px auto 60px}.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}.card{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:18px;padding:18px}.value{font-size:1.75rem;font-weight:950}.muted{color:var(--muted)}
+.toolbar{display:flex;justify-content:space-between;gap:14px;align-items:end;margin:20px 0}.toolbar form{display:flex;gap:9px;align-items:end}.toolbar input,.toolbar button{padding:11px;border-radius:10px;border:1px solid var(--line);background:#100a1d;color:#fff}.toolbar button{border:0;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}.class-card{display:block;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px}.class-card:hover{border-color:var(--teal)}.head{display:flex;justify-content:space-between;gap:12px}.badge{padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.13);color:var(--teal);font-size:.72rem;font-weight:900}.counts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:14px}.count{text-align:center;padding:8px;border-radius:10px;background:#100a1d}.count b{display:block}.present{color:var(--teal)}.late{color:var(--gold)}.absent{color:var(--danger)}
+@media(max-width:1000px){.stats{grid-template-columns:repeat(3,1fr)}}@media(max-width:650px){.stats{grid-template-columns:1fr 1fr}.toolbar{display:block}.toolbar form{margin-top:12px}.counts{grid-template-columns:repeat(3,1fr)}}
+</style></head>
+<body><header><strong>✅ Attendance Center</strong><nav><a href="/admin">Command Center</a> &nbsp; <a href="/admin/attendance/history">History</a> &nbsp; <a href="/admin/classes">Classes</a></nav></header>
+<main class="wrap">
+<section class="stats">
+<div class="card"><div class="value">{{ totals.classes }}</div><div class="muted">Classes</div></div>
+<div class="card"><div class="value">{{ totals.roster }}</div><div class="muted">Roster spots</div></div>
+<div class="card"><div class="value present">{{ totals.present }}</div><div class="muted">Present</div></div>
+<div class="card"><div class="value late">{{ totals.late }}</div><div class="muted">Late</div></div>
+<div class="card"><div class="value absent">{{ totals.absent }}</div><div class="muted">Absent</div></div>
+<div class="card"><div class="value">{{ totals.attendance_rate }}%</div><div class="muted">Attendance rate</div></div>
+</section>
+<div class="toolbar"><div><h1>Attendance for {{ selected_date }}</h1><p class="muted">Open a class to mark the roster.</p></div><form><div><label>Date</label><input type="date" name="date" value="{{ selected_date }}"></div><button>Load Date</button></form></div>
+<div class="grid">
+{% for c in classes %}
+<a class="class-card" href="/admin/attendance/classes/{{ c.id }}?date={{ selected_date }}">
+<div class="head"><div><strong>{{ c.name }}</strong><div class="muted">{{ c.day_of_week }} · {{ c.start_time or '—' }}{% if c.end_time %}–{{ c.end_time }}{% endif %} · {{ c.room or 'Room TBD' }}</div></div><span class="badge">{{ c.session_status or 'Not Started' }}</span></div>
+<p class="muted">{% if c.teacher_first_name %}{{ c.teacher_first_name }} {{ c.teacher_last_name }}{% else %}No teacher assigned{% endif %}</p>
+<div class="counts"><div class="count"><b>{{ c.roster_count }}</b><small>Roster</small></div><div class="count present"><b>{{ c.present_count }}</b><small>Present</small></div><div class="count late"><b>{{ c.late_count }}</b><small>Late</small></div><div class="count absent"><b>{{ c.absent_count }}</b><small>Absent</small></div><div class="count"><b>{{ c.unmarked_count }}</b><small>Unmarked</small></div></div>
+</a>
+{% else %}<div class="card muted">No classes are available for this account.</div>{% endfor %}
+</div></main></body></html>

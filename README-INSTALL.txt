@@ -1,4 +1,4 @@
-STAGE STARZ CLASS MANAGEMENT V1
+STAGE STARZ ATTENDANCE CENTER V1
 
 REPLACE:
 - app.py
@@ -6,38 +6,41 @@ REPLACE:
 - templates/dashboard.html
 
 ADD:
-- templates/classes.html
-- templates/class_form.html
-- templates/class_profile.html
-- templates/teachers.html
+- templates/attendance_center.html
+- templates/take_attendance.html
+- templates/attendance_history.html
 
 CONFIRM PRESENT:
 - templates/admin_login.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py database.py templates/dashboard.html templates/admin_login.html templates/classes.html templates/class_form.html templates/class_profile.html templates/teachers.html
-git commit -m "Add Stage Starz class management"
+git add app.py database.py templates/dashboard.html templates/admin_login.html templates/attendance_center.html templates/take_attendance.html templates/attendance_history.html
+git commit -m "Add Stage Starz Attendance Center"
 git push origin railway-deployment
 
 FEATURES:
-- Teachers directory
-- Optional link between a Teacher record and Teacher login account
-- Classes with category, level, season, room, day, time, capacity, and status
-- Student enrollment and roster management
-- Active, Waitlist, Dropped, and Completed enrollment statuses
-- Capacity and spaces-left calculations
-- Teacher accounts see only their assigned classes
-- Teachers can view rosters but cannot edit classes or enrollment
-- Office Staff and Owner can manage teachers, classes, and enrollment
-- Migration Center milestone 010
+- Attendance sessions by class and date
+- Present, Late, Absent, Excused, and Unmarked statuses
+- Mobile-friendly bulk attendance form
+- Minutes-late tracking
+- Individual attendance notes
+- Lesson topic and teacher notes
+- Scheduled, Completed, and Cancelled session status
+- Daily attendance dashboard
+- Searchable attendance history
+- Attendance-rate calculations
+- Teacher accounts only access assigned classes
+- Owner and Office Staff access all attendance
+- Migration Center milestone 011
 
 VERIFY:
 1. Railway becomes Active.
 2. /health is ok.
 3. /ready is ready.
-4. Migration Center shows Class Management.
-5. Open /admin/teachers and create a teacher.
-6. Open /admin/classes and create a test class.
-7. Enroll one student.
-8. Link a Teacher login account and confirm it sees only assigned classes.
+4. Migration Center shows Attendance Center.
+5. Open /admin/attendance.
+6. Open a class and mark the roster.
+7. Save attendance, topic, and notes.
+8. Open /admin/attendance/history.
+9. Sign in as a Teacher and verify only assigned classes appear.

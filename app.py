@@ -67,8 +67,8 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","orders","website","announcements","media","search","reports"}},
-    "teacher": {"label":"Teacher","description":"View assigned classes, rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","search"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","orders","website","announcements","media","search","reports"}},
+    "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
     "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, media and reports.","permissions":{"dashboard","store","orders","customers","reports","media","search"}},
 }
 
@@ -295,6 +295,22 @@ MIGRATION_REGISTRY = [
             ],
             "class_enrollments": [
                 "class_id", "student_id", "status", "enrolled_at"
+            ],
+        },
+    },
+    {
+        "key": "011_attendance_center",
+        "title": "Attendance Center",
+        "description": "Class sessions, attendance statuses, notes, and reporting.",
+        "required_tables": ["class_sessions", "attendance_records"],
+        "required_columns": {
+            "class_sessions": [
+                "class_id", "session_date", "status",
+                "topic", "teacher_notes", "created_by"
+            ],
+            "attendance_records": [
+                "session_id", "student_id", "status",
+                "minutes_late", "note", "marked_by"
             ],
         },
     },
@@ -1496,6 +1512,557 @@ def create_order():
     sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+def teacher_can_access_class(connection, class_id: int) -> bool:
+    if session.get("admin_role") != "teacher":
+        return True
+
+    row = connection.execute(
+        """
+        SELECT t.admin_user_id
+        FROM classes c
+        LEFT JOIN teachers t ON t.id = c.teacher_id
+        WHERE c.id=?
+        """,
+        (class_id,),
+    ).fetchone()
+
+    return bool(
+        row
+        and int(row["admin_user_id"] or 0)
+        == int(session.get("admin_user_id") or 0)
+    )
+
+
+def get_or_create_class_session(
+    connection,
+    class_id: int,
+    session_date: str,
+) -> int:
+    row = connection.execute(
+        """
+        SELECT id
+        FROM class_sessions
+        WHERE class_id=? AND session_date=?
+        """,
+        (class_id, session_date),
+    ).fetchone()
+
+    if row:
+        return int(row["id"])
+
+    insert_sql = """
+        INSERT INTO class_sessions (
+            class_id, session_date, created_by
+        ) VALUES (?, ?, ?)
+    """
+    if connection.backend == "postgresql":
+        insert_sql += " RETURNING id"
+
+    cursor = connection.execute(
+        insert_sql,
+        (
+            class_id,
+            session_date,
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+
+    return (
+        int(cursor.fetchone()["id"])
+        if connection.backend == "postgresql"
+        else int(cursor.lastrowid)
+    )
+
+
+@app.route("/admin/attendance")
+@permission_required("attendance")
+def attendance_center():
+    selected_date = request.args.get(
+        "date",
+        date.today().isoformat(),
+    ).strip()
+
+    conditions = ["c.active=1"]
+    parameters = [selected_date]
+
+    if session.get("admin_role") == "teacher":
+        conditions.append("t.admin_user_id=?")
+        parameters.append(int(session.get("admin_user_id")))
+
+    connection = get_db()
+    rows = connection.execute(
+        f"""
+        SELECT
+            c.id,
+            c.name,
+            c.room,
+            c.day_of_week,
+            c.start_time,
+            c.end_time,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name,
+            cs.id AS session_id,
+            cs.status AS session_status,
+            COUNT(DISTINCT e.student_id) AS roster_count,
+            COUNT(DISTINCT CASE WHEN ar.status='Present' THEN ar.student_id END) AS present_count,
+            COUNT(DISTINCT CASE WHEN ar.status='Late' THEN ar.student_id END) AS late_count,
+            COUNT(DISTINCT CASE WHEN ar.status='Absent' THEN ar.student_id END) AS absent_count,
+            COUNT(DISTINCT CASE WHEN ar.status='Excused' THEN ar.student_id END) AS excused_count
+        FROM classes c
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        LEFT JOIN class_enrollments e
+          ON e.class_id=c.id
+         AND e.status='Active'
+        LEFT JOIN class_sessions cs
+          ON cs.class_id=c.id
+         AND cs.session_date=?
+        LEFT JOIN attendance_records ar
+          ON ar.session_id=cs.id
+         AND ar.student_id=e.student_id
+        WHERE {" AND ".join(conditions)}
+        GROUP BY
+            c.id, c.name, c.room, c.day_of_week,
+            c.start_time, c.end_time,
+            t.first_name, t.last_name,
+            cs.id, cs.status
+        ORDER BY
+            CASE c.day_of_week
+                WHEN 'Monday' THEN 1
+                WHEN 'Tuesday' THEN 2
+                WHEN 'Wednesday' THEN 3
+                WHEN 'Thursday' THEN 4
+                WHEN 'Friday' THEN 5
+                WHEN 'Saturday' THEN 6
+                WHEN 'Sunday' THEN 7
+                ELSE 8
+            END,
+            c.start_time,
+            c.name
+        """,
+        tuple(parameters),
+    ).fetchall()
+    connection.close()
+
+    classes = []
+    totals = {
+        "classes": len(rows),
+        "roster": 0,
+        "present": 0,
+        "late": 0,
+        "absent": 0,
+        "excused": 0,
+        "unmarked": 0,
+    }
+
+    for row in rows:
+        item = dict(row)
+        marked = (
+            int(item["present_count"] or 0)
+            + int(item["late_count"] or 0)
+            + int(item["absent_count"] or 0)
+            + int(item["excused_count"] or 0)
+        )
+        item["unmarked_count"] = max(
+            int(item["roster_count"] or 0) - marked,
+            0,
+        )
+        classes.append(item)
+
+        totals["roster"] += int(item["roster_count"] or 0)
+        totals["present"] += int(item["present_count"] or 0)
+        totals["late"] += int(item["late_count"] or 0)
+        totals["absent"] += int(item["absent_count"] or 0)
+        totals["excused"] += int(item["excused_count"] or 0)
+        totals["unmarked"] += int(item["unmarked_count"] or 0)
+
+    marked_total = (
+        totals["present"]
+        + totals["late"]
+        + totals["absent"]
+        + totals["excused"]
+    )
+    totals["attendance_rate"] = (
+        round(
+            (totals["present"] + totals["late"])
+            / marked_total
+            * 100,
+            1,
+        )
+        if marked_total else 0
+    )
+
+    return render_template(
+        "attendance_center.html",
+        classes=classes,
+        totals=totals,
+        selected_date=selected_date,
+    )
+
+
+@app.route("/admin/attendance/classes/<int:class_id>")
+@permission_required("attendance")
+def take_attendance(class_id: int):
+    selected_date = request.args.get(
+        "date",
+        date.today().isoformat(),
+    ).strip()
+
+    connection = get_db()
+
+    if not teacher_can_access_class(connection, class_id):
+        connection.close()
+        flash(
+            "You can only take attendance for classes assigned to you.",
+            "error",
+        )
+        return redirect(
+            url_for("attendance_center", date=selected_date)
+        )
+
+    class_record = connection.execute(
+        """
+        SELECT
+            c.*,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name
+        FROM classes c
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        WHERE c.id=?
+        """,
+        (class_id,),
+    ).fetchone()
+
+    if not class_record:
+        connection.close()
+        return ("Class not found", 404)
+
+    session_id = get_or_create_class_session(
+        connection,
+        class_id,
+        selected_date,
+    )
+
+    session_record = connection.execute(
+        "SELECT * FROM class_sessions WHERE id=?",
+        (session_id,),
+    ).fetchone()
+
+    roster = connection.execute(
+        """
+        SELECT
+            s.id AS student_id,
+            s.first_name,
+            s.last_name,
+            s.preferred_name,
+            s.photo_url,
+            s.birth_date,
+            f.family_name,
+            COALESCE(ar.status, 'Unmarked') AS attendance_status,
+            COALESCE(ar.minutes_late, 0) AS minutes_late,
+            COALESCE(ar.note, '') AS attendance_note
+        FROM class_enrollments e
+        JOIN students s ON s.id=e.student_id
+        LEFT JOIN families f ON f.id=s.family_id
+        LEFT JOIN attendance_records ar
+          ON ar.session_id=?
+         AND ar.student_id=s.id
+        WHERE e.class_id=?
+          AND e.status='Active'
+        ORDER BY s.last_name, s.first_name
+        """,
+        (session_id, class_id),
+    ).fetchall()
+
+    connection.commit()
+    connection.close()
+
+    roster_list = [dict(row) for row in roster]
+    counts = {
+        status: sum(
+            1
+            for row in roster_list
+            if row["attendance_status"] == status
+        )
+        for status in (
+            "Present",
+            "Late",
+            "Absent",
+            "Excused",
+            "Unmarked",
+        )
+    }
+
+    return render_template(
+        "take_attendance.html",
+        class_record=dict(class_record),
+        session_record=dict(session_record),
+        roster=roster_list,
+        selected_date=selected_date,
+        counts=counts,
+    )
+
+
+@app.route(
+    "/admin/attendance/sessions/<int:session_id>/save",
+    methods=["POST"],
+)
+@permission_required("attendance")
+def save_attendance_session(session_id: int):
+    connection = get_db()
+
+    session_record = connection.execute(
+        """
+        SELECT class_id, session_date
+        FROM class_sessions
+        WHERE id=?
+        """,
+        (session_id,),
+    ).fetchone()
+
+    if not session_record:
+        connection.close()
+        flash("Attendance session not found.", "error")
+        return redirect(url_for("attendance_center"))
+
+    class_id = int(session_record["class_id"])
+
+    if not teacher_can_access_class(connection, class_id):
+        connection.close()
+        flash("You cannot edit this attendance session.", "error")
+        return redirect(url_for("attendance_center"))
+
+    session_status = request.form.get(
+        "session_status",
+        "Completed",
+    ).strip()
+    if session_status not in {
+        "Scheduled",
+        "Completed",
+        "Cancelled",
+    }:
+        session_status = "Completed"
+
+    connection.execute(
+        """
+        UPDATE class_sessions SET
+            status=?,
+            topic=?,
+            teacher_notes=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (
+            session_status,
+            request.form.get("topic", "").strip(),
+            request.form.get("teacher_notes", "").strip(),
+            session_id,
+        ),
+    )
+
+    student_ids = request.form.getlist("student_id")
+    allowed_statuses = {
+        "Present",
+        "Late",
+        "Absent",
+        "Excused",
+        "Unmarked",
+    }
+
+    for student_id_text in student_ids:
+        student_id = int(student_id_text)
+        status = request.form.get(
+            f"status_{student_id}",
+            "Unmarked",
+        ).strip()
+        if status not in allowed_statuses:
+            status = "Unmarked"
+
+        minutes_late = int(
+            request.form.get(
+                f"minutes_{student_id}",
+                "0",
+            )
+            or 0
+        )
+
+        note = request.form.get(
+            f"note_{student_id}",
+            "",
+        ).strip()
+
+        connection.execute(
+            """
+            INSERT INTO attendance_records (
+                session_id,
+                student_id,
+                status,
+                minutes_late,
+                note,
+                marked_by
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(session_id, student_id) DO UPDATE SET
+                status=excluded.status,
+                minutes_late=excluded.minutes_late,
+                note=excluded.note,
+                marked_by=excluded.marked_by,
+                marked_at=CURRENT_TIMESTAMP
+            """,
+            (
+                session_id,
+                student_id,
+                status,
+                max(minutes_late, 0),
+                note,
+                int(session.get("admin_user_id") or 0) or None,
+            ),
+        )
+
+    connection.commit()
+    connection.close()
+
+    log_activity(
+        "Attendance saved",
+        f"Class #{class_id} · {session_record['session_date']}",
+    )
+    flash("Attendance saved.", "success")
+
+    return redirect(
+        url_for(
+            "take_attendance",
+            class_id=class_id,
+            date=session_record["session_date"],
+        )
+    )
+
+
+@app.route("/admin/attendance/history")
+@permission_required("attendance")
+def attendance_history():
+    query = request.args.get("q", "").strip()
+    selected_status = request.args.get("status", "").strip()
+    date_from = request.args.get("from", "").strip()
+    date_to = request.args.get("to", "").strip()
+
+    conditions = []
+    parameters = []
+
+    if query:
+        like = f"%{query.lower()}%"
+        conditions.append(
+            """
+            (
+                LOWER(s.first_name) LIKE ?
+                OR LOWER(s.last_name) LIKE ?
+                OR LOWER(c.name) LIKE ?
+                OR LOWER(f.family_name) LIKE ?
+            )
+            """
+        )
+        parameters.extend((like, like, like, like))
+
+    if selected_status:
+        conditions.append("ar.status=?")
+        parameters.append(selected_status)
+
+    if date_from:
+        conditions.append("cs.session_date>=?")
+        parameters.append(date_from)
+
+    if date_to:
+        conditions.append("cs.session_date<=?")
+        parameters.append(date_to)
+
+    if session.get("admin_role") == "teacher":
+        conditions.append("t.admin_user_id=?")
+        parameters.append(int(session.get("admin_user_id")))
+
+    where_clause = (
+        "WHERE " + " AND ".join(conditions)
+        if conditions else ""
+    )
+
+    connection = get_db()
+    rows = connection.execute(
+        f"""
+        SELECT
+            ar.status,
+            ar.minutes_late,
+            ar.note,
+            ar.marked_at,
+            cs.session_date,
+            c.id AS class_id,
+            c.name AS class_name,
+            s.id AS student_id,
+            s.first_name,
+            s.last_name,
+            s.preferred_name,
+            f.family_name,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name
+        FROM attendance_records ar
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        JOIN students s ON s.id=ar.student_id
+        LEFT JOIN families f ON f.id=s.family_id
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        {where_clause}
+        ORDER BY
+            cs.session_date DESC,
+            c.start_time,
+            s.last_name,
+            s.first_name
+        LIMIT 1000
+        """,
+        tuple(parameters),
+    ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS records,
+            COALESCE(SUM(CASE WHEN status='Present' THEN 1 ELSE 0 END),0) AS present,
+            COALESCE(SUM(CASE WHEN status='Late' THEN 1 ELSE 0 END),0) AS late,
+            COALESCE(SUM(CASE WHEN status='Absent' THEN 1 ELSE 0 END),0) AS absent,
+            COALESCE(SUM(CASE WHEN status='Excused' THEN 1 ELSE 0 END),0) AS excused
+        FROM attendance_records
+        """
+    ).fetchone()
+    connection.close()
+
+    summary_data = dict(summary)
+    marked = sum(
+        int(summary_data[key] or 0)
+        for key in (
+            "present",
+            "late",
+            "absent",
+            "excused",
+        )
+    )
+    summary_data["attendance_rate"] = (
+        round(
+            (
+                int(summary_data["present"] or 0)
+                + int(summary_data["late"] or 0)
+            )
+            / marked
+            * 100,
+            1,
+        )
+        if marked else 0
+    )
+
+    return render_template(
+        "attendance_history.html",
+        records=[dict(row) for row in rows],
+        summary=summary_data,
+        query=query,
+        selected_status=selected_status,
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 
 @app.route("/admin/classes")
