@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Login | Stage Starz</title>
+<style>
+:root{
+  --bg:#0c0717;--panel:#17102a;--line:#38294a;
+  --muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;
+  color:#fff;font-family:Inter,system-ui,sans-serif;
+  background:
+    radial-gradient(circle at 10% 0%,rgba(155,77,204,.34),transparent 30rem),
+    radial-gradient(circle at 95% 10%,rgba(80,214,208,.15),transparent 28rem),
+    var(--bg)
+}
+.card{
+  width:min(470px,100%);padding:30px;border:1px solid var(--line);
+  border-radius:24px;background:rgba(23,16,42,.92);
+  box-shadow:0 28px 80px rgba(0,0,0,.35)
+}
+.brand{text-align:center;margin-bottom:22px}
+.logo{
+  width:68px;height:68px;margin:0 auto 12px;border-radius:21px;
+  display:grid;place-items:center;font-size:2rem;
+  background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal))
+}
+h1{margin:0 0 7px}.muted{color:var(--muted)}
+label{display:block;margin:14px 0 6px;font-size:.82rem;font-weight:850}
+input{
+  width:100%;padding:13px;border:1px solid var(--line);
+  border-radius:11px;background:#100a1d;color:#fff;font:inherit;outline:0
+}
+input:focus{border-color:var(--teal)}
+button{
+  width:100%;margin-top:18px;padding:13px;border:0;border-radius:11px;
+  color:#fff;font-weight:900;font:inherit;cursor:pointer;
+  background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))
+}
+.alert{
+  margin-bottom:13px;padding:11px;border-radius:10px;
+  border:1px solid rgba(255,108,125,.35);background:rgba(255,108,125,.1)
+}
+.back{display:block;text-align:center;margin-top:17px;color:var(--teal);text-decoration:none}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">
+    <div class="logo">★</div>
+    <h1>Stage Starz Command Center</h1>
+    <div class="muted">Sign in to continue</div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert">{{ message }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="post" action="/admin/login">
+    <label for="username">Username</label>
+    <input id="username" name="username" autocomplete="username" required autofocus>
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+    <button type="submit">Sign In</button>
+  </form>
+
+  <a class="back" href="/">Return to website</a>
+</main>
+</body>
+</html>
