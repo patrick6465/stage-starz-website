@@ -67,8 +67,8 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, orders, content and reports.","permissions":{"dashboard","families","customers","students","orders","website","announcements","media","search","reports"}},
-    "teacher": {"label":"Teacher","description":"Student and family access. Classes and attendance come next.","permissions":{"dashboard","families","students","search"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","orders","website","announcements","media","search","reports"}},
+    "teacher": {"label":"Teacher","description":"View assigned classes, rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","search"}},
     "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, media and reports.","permissions":{"dashboard","store","orders","customers","reports","media","search"}},
 }
 
@@ -282,6 +282,21 @@ MIGRATION_REGISTRY = [
         "description": "Administrator accounts, role-based access, and login history.",
         "required_tables": ["admin_users", "admin_login_history"],
         "required_columns": {"admin_users": ["username","display_name","password_hash","role","active","last_login_at"]},
+    },
+    {
+        "key": "010_class_management",
+        "title": "Class Management",
+        "description": "Teachers, class schedules, rooms, capacity, and student enrollment.",
+        "required_tables": ["teachers", "classes", "class_enrollments"],
+        "required_columns": {
+            "classes": [
+                "name", "teacher_id", "room", "day_of_week",
+                "start_time", "end_time", "capacity", "active"
+            ],
+            "class_enrollments": [
+                "class_id", "student_id", "status", "enrolled_at"
+            ],
+        },
     },
 ]
 
@@ -1481,6 +1496,484 @@ def create_order():
     sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+@app.route("/admin/classes")
+@permission_required("classes")
+def classes_dashboard():
+    query = request.args.get("q", "").strip()
+    day = request.args.get("day", "").strip()
+    active_filter = request.args.get("active", "1").strip()
+
+    conditions = []
+    parameters = []
+
+    if query:
+        like = f"%{query.lower()}%"
+        conditions.append(
+            """
+            (
+                LOWER(c.name) LIKE ?
+                OR LOWER(c.category) LIKE ?
+                OR LOWER(c.level) LIKE ?
+                OR LOWER(c.room) LIKE ?
+                OR LOWER(t.first_name) LIKE ?
+                OR LOWER(t.last_name) LIKE ?
+            )
+            """
+        )
+        parameters.extend((like, like, like, like, like, like))
+
+    if day:
+        conditions.append("c.day_of_week = ?")
+        parameters.append(day)
+
+    if active_filter in {"0", "1"}:
+        conditions.append("c.active = ?")
+        parameters.append(int(active_filter))
+
+    # Teachers only see classes linked to their admin account.
+    if session.get("admin_role") == "teacher":
+        conditions.append("t.admin_user_id = ?")
+        parameters.append(int(session.get("admin_user_id")))
+
+    where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+    connection = get_db()
+    rows = connection.execute(
+        f"""
+        SELECT
+            c.*,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name,
+            COUNT(CASE WHEN e.status='Active' THEN 1 END) AS enrolled_count
+        FROM classes c
+        LEFT JOIN teachers t ON t.id = c.teacher_id
+        LEFT JOIN class_enrollments e ON e.class_id = c.id
+        {where_clause}
+        GROUP BY
+            c.id, c.name, c.category, c.level, c.teacher_id,
+            c.room, c.day_of_week, c.start_time, c.end_time,
+            c.capacity, c.active, c.season, c.description,
+            c.created_at, c.updated_at,
+            t.first_name, t.last_name
+        ORDER BY
+            CASE c.day_of_week
+                WHEN 'Monday' THEN 1
+                WHEN 'Tuesday' THEN 2
+                WHEN 'Wednesday' THEN 3
+                WHEN 'Thursday' THEN 4
+                WHEN 'Friday' THEN 5
+                WHEN 'Saturday' THEN 6
+                WHEN 'Sunday' THEN 7
+                ELSE 8
+            END,
+            c.start_time,
+            c.name
+        """,
+        tuple(parameters),
+    ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS class_count,
+            COALESCE(SUM(CASE WHEN active=1 THEN 1 ELSE 0 END), 0) AS active_count,
+            COALESCE(SUM(capacity), 0) AS total_capacity
+        FROM classes
+        """
+    ).fetchone()
+
+    enrollment_summary = connection.execute(
+        """
+        SELECT COUNT(*) AS enrolled_count
+        FROM class_enrollments
+        WHERE status='Active'
+        """
+    ).fetchone()
+    connection.close()
+
+    summary_data = dict(summary)
+    summary_data["enrolled_count"] = int(
+        enrollment_summary["enrolled_count"] or 0
+    )
+
+    return render_template(
+        "classes.html",
+        classes=[dict(row) for row in rows],
+        summary=summary_data,
+        query=query,
+        selected_day=day,
+        selected_active=active_filter,
+    )
+
+
+@app.route("/admin/classes/new")
+@permission_required("classes")
+def new_class():
+    if session.get("admin_role") == "teacher":
+        flash("Teachers cannot create classes.", "error")
+        return redirect(url_for("classes_dashboard"))
+
+    connection = get_db()
+    teachers = connection.execute(
+        """
+        SELECT id, first_name, last_name
+        FROM teachers
+        WHERE active=1
+        ORDER BY last_name, first_name
+        """
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "class_form.html",
+        class_record=None,
+        teachers=[dict(row) for row in teachers],
+    )
+
+
+@app.route("/admin/classes/save", methods=["POST"])
+@permission_required("classes")
+def save_class():
+    if session.get("admin_role") == "teacher":
+        flash("Teachers cannot create or edit classes.", "error")
+        return redirect(url_for("classes_dashboard"))
+
+    form = request.form
+    class_id = form.get("id", "").strip()
+    teacher_value = form.get("teacher_id", "").strip()
+    teacher_id = int(teacher_value) if teacher_value else None
+
+    values = (
+        form.get("name", "").strip(),
+        form.get("category", "").strip(),
+        form.get("level", "").strip(),
+        teacher_id,
+        form.get("room", "").strip(),
+        form.get("day_of_week", "").strip(),
+        form.get("start_time", "").strip(),
+        form.get("end_time", "").strip(),
+        int(form.get("capacity", "0") or 0),
+        1 if form.get("active") == "on" else 0,
+        form.get("season", "").strip(),
+        form.get("description", "").strip(),
+    )
+
+    connection = get_db()
+    if class_id:
+        connection.execute(
+            """
+            UPDATE classes SET
+                name=?, category=?, level=?, teacher_id=?,
+                room=?, day_of_week=?, start_time=?, end_time=?,
+                capacity=?, active=?, season=?, description=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            values + (int(class_id),),
+        )
+        class_record_id = int(class_id)
+        action = "Class updated"
+    else:
+        sql = """
+            INSERT INTO classes (
+                name, category, level, teacher_id, room,
+                day_of_week, start_time, end_time,
+                capacity, active, season, description
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        if connection.backend == "postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(sql, values)
+        class_record_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+        action = "Class created"
+
+    connection.commit()
+    connection.close()
+
+    log_activity(action, form.get("name", "").strip())
+    flash("Class saved.", "success")
+    return redirect(url_for("class_profile", class_id=class_record_id))
+
+
+@app.route("/admin/classes/<int:class_id>")
+@permission_required("classes")
+def class_profile(class_id: int):
+    connection = get_db()
+
+    class_record = connection.execute(
+        """
+        SELECT
+            c.*,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name,
+            t.admin_user_id AS teacher_admin_user_id
+        FROM classes c
+        LEFT JOIN teachers t ON t.id = c.teacher_id
+        WHERE c.id=?
+        """,
+        (class_id,),
+    ).fetchone()
+
+    if not class_record:
+        connection.close()
+        return ("Class not found", 404)
+
+    if (
+        session.get("admin_role") == "teacher"
+        and int(class_record["teacher_admin_user_id"] or 0)
+        != int(session.get("admin_user_id") or 0)
+    ):
+        connection.close()
+        flash("You can only open classes assigned to you.", "error")
+        return redirect(url_for("classes_dashboard"))
+
+    roster = connection.execute(
+        """
+        SELECT
+            e.id AS enrollment_id,
+            e.status AS enrollment_status,
+            e.enrolled_at,
+            s.id AS student_id,
+            s.first_name,
+            s.last_name,
+            s.preferred_name,
+            s.photo_url,
+            s.status AS student_status,
+            s.birth_date,
+            f.id AS family_id,
+            f.family_name
+        FROM class_enrollments e
+        JOIN students s ON s.id = e.student_id
+        LEFT JOIN families f ON f.id = s.family_id
+        WHERE e.class_id=?
+        ORDER BY s.last_name, s.first_name
+        """,
+        (class_id,),
+    ).fetchall()
+
+    students = connection.execute(
+        """
+        SELECT
+            s.id, s.first_name, s.last_name, s.preferred_name,
+            f.family_name
+        FROM students s
+        LEFT JOIN families f ON f.id = s.family_id
+        WHERE s.status IN ('Active', 'Trial')
+          AND s.id NOT IN (
+              SELECT student_id
+              FROM class_enrollments
+              WHERE class_id=?
+                AND status='Active'
+          )
+        ORDER BY s.last_name, s.first_name
+        """,
+        (class_id,),
+    ).fetchall()
+
+    teachers = connection.execute(
+        """
+        SELECT id, first_name, last_name
+        FROM teachers
+        WHERE active=1
+        ORDER BY last_name, first_name
+        """
+    ).fetchall()
+    connection.close()
+
+    active_enrolled = sum(
+        1 for row in roster if row["enrollment_status"] == "Active"
+    )
+    capacity = int(class_record["capacity"] or 0)
+    spaces_left = max(capacity - active_enrolled, 0) if capacity else None
+
+    return render_template(
+        "class_profile.html",
+        class_record=dict(class_record),
+        roster=[dict(row) for row in roster],
+        students=[dict(row) for row in students],
+        teachers=[dict(row) for row in teachers],
+        active_enrolled=active_enrolled,
+        spaces_left=spaces_left,
+        can_edit=session.get("admin_role") != "teacher",
+    )
+
+
+@app.route("/admin/classes/<int:class_id>/enroll", methods=["POST"])
+@permission_required("classes")
+def enroll_student(class_id: int):
+    if session.get("admin_role") == "teacher":
+        flash("Teachers cannot change enrollment.", "error")
+        return redirect(url_for("class_profile", class_id=class_id))
+
+    student_id = int(request.form.get("student_id", "0") or 0)
+    if not student_id:
+        flash("Select a student.", "error")
+        return redirect(url_for("class_profile", class_id=class_id))
+
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO class_enrollments (
+            class_id, student_id, status
+        ) VALUES (?, ?, 'Active')
+        ON CONFLICT(class_id, student_id) DO UPDATE SET
+            status='Active',
+            enrolled_at=CURRENT_TIMESTAMP
+        """,
+        (class_id, student_id),
+    )
+    connection.commit()
+
+    student = connection.execute(
+        "SELECT first_name, last_name FROM students WHERE id=?",
+        (student_id,),
+    ).fetchone()
+    class_record = connection.execute(
+        "SELECT name FROM classes WHERE id=?",
+        (class_id,),
+    ).fetchone()
+    connection.close()
+
+    if student and class_record:
+        log_activity(
+            "Student enrolled",
+            f"{student['first_name']} {student['last_name']} → {class_record['name']}",
+        )
+
+    flash("Student enrolled.", "success")
+    return redirect(url_for("class_profile", class_id=class_id))
+
+
+@app.route(
+    "/admin/classes/<int:class_id>/enrollments/<int:enrollment_id>/status",
+    methods=["POST"],
+)
+@permission_required("classes")
+def update_enrollment_status(class_id: int, enrollment_id: int):
+    if session.get("admin_role") == "teacher":
+        flash("Teachers cannot change enrollment.", "error")
+        return redirect(url_for("class_profile", class_id=class_id))
+
+    status = request.form.get("status", "Active").strip()
+    if status not in {"Active", "Waitlist", "Dropped", "Completed"}:
+        flash("Invalid enrollment status.", "error")
+        return redirect(url_for("class_profile", class_id=class_id))
+
+    connection = get_db()
+    connection.execute(
+        """
+        UPDATE class_enrollments
+        SET status=?
+        WHERE id=? AND class_id=?
+        """,
+        (status, enrollment_id, class_id),
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Enrollment status updated.", "success")
+    return redirect(url_for("class_profile", class_id=class_id))
+
+
+@app.route("/admin/teachers")
+@permission_required("teachers")
+def teachers_dashboard():
+    connection = get_db()
+    teachers = connection.execute(
+        """
+        SELECT
+            t.*,
+            a.display_name AS account_display_name,
+            a.username AS account_username,
+            COUNT(c.id) AS class_count
+        FROM teachers t
+        LEFT JOIN admin_users a ON a.id = t.admin_user_id
+        LEFT JOIN classes c ON c.teacher_id = t.id AND c.active=1
+        GROUP BY
+            t.id, t.admin_user_id, t.first_name, t.last_name,
+            t.email, t.phone, t.active, t.bio,
+            t.created_at, t.updated_at,
+            a.display_name, a.username
+        ORDER BY t.active DESC, t.last_name, t.first_name
+        """
+    ).fetchall()
+
+    teacher_accounts = connection.execute(
+        """
+        SELECT id, username, display_name, email
+        FROM admin_users
+        WHERE role='teacher'
+          AND active=1
+        ORDER BY display_name
+        """
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "teachers.html",
+        teachers=[dict(row) for row in teachers],
+        teacher_accounts=[dict(row) for row in teacher_accounts],
+    )
+
+
+@app.route("/admin/teachers/save", methods=["POST"])
+@permission_required("teachers")
+def save_teacher():
+    form = request.form
+    teacher_id = form.get("id", "").strip()
+    admin_value = form.get("admin_user_id", "").strip()
+    admin_user_id = int(admin_value) if admin_value else None
+
+    values = (
+        admin_user_id,
+        form.get("first_name", "").strip(),
+        form.get("last_name", "").strip(),
+        form.get("email", "").strip().lower(),
+        form.get("phone", "").strip(),
+        1 if form.get("active") == "on" else 0,
+        form.get("bio", "").strip(),
+    )
+
+    connection = get_db()
+    if teacher_id:
+        connection.execute(
+            """
+            UPDATE teachers SET
+                admin_user_id=?, first_name=?, last_name=?,
+                email=?, phone=?, active=?, bio=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            values + (int(teacher_id),),
+        )
+        action = "Teacher updated"
+    else:
+        connection.execute(
+            """
+            INSERT INTO teachers (
+                admin_user_id, first_name, last_name,
+                email, phone, active, bio
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            values,
+        )
+        action = "Teacher created"
+
+    connection.commit()
+    connection.close()
+
+    log_activity(
+        action,
+        f"{form.get('first_name', '').strip()} {form.get('last_name', '').strip()}",
+    )
+    flash("Teacher saved.", "success")
+    return redirect(url_for("teachers_dashboard"))
 
 
 @app.route("/admin/students")

@@ -359,8 +359,102 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS teachers (
+            id {id_column},
+            admin_user_id INTEGER,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT NOT NULL DEFAULT '',
+            phone TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1,
+            bio TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(admin_user_id) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS classes (
+            id {id_column},
+            name TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT '',
+            level TEXT NOT NULL DEFAULT '',
+            teacher_id INTEGER,
+            room TEXT NOT NULL DEFAULT '',
+            day_of_week TEXT NOT NULL DEFAULT '',
+            start_time TEXT NOT NULL DEFAULT '',
+            end_time TEXT NOT NULL DEFAULT '',
+            capacity INTEGER NOT NULL DEFAULT 0,
+            active INTEGER NOT NULL DEFAULT 1,
+            season TEXT NOT NULL DEFAULT '',
+            description TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS class_enrollments (
+            id {id_column},
+            class_id INTEGER NOT NULL,
+            student_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Active',
+            enrolled_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT NOT NULL DEFAULT '',
+            UNIQUE(class_id, student_id),
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        teacher_columns = [
+            ("admin_user_id", "INTEGER"),
+            ("first_name", "TEXT NOT NULL DEFAULT ''"),
+            ("last_name", "TEXT NOT NULL DEFAULT ''"),
+            ("email", "TEXT NOT NULL DEFAULT ''"),
+            ("phone", "TEXT NOT NULL DEFAULT ''"),
+            ("active", "INTEGER NOT NULL DEFAULT 1"),
+            ("bio", "TEXT NOT NULL DEFAULT ''"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in teacher_columns:
+            cursor.execute(
+                f"ALTER TABLE teachers ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        class_columns = [
+            ("name", "TEXT NOT NULL DEFAULT ''"),
+            ("category", "TEXT NOT NULL DEFAULT ''"),
+            ("level", "TEXT NOT NULL DEFAULT ''"),
+            ("teacher_id", "INTEGER"),
+            ("room", "TEXT NOT NULL DEFAULT ''"),
+            ("day_of_week", "TEXT NOT NULL DEFAULT ''"),
+            ("start_time", "TEXT NOT NULL DEFAULT ''"),
+            ("end_time", "TEXT NOT NULL DEFAULT ''"),
+            ("capacity", "INTEGER NOT NULL DEFAULT 0"),
+            ("active", "INTEGER NOT NULL DEFAULT 1"),
+            ("season", "TEXT NOT NULL DEFAULT ''"),
+            ("description", "TEXT NOT NULL DEFAULT ''"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in class_columns:
+            cursor.execute(
+                f"ALTER TABLE classes ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
         admin_user_columns = [
             ("display_name", "TEXT NOT NULL DEFAULT 'Administrator'"),
             ("email", "TEXT NOT NULL DEFAULT ''"),
@@ -429,6 +523,53 @@ def init_db() -> None:
                 "PRAGMA table_info(customers)"
             ).fetchall()
         }
+        existing_teacher_columns = {
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(teachers)").fetchall()
+        }
+        sqlite_teacher_columns = [
+            ("admin_user_id", "INTEGER"),
+            ("first_name", "TEXT NOT NULL DEFAULT ''"),
+            ("last_name", "TEXT NOT NULL DEFAULT ''"),
+            ("email", "TEXT NOT NULL DEFAULT ''"),
+            ("phone", "TEXT NOT NULL DEFAULT ''"),
+            ("active", "INTEGER NOT NULL DEFAULT 1"),
+            ("bio", "TEXT NOT NULL DEFAULT ''"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_teacher_columns:
+            if column_name not in existing_teacher_columns:
+                cursor.execute(
+                    f"ALTER TABLE teachers ADD COLUMN {column_name} {column_definition}"
+                )
+
+        existing_class_columns = {
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(classes)").fetchall()
+        }
+        sqlite_class_columns = [
+            ("name", "TEXT NOT NULL DEFAULT ''"),
+            ("category", "TEXT NOT NULL DEFAULT ''"),
+            ("level", "TEXT NOT NULL DEFAULT ''"),
+            ("teacher_id", "INTEGER"),
+            ("room", "TEXT NOT NULL DEFAULT ''"),
+            ("day_of_week", "TEXT NOT NULL DEFAULT ''"),
+            ("start_time", "TEXT NOT NULL DEFAULT ''"),
+            ("end_time", "TEXT NOT NULL DEFAULT ''"),
+            ("capacity", "INTEGER NOT NULL DEFAULT 0"),
+            ("active", "INTEGER NOT NULL DEFAULT 1"),
+            ("season", "TEXT NOT NULL DEFAULT ''"),
+            ("description", "TEXT NOT NULL DEFAULT ''"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_class_columns:
+            if column_name not in existing_class_columns:
+                cursor.execute(
+                    f"ALTER TABLE classes ADD COLUMN {column_name} {column_definition}"
+                )
+
         existing_admin_user_columns = {
             row["name"] for row in cursor.execute("PRAGMA table_info(admin_users)").fetchall()
         }
