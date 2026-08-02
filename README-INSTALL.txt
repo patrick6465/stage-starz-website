@@ -1,20 +1,19 @@
-STAGE STARZ LOGIN TEMPLATE FIX
+STAGE STARZ PERSONALIZED DASHBOARD GREETING FIX
 
 CAUSE:
-The roles upgrade changed /admin/login to render templates/admin_login.html,
-but that file was not included. Flask returned a 500 error when opening login.
+The Command Center greeting was hard-coded as "Patrick" in dashboard.html.
 
-ADD:
-- templates/admin_login.html
+REPLACE:
+- templates/dashboard.html
 
 INSTALL:
 git checkout railway-deployment
-git add templates/admin_login.html
-git commit -m "Add missing administrator login template"
+git add templates/dashboard.html
+git commit -m "Personalize Command Center greeting"
 git push origin railway-deployment
 
-AFTER DEPLOYMENT:
-1. Open /admin/login.
-2. Sign in using the original administrator username and password.
-3. The login process will create or refresh the Owner account.
-4. Open /admin/system/users.
+RESULT:
+- Patrick sees his own display name.
+- Lisa sees Lisa.
+- Every administrator sees the display name stored on their account.
+- Roles and permissions remain unchanged.

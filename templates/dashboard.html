@@ -80,7 +80,7 @@ a{text-decoration:none;color:inherit}button,input{font:inherit}
   </div>
 
   <section class="hero-card">
-    <div><h2>{{ greeting }}, Patrick.</h2><p>You have {{ stats.new_orders }} new order(s), {{ stats.low_stock }} low-stock product(s), and {{ stats.active_announcements }} active announcement(s).</p></div>
+    <div><h2>{{ greeting }}, {{ current_admin_user.display_name if current_admin_user else 'Administrator' }}.</h2><p>You have {{ stats.new_orders }} new order(s), {{ stats.low_stock }} low-stock product(s), and {{ stats.active_announcements }} active announcement(s).</p></div>
     <div class="system"><span class="dot"></span>{{ database_backend }} online</div>
   </section>
 
