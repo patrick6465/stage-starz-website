@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Notifications | Stage Starz</title>
+<style>
+body{margin:0;background:#0c0717;color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}header{padding:18px 4vw;display:flex;justify-content:space-between;border-bottom:1px solid #38294a}.wrap{width:min(900px,calc(100% - 28px));margin:24px auto}.card{background:#17102a;border:1px solid #38294a;border-radius:18px;padding:18px;margin-bottom:12px}.unread{border-color:#50d6d0}.muted{color:#aa9db8}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{padding:9px 12px;border:0;border-radius:9px;color:#fff;font-weight:850;background:linear-gradient(110deg,#ef3d98,#9b4dcc,#50d6d0)}
+</style></head><body>
+<header><strong>🔔 Notifications</strong><nav><a href="/admin">Command Center</a> &nbsp; <a href="/admin/workflows">Workflow Center</a></nav></header>
+<main class="wrap"><h1>Your Notifications</h1>
+{% for n in notifications %}<section class="card {% if not n.read_at %}unread{% endif %}"><h3>{{ n.title }}</h3><p>{{ n.message }}</p><p class="muted">{{ n.severity }} · {{ n.source_module }} · {{ n.created_at }}</p><div class="actions">{% if not n.read_at %}<form method="post" action="/admin/notifications/{{ n.id }}/read"><button>Mark Read</button></form>{% endif %}<form method="post" action="/admin/notifications/{{ n.id }}/dismiss"><button>Dismiss</button></form></div></section>{% else %}<p class="muted">No active notifications.</p>{% endfor %}
+</main></body></html>

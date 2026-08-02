@@ -67,9 +67,9 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","workflow","orders","website","announcements","media","search","reports"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
-    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, media and reports.","permissions":{"dashboard","store","orders","customers","reports","media","search"}},
+    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","workflow","reports","media","search"}},
 }
 
 def current_admin():
@@ -327,6 +327,33 @@ MIGRATION_REGISTRY = [
             "billing_payments": [
                 "family_id", "amount", "payment_method",
                 "payment_date", "status", "received_by"
+            ],
+        },
+    },
+    {
+        "key": "013_workflow_engine",
+        "title": "Workflow and Notification Engine",
+        "description": "Events, workflow rules, queued tasks, dashboard notifications, and delivery history.",
+        "required_tables": [
+            "workflow_events", "workflow_rules",
+            "workflow_tasks", "notifications"
+        ],
+        "required_columns": {
+            "workflow_events": [
+                "event_type", "source_module", "title",
+                "details", "severity", "created_at"
+            ],
+            "workflow_rules": [
+                "name", "event_type", "action_type",
+                "title_template", "active"
+            ],
+            "workflow_tasks": [
+                "task_type", "status", "title",
+                "scheduled_for", "attempts"
+            ],
+            "notifications": [
+                "admin_user_id", "title", "message",
+                "severity", "read_at", "dismissed_at"
             ],
         },
     },
@@ -1530,6 +1557,346 @@ def create_order():
     return jsonify({"ok": True, "order_number": order_number})
 
 
+def create_workflow_event(
+    event_type: str,
+    source_module: str,
+    title: str,
+    details: str = "",
+    severity: str = "info",
+    source_id: str = "",
+) -> int:
+    connection = get_db()
+    insert_sql = """
+        INSERT INTO workflow_events (
+            event_type, source_module, source_id,
+            title, details, severity, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    """
+    if connection.backend == "postgresql":
+        insert_sql += " RETURNING id"
+
+    cursor = connection.execute(
+        insert_sql,
+        (
+            event_type,
+            source_module,
+            source_id,
+            title,
+            details,
+            severity,
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    event_id = (
+        int(cursor.fetchone()["id"])
+        if connection.backend == "postgresql"
+        else int(cursor.lastrowid)
+    )
+    connection.commit()
+    connection.close()
+    return event_id
+
+
+def evaluate_workflow_rules(event_id: int) -> int:
+    connection = get_db()
+    event = connection.execute(
+        "SELECT * FROM workflow_events WHERE id=?",
+        (event_id,),
+    ).fetchone()
+    if not event:
+        connection.close()
+        return 0
+
+    rules = connection.execute(
+        """
+        SELECT *
+        FROM workflow_rules
+        WHERE active=1
+          AND event_type=?
+        ORDER BY id
+        """,
+        (event["event_type"],),
+    ).fetchall()
+
+    created = 0
+    for rule in rules:
+        title = rule["title_template"].replace(
+            "{event_title}",
+            event["title"],
+        )
+        message = rule["message_template"].replace(
+            "{event_details}",
+            event["details"] or "",
+        )
+
+        task_sql = """
+            INSERT INTO workflow_tasks (
+                rule_id, event_id, task_type,
+                status, title, payload
+            ) VALUES (?, ?, ?, 'Pending', ?, ?)
+        """
+        if connection.backend == "postgresql":
+            task_sql += " RETURNING id"
+
+        task_cursor = connection.execute(
+            task_sql,
+            (
+                rule["id"],
+                event_id,
+                rule["action_type"],
+                title,
+                message,
+            ),
+        )
+        task_id = (
+            int(task_cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(task_cursor.lastrowid)
+        )
+
+        if rule["action_type"] == "dashboard_notification":
+            users = connection.execute(
+                """
+                SELECT id
+                FROM admin_users
+                WHERE active=1
+                """
+            ).fetchall()
+
+            for user in users:
+                connection.execute(
+                    """
+                    INSERT INTO notifications (
+                        admin_user_id, title, message,
+                        severity, source_module, source_url
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        user["id"],
+                        title,
+                        message,
+                        rule["severity"],
+                        event["source_module"],
+                        "",
+                    ),
+                )
+
+            connection.execute(
+                """
+                UPDATE workflow_tasks SET
+                    status='Completed',
+                    completed_at=CURRENT_TIMESTAMP,
+                    attempts=attempts+1
+                WHERE id=?
+                """,
+                (task_id,),
+            )
+
+        created += 1
+
+    connection.commit()
+    connection.close()
+    return created
+
+
+@app.route("/admin/workflows")
+@permission_required("workflow")
+def workflow_center():
+    connection = get_db()
+    summary = connection.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM workflow_events) AS event_count,
+            (SELECT COUNT(*) FROM workflow_rules WHERE active=1) AS active_rules,
+            (SELECT COUNT(*) FROM workflow_tasks WHERE status='Pending') AS pending_tasks,
+            (
+                SELECT COUNT(*)
+                FROM notifications
+                WHERE dismissed_at IS NULL
+                  AND read_at IS NULL
+            ) AS unread_notifications
+        """
+    ).fetchone()
+
+    rules = connection.execute(
+        """
+        SELECT *
+        FROM workflow_rules
+        ORDER BY active DESC, id DESC
+        """
+    ).fetchall()
+
+    tasks = connection.execute(
+        """
+        SELECT
+            wt.*,
+            wr.name AS rule_name,
+            we.event_type
+        FROM workflow_tasks wt
+        LEFT JOIN workflow_rules wr ON wr.id=wt.rule_id
+        LEFT JOIN workflow_events we ON we.id=wt.event_id
+        ORDER BY wt.id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    events = connection.execute(
+        """
+        SELECT
+            we.*,
+            au.display_name AS created_by_name
+        FROM workflow_events we
+        LEFT JOIN admin_users au ON au.id=we.created_by
+        ORDER BY we.id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "workflow_center.html",
+        summary=dict(summary),
+        rules=[dict(row) for row in rules],
+        tasks=[dict(row) for row in tasks],
+        events=[dict(row) for row in events],
+    )
+
+
+@app.route("/admin/workflows/rules/save", methods=["POST"])
+@permission_required("workflow")
+def save_workflow_rule():
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO workflow_rules (
+            name, event_type, action_type,
+            title_template, message_template,
+            severity, active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            request.form.get("name", "").strip(),
+            request.form.get("event_type", "").strip(),
+            request.form.get(
+                "action_type",
+                "dashboard_notification",
+            ).strip(),
+            request.form.get("title_template", "").strip(),
+            request.form.get("message_template", "").strip(),
+            request.form.get("severity", "info").strip(),
+            1 if request.form.get("active") == "on" else 0,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Workflow rule created.", "success")
+    return redirect(url_for("workflow_center"))
+
+
+@app.route("/admin/workflows/rules/<int:rule_id>/toggle", methods=["POST"])
+@permission_required("workflow")
+def toggle_workflow_rule(rule_id: int):
+    connection = get_db()
+    rule = connection.execute(
+        "SELECT active FROM workflow_rules WHERE id=?",
+        (rule_id,),
+    ).fetchone()
+    if rule:
+        connection.execute(
+            """
+            UPDATE workflow_rules SET
+                active=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (0 if rule["active"] else 1, rule_id),
+        )
+        connection.commit()
+    connection.close()
+    return redirect(url_for("workflow_center"))
+
+
+@app.route("/admin/workflows/events/create", methods=["POST"])
+@permission_required("workflow")
+def create_manual_workflow_event():
+    event_id = create_workflow_event(
+        event_type=request.form.get("event_type", "").strip(),
+        source_module=request.form.get("source_module", "manual").strip(),
+        source_id=request.form.get("source_id", "").strip(),
+        title=request.form.get("title", "").strip(),
+        details=request.form.get("details", "").strip(),
+        severity=request.form.get("severity", "info").strip(),
+    )
+    count = evaluate_workflow_rules(event_id)
+    flash(
+        f"Event created. {count} workflow task(s) generated.",
+        "success",
+    )
+    return redirect(url_for("workflow_center"))
+
+
+@app.route("/admin/notifications")
+@login_required
+def notifications_center():
+    connection = get_db()
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM notifications
+        WHERE admin_user_id=?
+          AND dismissed_at IS NULL
+        ORDER BY read_at IS NULL DESC, id DESC
+        """,
+        (int(session.get("admin_user_id")),),
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "notifications_center.html",
+        notifications=[dict(row) for row in rows],
+    )
+
+
+@app.route("/admin/notifications/<int:notification_id>/read", methods=["POST"])
+@login_required
+def mark_notification_read(notification_id: int):
+    connection = get_db()
+    connection.execute(
+        """
+        UPDATE notifications SET
+            read_at=COALESCE(read_at, CURRENT_TIMESTAMP)
+        WHERE id=? AND admin_user_id=?
+        """,
+        (
+            notification_id,
+            int(session.get("admin_user_id")),
+        ),
+    )
+    connection.commit()
+    connection.close()
+    return redirect(url_for("notifications_center"))
+
+
+@app.route("/admin/notifications/<int:notification_id>/dismiss", methods=["POST"])
+@login_required
+def dismiss_notification(notification_id: int):
+    connection = get_db()
+    connection.execute(
+        """
+        UPDATE notifications SET
+            dismissed_at=CURRENT_TIMESTAMP
+        WHERE id=? AND admin_user_id=?
+        """,
+        (
+            notification_id,
+            int(session.get("admin_user_id")),
+        ),
+    )
+    connection.commit()
+    connection.close()
+    return redirect(url_for("notifications_center"))
+
+
 def get_family_billing_summary(connection, family_id: int) -> dict:
     charges = connection.execute(
         """
@@ -1837,6 +2204,15 @@ def add_billing_charge(family_id: int):
         "Billing charge added",
         f"Family #{family_id} · {description} · ${amount:.2f}",
     )
+    event_id = create_workflow_event(
+        "billing_charge_created",
+        "billing",
+        "Billing charge created",
+        f"Family #{family_id} · {description} · ${amount:.2f}",
+        "info",
+        str(family_id),
+    )
+    evaluate_workflow_rules(event_id)
     flash("Charge added.", "success")
     return redirect(url_for("family_billing", family_id=family_id))
 
@@ -1887,6 +2263,15 @@ def add_billing_payment(family_id: int):
         "Billing payment recorded",
         f"Family #{family_id} · ${amount:.2f}",
     )
+    event_id = create_workflow_event(
+        "billing_payment_recorded",
+        "billing",
+        "Payment recorded",
+        f"Family #{family_id} · ${amount:.2f}",
+        "success",
+        str(payment_id),
+    )
+    evaluate_workflow_rules(event_id)
     flash("Payment recorded.", "success")
     return redirect(url_for("billing_receipt", payment_id=payment_id))
 

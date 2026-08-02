@@ -502,8 +502,146 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS workflow_events (
+            id {id_column},
+            event_type TEXT NOT NULL,
+            source_module TEXT NOT NULL DEFAULT '',
+            source_id TEXT NOT NULL DEFAULT '',
+            title TEXT NOT NULL,
+            details TEXT NOT NULL DEFAULT '',
+            severity TEXT NOT NULL DEFAULT 'info',
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS workflow_rules (
+            id {id_column},
+            name TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            action_type TEXT NOT NULL DEFAULT 'dashboard_notification',
+            title_template TEXT NOT NULL,
+            message_template TEXT NOT NULL DEFAULT '',
+            severity TEXT NOT NULL DEFAULT 'info',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS workflow_tasks (
+            id {id_column},
+            rule_id INTEGER,
+            event_id INTEGER,
+            task_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Pending',
+            title TEXT NOT NULL,
+            payload TEXT NOT NULL DEFAULT '',
+            scheduled_for TIMESTAMP,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP,
+            FOREIGN KEY(rule_id) REFERENCES workflow_rules(id) ON DELETE SET NULL,
+            FOREIGN KEY(event_id) REFERENCES workflow_events(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS notifications (
+            id {id_column},
+            admin_user_id INTEGER,
+            title TEXT NOT NULL,
+            message TEXT NOT NULL DEFAULT '',
+            severity TEXT NOT NULL DEFAULT 'info',
+            source_module TEXT NOT NULL DEFAULT '',
+            source_url TEXT NOT NULL DEFAULT '',
+            read_at TIMESTAMP,
+            dismissed_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(admin_user_id) REFERENCES admin_users(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        workflow_event_columns = [
+            ("event_type", "TEXT NOT NULL DEFAULT ''"),
+            ("source_module", "TEXT NOT NULL DEFAULT ''"),
+            ("source_id", "TEXT NOT NULL DEFAULT ''"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("details", "TEXT NOT NULL DEFAULT ''"),
+            ("severity", "TEXT NOT NULL DEFAULT 'info'"),
+            ("created_by", "INTEGER"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in workflow_event_columns:
+            cursor.execute(
+                f"ALTER TABLE workflow_events ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        workflow_rule_columns = [
+            ("name", "TEXT NOT NULL DEFAULT ''"),
+            ("event_type", "TEXT NOT NULL DEFAULT ''"),
+            ("action_type", "TEXT NOT NULL DEFAULT 'dashboard_notification'"),
+            ("title_template", "TEXT NOT NULL DEFAULT ''"),
+            ("message_template", "TEXT NOT NULL DEFAULT ''"),
+            ("severity", "TEXT NOT NULL DEFAULT 'info'"),
+            ("active", "INTEGER NOT NULL DEFAULT 1"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in workflow_rule_columns:
+            cursor.execute(
+                f"ALTER TABLE workflow_rules ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        workflow_task_columns = [
+            ("rule_id", "INTEGER"),
+            ("event_id", "INTEGER"),
+            ("task_type", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Pending'"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("payload", "TEXT NOT NULL DEFAULT ''"),
+            ("scheduled_for", "TIMESTAMP"),
+            ("attempts", "INTEGER NOT NULL DEFAULT 0"),
+            ("last_error", "TEXT NOT NULL DEFAULT ''"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("completed_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in workflow_task_columns:
+            cursor.execute(
+                f"ALTER TABLE workflow_tasks ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        notification_columns = [
+            ("admin_user_id", "INTEGER"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("message", "TEXT NOT NULL DEFAULT ''"),
+            ("severity", "TEXT NOT NULL DEFAULT 'info'"),
+            ("source_module", "TEXT NOT NULL DEFAULT ''"),
+            ("source_url", "TEXT NOT NULL DEFAULT ''"),
+            ("read_at", "TIMESTAMP"),
+            ("dismissed_at", "TIMESTAMP"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in notification_columns:
+            cursor.execute(
+                f"ALTER TABLE notifications ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
         billing_charge_columns = [
             ("family_id", "INTEGER"),
             ("student_id", "INTEGER"),
@@ -677,6 +815,79 @@ def init_db() -> None:
                 "PRAGMA table_info(customers)"
             ).fetchall()
         }
+        existing_workflow_event_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(workflow_events)").fetchall()
+        }
+        sqlite_workflow_event_columns = [
+            ("event_type", "TEXT NOT NULL DEFAULT ''"),
+            ("source_module", "TEXT NOT NULL DEFAULT ''"),
+            ("source_id", "TEXT NOT NULL DEFAULT ''"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("details", "TEXT NOT NULL DEFAULT ''"),
+            ("severity", "TEXT NOT NULL DEFAULT 'info'"),
+            ("created_by", "INTEGER"),
+            ("created_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_workflow_event_columns:
+            if column_name not in existing_workflow_event_columns:
+                cursor.execute(f"ALTER TABLE workflow_events ADD COLUMN {column_name} {column_definition}")
+
+        existing_workflow_rule_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(workflow_rules)").fetchall()
+        }
+        sqlite_workflow_rule_columns = [
+            ("name", "TEXT NOT NULL DEFAULT ''"),
+            ("event_type", "TEXT NOT NULL DEFAULT ''"),
+            ("action_type", "TEXT NOT NULL DEFAULT 'dashboard_notification'"),
+            ("title_template", "TEXT NOT NULL DEFAULT ''"),
+            ("message_template", "TEXT NOT NULL DEFAULT ''"),
+            ("severity", "TEXT NOT NULL DEFAULT 'info'"),
+            ("active", "INTEGER NOT NULL DEFAULT 1"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_workflow_rule_columns:
+            if column_name not in existing_workflow_rule_columns:
+                cursor.execute(f"ALTER TABLE workflow_rules ADD COLUMN {column_name} {column_definition}")
+
+        existing_workflow_task_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(workflow_tasks)").fetchall()
+        }
+        sqlite_workflow_task_columns = [
+            ("rule_id", "INTEGER"),
+            ("event_id", "INTEGER"),
+            ("task_type", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Pending'"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("payload", "TEXT NOT NULL DEFAULT ''"),
+            ("scheduled_for", "TIMESTAMP"),
+            ("attempts", "INTEGER NOT NULL DEFAULT 0"),
+            ("last_error", "TEXT NOT NULL DEFAULT ''"),
+            ("created_at", "TIMESTAMP"),
+            ("completed_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_workflow_task_columns:
+            if column_name not in existing_workflow_task_columns:
+                cursor.execute(f"ALTER TABLE workflow_tasks ADD COLUMN {column_name} {column_definition}")
+
+        existing_notification_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(notifications)").fetchall()
+        }
+        sqlite_notification_columns = [
+            ("admin_user_id", "INTEGER"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("message", "TEXT NOT NULL DEFAULT ''"),
+            ("severity", "TEXT NOT NULL DEFAULT 'info'"),
+            ("source_module", "TEXT NOT NULL DEFAULT ''"),
+            ("source_url", "TEXT NOT NULL DEFAULT ''"),
+            ("read_at", "TIMESTAMP"),
+            ("dismissed_at", "TIMESTAMP"),
+            ("created_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_notification_columns:
+            if column_name not in existing_notification_columns:
+                cursor.execute(f"ALTER TABLE notifications ADD COLUMN {column_name} {column_definition}")
+
         existing_billing_charge_columns = {
             row["name"]
             for row in cursor.execute(
