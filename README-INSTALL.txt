@@ -1,19 +1,19 @@
-STAGE STARZ PERSONALIZED DASHBOARD GREETING FIX
-
-CAUSE:
-The Command Center greeting was hard-coded as "Patrick" in dashboard.html.
+STAGE STARZ USER NAME AND LOGOUT FIX
 
 REPLACE:
+- app.py
 - templates/dashboard.html
+
+CONFIRM PRESENT:
+- templates/admin_login.html
 
 INSTALL:
 git checkout railway-deployment
-git add templates/dashboard.html
-git commit -m "Personalize Command Center greeting"
+git add app.py templates/dashboard.html templates/admin_login.html
+git commit -m "Fix user greeting and add logout controls"
 git push origin railway-deployment
 
 RESULT:
-- Patrick sees his own display name.
-- Lisa sees Lisa.
-- Every administrator sees the display name stored on their account.
-- Roles and permissions remain unchanged.
+- Generic display names such as Manager fall back to the username.
+- Lisa displays as Lisa.
+- Visible logout controls appear in the sidebar, top-right toolbar, and mobile navigation.

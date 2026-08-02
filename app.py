@@ -80,6 +80,22 @@ def current_admin():
     connection.close()
     return dict(row) if row else None
 
+def admin_greeting_name(admin_user=None):
+    user = admin_user or current_admin()
+    if not user:
+        return "Administrator"
+    display_name = (user.get("display_name") or "").strip()
+    username = (user.get("username") or "").strip()
+    generic_names = {
+        "administrator", "admin", "manager", "owner", "office staff",
+        "office manager", "store manager", "teacher", "staff",
+        "stage starz owner",
+    }
+    if display_name.lower() in generic_names and username:
+        return username.replace("_", " ").replace(".", " ").title()
+    return display_name or username.replace("_", " ").replace(".", " ").title() or "Administrator"
+
+
 def has_permission(permission):
     info=ROLE_DEFINITIONS.get(session.get("admin_role",""))
     return bool(info and ("*" in info["permissions"] or permission in info["permissions"]))
@@ -136,7 +152,13 @@ def delete_uploaded_image(image_url: str) -> None:
 
 @app.context_processor
 def inject_access_context():
-    return {"has_permission":has_permission,"current_admin_user":current_admin(),"role_definitions":ROLE_DEFINITIONS}
+    admin_user = current_admin()
+    return {
+        "has_permission": has_permission,
+        "current_admin_user": admin_user,
+        "current_admin_greeting_name": admin_greeting_name(admin_user),
+        "role_definitions": ROLE_DEFINITIONS,
+    }
 
 @app.errorhandler(413)
 def image_too_large(_error):
