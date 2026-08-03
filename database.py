@@ -575,8 +575,161 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS recital_productions (
+            id {id_column},
+            name TEXT NOT NULL,
+            season TEXT NOT NULL DEFAULT '',
+            venue TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Planning',
+            description TEXT NOT NULL DEFAULT '',
+            ticket_status TEXT NOT NULL DEFAULT 'Not On Sale',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS recital_shows (
+            id {id_column},
+            production_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            show_date TEXT NOT NULL DEFAULT '',
+            start_time TEXT NOT NULL DEFAULT '',
+            end_time TEXT NOT NULL DEFAULT '',
+            doors_open_time TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Scheduled',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(production_id) REFERENCES recital_productions(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS recital_performances (
+            id {id_column},
+            show_id INTEGER NOT NULL,
+            class_id INTEGER,
+            title TEXT NOT NULL,
+            performance_order INTEGER NOT NULL DEFAULT 0,
+            performance_type TEXT NOT NULL DEFAULT 'Dance',
+            duration_seconds INTEGER NOT NULL DEFAULT 0,
+            music_title TEXT NOT NULL DEFAULT '',
+            music_url TEXT NOT NULL DEFAULT '',
+            music_status TEXT NOT NULL DEFAULT 'Missing',
+            entrance_notes TEXT NOT NULL DEFAULT '',
+            exit_notes TEXT NOT NULL DEFAULT '',
+            costume_notes TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Planning',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS recital_rehearsals (
+            id {id_column},
+            production_id INTEGER NOT NULL,
+            show_id INTEGER,
+            title TEXT NOT NULL,
+            rehearsal_date TEXT NOT NULL DEFAULT '',
+            start_time TEXT NOT NULL DEFAULT '',
+            end_time TEXT NOT NULL DEFAULT '',
+            location TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Scheduled',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(production_id) REFERENCES recital_productions(id) ON DELETE CASCADE,
+            FOREIGN KEY(show_id) REFERENCES recital_shows(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        recital_production_columns = [
+            ("name", "TEXT NOT NULL DEFAULT ''"),
+            ("season", "TEXT NOT NULL DEFAULT ''"),
+            ("venue", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Planning'"),
+            ("description", "TEXT NOT NULL DEFAULT ''"),
+            ("ticket_status", "TEXT NOT NULL DEFAULT 'Not On Sale'"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in recital_production_columns:
+            cursor.execute(
+                f"ALTER TABLE recital_productions ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        recital_show_columns = [
+            ("production_id", "INTEGER"),
+            ("name", "TEXT NOT NULL DEFAULT ''"),
+            ("show_date", "TEXT NOT NULL DEFAULT ''"),
+            ("start_time", "TEXT NOT NULL DEFAULT ''"),
+            ("end_time", "TEXT NOT NULL DEFAULT ''"),
+            ("doors_open_time", "TEXT NOT NULL DEFAULT ''"),
+            ("notes", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Scheduled'"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in recital_show_columns:
+            cursor.execute(
+                f"ALTER TABLE recital_shows ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        recital_performance_columns = [
+            ("show_id", "INTEGER"),
+            ("class_id", "INTEGER"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("performance_order", "INTEGER NOT NULL DEFAULT 0"),
+            ("performance_type", "TEXT NOT NULL DEFAULT 'Dance'"),
+            ("duration_seconds", "INTEGER NOT NULL DEFAULT 0"),
+            ("music_title", "TEXT NOT NULL DEFAULT ''"),
+            ("music_url", "TEXT NOT NULL DEFAULT ''"),
+            ("music_status", "TEXT NOT NULL DEFAULT 'Missing'"),
+            ("entrance_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("exit_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("costume_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Planning'"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in recital_performance_columns:
+            cursor.execute(
+                f"ALTER TABLE recital_performances ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
+        recital_rehearsal_columns = [
+            ("production_id", "INTEGER"),
+            ("show_id", "INTEGER"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("rehearsal_date", "TEXT NOT NULL DEFAULT ''"),
+            ("start_time", "TEXT NOT NULL DEFAULT ''"),
+            ("end_time", "TEXT NOT NULL DEFAULT ''"),
+            ("location", "TEXT NOT NULL DEFAULT ''"),
+            ("notes", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Scheduled'"),
+            ("created_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+            ("updated_at", "TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        for column_name, column_definition in recital_rehearsal_columns:
+            cursor.execute(
+                f"ALTER TABLE recital_rehearsals ADD COLUMN IF NOT EXISTS {column_name} {column_definition}"
+            )
+
         workflow_event_columns = [
             ("event_type", "TEXT NOT NULL DEFAULT ''"),
             ("source_module", "TEXT NOT NULL DEFAULT ''"),
@@ -815,6 +968,86 @@ def init_db() -> None:
                 "PRAGMA table_info(customers)"
             ).fetchall()
         }
+        existing_recital_production_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(recital_productions)").fetchall()
+        }
+        sqlite_recital_production_columns = [
+            ("name", "TEXT NOT NULL DEFAULT ''"),
+            ("season", "TEXT NOT NULL DEFAULT ''"),
+            ("venue", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Planning'"),
+            ("description", "TEXT NOT NULL DEFAULT ''"),
+            ("ticket_status", "TEXT NOT NULL DEFAULT 'Not On Sale'"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_recital_production_columns:
+            if column_name not in existing_recital_production_columns:
+                cursor.execute(f"ALTER TABLE recital_productions ADD COLUMN {column_name} {column_definition}")
+
+        existing_recital_show_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(recital_shows)").fetchall()
+        }
+        sqlite_recital_show_columns = [
+            ("production_id", "INTEGER"),
+            ("name", "TEXT NOT NULL DEFAULT ''"),
+            ("show_date", "TEXT NOT NULL DEFAULT ''"),
+            ("start_time", "TEXT NOT NULL DEFAULT ''"),
+            ("end_time", "TEXT NOT NULL DEFAULT ''"),
+            ("doors_open_time", "TEXT NOT NULL DEFAULT ''"),
+            ("notes", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Scheduled'"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_recital_show_columns:
+            if column_name not in existing_recital_show_columns:
+                cursor.execute(f"ALTER TABLE recital_shows ADD COLUMN {column_name} {column_definition}")
+
+        existing_recital_performance_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(recital_performances)").fetchall()
+        }
+        sqlite_recital_performance_columns = [
+            ("show_id", "INTEGER"),
+            ("class_id", "INTEGER"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("performance_order", "INTEGER NOT NULL DEFAULT 0"),
+            ("performance_type", "TEXT NOT NULL DEFAULT 'Dance'"),
+            ("duration_seconds", "INTEGER NOT NULL DEFAULT 0"),
+            ("music_title", "TEXT NOT NULL DEFAULT ''"),
+            ("music_url", "TEXT NOT NULL DEFAULT ''"),
+            ("music_status", "TEXT NOT NULL DEFAULT 'Missing'"),
+            ("entrance_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("exit_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("costume_notes", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Planning'"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_recital_performance_columns:
+            if column_name not in existing_recital_performance_columns:
+                cursor.execute(f"ALTER TABLE recital_performances ADD COLUMN {column_name} {column_definition}")
+
+        existing_recital_rehearsal_columns = {
+            row["name"] for row in cursor.execute("PRAGMA table_info(recital_rehearsals)").fetchall()
+        }
+        sqlite_recital_rehearsal_columns = [
+            ("production_id", "INTEGER"),
+            ("show_id", "INTEGER"),
+            ("title", "TEXT NOT NULL DEFAULT ''"),
+            ("rehearsal_date", "TEXT NOT NULL DEFAULT ''"),
+            ("start_time", "TEXT NOT NULL DEFAULT ''"),
+            ("end_time", "TEXT NOT NULL DEFAULT ''"),
+            ("location", "TEXT NOT NULL DEFAULT ''"),
+            ("notes", "TEXT NOT NULL DEFAULT ''"),
+            ("status", "TEXT NOT NULL DEFAULT 'Scheduled'"),
+            ("created_at", "TIMESTAMP"),
+            ("updated_at", "TIMESTAMP"),
+        ]
+        for column_name, column_definition in sqlite_recital_rehearsal_columns:
+            if column_name not in existing_recital_rehearsal_columns:
+                cursor.execute(f"ALTER TABLE recital_rehearsals ADD COLUMN {column_name} {column_definition}")
+
         existing_workflow_event_columns = {
             row["name"] for row in cursor.execute("PRAGMA table_info(workflow_events)").fetchall()
         }

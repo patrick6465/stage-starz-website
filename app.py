@@ -67,7 +67,7 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","workflow","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","recitals","workflow","orders","website","announcements","media","search","reports"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
     "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","workflow","reports","media","search"}},
 }
@@ -354,6 +354,32 @@ MIGRATION_REGISTRY = [
             "notifications": [
                 "admin_user_id", "title", "message",
                 "severity", "read_at", "dismissed_at"
+            ],
+        },
+    },
+    {
+        "key": "014_recital_center",
+        "title": "Recital Management Center",
+        "description": "Productions, shows, performance lineups, class assignments, music tracking, and rehearsals.",
+        "required_tables": [
+            "recital_productions", "recital_shows",
+            "recital_performances", "recital_rehearsals"
+        ],
+        "required_columns": {
+            "recital_productions": [
+                "name", "season", "venue", "status", "ticket_status"
+            ],
+            "recital_shows": [
+                "production_id", "name", "show_date",
+                "start_time", "status"
+            ],
+            "recital_performances": [
+                "show_id", "class_id", "title",
+                "performance_order", "music_status", "status"
+            ],
+            "recital_rehearsals": [
+                "production_id", "show_id", "title",
+                "rehearsal_date", "status"
             ],
         },
     },
@@ -1555,6 +1581,500 @@ def create_order():
     sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+@app.route("/admin/recitals")
+@permission_required("recitals")
+def recital_center():
+    connection = get_db()
+    productions = connection.execute(
+        """
+        SELECT
+            p.*,
+            COUNT(DISTINCT s.id) AS show_count,
+            COUNT(DISTINCT rp.id) AS performance_count,
+            COUNT(DISTINCT rr.id) AS rehearsal_count,
+            COALESCE(
+                SUM(CASE WHEN rp.music_status='Ready' THEN 1 ELSE 0 END),
+                0
+            ) AS music_ready_count
+        FROM recital_productions p
+        LEFT JOIN recital_shows s ON s.production_id=p.id
+        LEFT JOIN recital_performances rp ON rp.show_id=s.id
+        LEFT JOIN recital_rehearsals rr ON rr.production_id=p.id
+        GROUP BY
+            p.id, p.name, p.season, p.venue, p.status,
+            p.description, p.ticket_status,
+            p.created_at, p.updated_at
+        ORDER BY p.id DESC
+        """
+    ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS production_count,
+            COALESCE(
+                (SELECT COUNT(*) FROM recital_shows),
+                0
+            ) AS show_count,
+            COALESCE(
+                (SELECT COUNT(*) FROM recital_performances),
+                0
+            ) AS performance_count,
+            COALESCE(
+                (
+                    SELECT COUNT(*)
+                    FROM recital_performances
+                    WHERE music_status!='Ready'
+                ),
+                0
+            ) AS music_missing_count
+        FROM recital_productions
+        """
+    ).fetchone()
+    connection.close()
+
+    return render_template(
+        "recital_center.html",
+        productions=[dict(row) for row in productions],
+        summary=dict(summary),
+    )
+
+
+@app.route("/admin/recitals/productions/save", methods=["POST"])
+@permission_required("recitals")
+def save_recital_production():
+    production_id = request.form.get("id", "").strip()
+    values = (
+        request.form.get("name", "").strip(),
+        request.form.get("season", "").strip(),
+        request.form.get("venue", "").strip(),
+        request.form.get("status", "Planning").strip(),
+        request.form.get("description", "").strip(),
+        request.form.get("ticket_status", "Not On Sale").strip(),
+    )
+
+    connection = get_db()
+    if production_id:
+        connection.execute(
+            """
+            UPDATE recital_productions SET
+                name=?, season=?, venue=?, status=?,
+                description=?, ticket_status=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            values + (int(production_id),),
+        )
+        saved_id = int(production_id)
+        event_type = "recital_production_updated"
+        event_title = "Recital production updated"
+    else:
+        sql = """
+            INSERT INTO recital_productions (
+                name, season, venue, status,
+                description, ticket_status
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        """
+        if connection.backend == "postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(sql, values)
+        saved_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+        event_type = "recital_production_created"
+        event_title = "Recital production created"
+
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        event_type,
+        "recitals",
+        event_title,
+        values[0],
+        "info",
+        str(saved_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash("Recital production saved.", "success")
+    return redirect(url_for("recital_production", production_id=saved_id))
+
+
+@app.route("/admin/recitals/productions/<int:production_id>")
+@permission_required("recitals")
+def recital_production(production_id: int):
+    connection = get_db()
+    production = connection.execute(
+        "SELECT * FROM recital_productions WHERE id=?",
+        (production_id,),
+    ).fetchone()
+    if not production:
+        connection.close()
+        return ("Production not found", 404)
+
+    shows = connection.execute(
+        """
+        SELECT
+            s.*,
+            COUNT(rp.id) AS performance_count,
+            COALESCE(
+                SUM(CASE WHEN rp.music_status='Ready' THEN 1 ELSE 0 END),
+                0
+            ) AS music_ready_count
+        FROM recital_shows s
+        LEFT JOIN recital_performances rp ON rp.show_id=s.id
+        WHERE s.production_id=?
+        GROUP BY
+            s.id, s.production_id, s.name, s.show_date,
+            s.start_time, s.end_time, s.doors_open_time,
+            s.notes, s.status, s.created_at, s.updated_at
+        ORDER BY s.show_date, s.start_time, s.id
+        """,
+        (production_id,),
+    ).fetchall()
+
+    rehearsals = connection.execute(
+        """
+        SELECT rr.*, rs.name AS show_name
+        FROM recital_rehearsals rr
+        LEFT JOIN recital_shows rs ON rs.id=rr.show_id
+        WHERE rr.production_id=?
+        ORDER BY rr.rehearsal_date, rr.start_time, rr.id
+        """,
+        (production_id,),
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "recital_production.html",
+        production=dict(production),
+        shows=[dict(row) for row in shows],
+        rehearsals=[dict(row) for row in rehearsals],
+    )
+
+
+@app.route("/admin/recitals/productions/<int:production_id>/shows/save", methods=["POST"])
+@permission_required("recitals")
+def save_recital_show(production_id: int):
+    show_id = request.form.get("id", "").strip()
+    values = (
+        request.form.get("name", "").strip(),
+        request.form.get("show_date", "").strip(),
+        request.form.get("start_time", "").strip(),
+        request.form.get("end_time", "").strip(),
+        request.form.get("doors_open_time", "").strip(),
+        request.form.get("notes", "").strip(),
+        request.form.get("status", "Scheduled").strip(),
+    )
+
+    connection = get_db()
+    if show_id:
+        connection.execute(
+            """
+            UPDATE recital_shows SET
+                name=?, show_date=?, start_time=?, end_time=?,
+                doors_open_time=?, notes=?, status=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=? AND production_id=?
+            """,
+            values + (int(show_id), production_id),
+        )
+        saved_id = int(show_id)
+        title = "Recital show updated"
+        event_type = "recital_show_updated"
+    else:
+        sql = """
+            INSERT INTO recital_shows (
+                production_id, name, show_date, start_time,
+                end_time, doors_open_time, notes, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        if connection.backend == "postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            (production_id,) + values,
+        )
+        saved_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+        title = "Recital show created"
+        event_type = "recital_show_created"
+
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        event_type,
+        "recitals",
+        title,
+        values[0],
+        "info",
+        str(saved_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash("Show saved.", "success")
+    return redirect(url_for("recital_show", show_id=saved_id))
+
+
+@app.route("/admin/recitals/shows/<int:show_id>")
+@permission_required("recitals")
+def recital_show(show_id: int):
+    connection = get_db()
+    show = connection.execute(
+        """
+        SELECT
+            s.*,
+            p.name AS production_name,
+            p.id AS production_id,
+            p.venue
+        FROM recital_shows s
+        JOIN recital_productions p ON p.id=s.production_id
+        WHERE s.id=?
+        """,
+        (show_id,),
+    ).fetchone()
+    if not show:
+        connection.close()
+        return ("Show not found", 404)
+
+    performances = connection.execute(
+        """
+        SELECT
+            rp.*,
+            c.name AS class_name,
+            c.day_of_week,
+            c.start_time,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name,
+            COUNT(DISTINCT ce.student_id) AS student_count
+        FROM recital_performances rp
+        LEFT JOIN classes c ON c.id=rp.class_id
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        LEFT JOIN class_enrollments ce
+          ON ce.class_id=c.id
+         AND ce.status='Active'
+        WHERE rp.show_id=?
+        GROUP BY
+            rp.id, rp.show_id, rp.class_id, rp.title,
+            rp.performance_order, rp.performance_type,
+            rp.duration_seconds, rp.music_title,
+            rp.music_url, rp.music_status,
+            rp.entrance_notes, rp.exit_notes,
+            rp.costume_notes, rp.status,
+            rp.created_at, rp.updated_at,
+            c.name, c.day_of_week, c.start_time,
+            t.first_name, t.last_name
+        ORDER BY rp.performance_order, rp.id
+        """,
+        (show_id,),
+    ).fetchall()
+
+    classes = connection.execute(
+        """
+        SELECT c.id, c.name, c.day_of_week, c.start_time
+        FROM classes c
+        WHERE c.active=1
+        ORDER BY c.name
+        """
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "recital_show.html",
+        show=dict(show),
+        performances=[dict(row) for row in performances],
+        classes=[dict(row) for row in classes],
+    )
+
+
+@app.route("/admin/recitals/shows/<int:show_id>/performances/save", methods=["POST"])
+@permission_required("recitals")
+def save_recital_performance(show_id: int):
+    performance_id = request.form.get("id", "").strip()
+    class_value = request.form.get("class_id", "").strip()
+    class_id = int(class_value) if class_value else None
+    values = (
+        class_id,
+        request.form.get("title", "").strip(),
+        int(request.form.get("performance_order", "0") or 0),
+        request.form.get("performance_type", "Dance").strip(),
+        int(request.form.get("duration_seconds", "0") or 0),
+        request.form.get("music_title", "").strip(),
+        request.form.get("music_url", "").strip(),
+        request.form.get("music_status", "Missing").strip(),
+        request.form.get("entrance_notes", "").strip(),
+        request.form.get("exit_notes", "").strip(),
+        request.form.get("costume_notes", "").strip(),
+        request.form.get("status", "Planning").strip(),
+    )
+
+    connection = get_db()
+    if performance_id:
+        connection.execute(
+            """
+            UPDATE recital_performances SET
+                class_id=?, title=?, performance_order=?,
+                performance_type=?, duration_seconds=?,
+                music_title=?, music_url=?, music_status=?,
+                entrance_notes=?, exit_notes=?, costume_notes=?,
+                status=?, updated_at=CURRENT_TIMESTAMP
+            WHERE id=? AND show_id=?
+            """,
+            values + (int(performance_id), show_id),
+        )
+        saved_id = int(performance_id)
+        title = "Recital performance updated"
+        event_type = "recital_performance_updated"
+    else:
+        sql = """
+            INSERT INTO recital_performances (
+                show_id, class_id, title, performance_order,
+                performance_type, duration_seconds,
+                music_title, music_url, music_status,
+                entrance_notes, exit_notes, costume_notes, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
+        if connection.backend == "postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            (show_id,) + values,
+        )
+        saved_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+        title = "Recital performance added"
+        event_type = "recital_performance_created"
+
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        event_type,
+        "recitals",
+        title,
+        values[1],
+        "info",
+        str(saved_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash("Performance saved.", "success")
+    return redirect(url_for("recital_show", show_id=show_id))
+
+
+@app.route("/admin/recitals/performances/<int:performance_id>/move", methods=["POST"])
+@permission_required("recitals")
+def move_recital_performance(performance_id: int):
+    direction = request.form.get("direction", "").strip()
+    connection = get_db()
+    current = connection.execute(
+        """
+        SELECT id, show_id, performance_order
+        FROM recital_performances
+        WHERE id=?
+        """,
+        (performance_id,),
+    ).fetchone()
+
+    if not current:
+        connection.close()
+        return ("Performance not found", 404)
+
+    operator = "<" if direction == "up" else ">"
+    ordering = "DESC" if direction == "up" else "ASC"
+    neighbor = connection.execute(
+        f"""
+        SELECT id, performance_order
+        FROM recital_performances
+        WHERE show_id=?
+          AND performance_order {operator} ?
+        ORDER BY performance_order {ordering}, id {ordering}
+        LIMIT 1
+        """,
+        (
+            current["show_id"],
+            current["performance_order"],
+        ),
+    ).fetchone()
+
+    if neighbor:
+        connection.execute(
+            """
+            UPDATE recital_performances
+            SET performance_order=?
+            WHERE id=?
+            """,
+            (neighbor["performance_order"], current["id"]),
+        )
+        connection.execute(
+            """
+            UPDATE recital_performances
+            SET performance_order=?
+            WHERE id=?
+            """,
+            (current["performance_order"], neighbor["id"]),
+        )
+        connection.commit()
+
+    show_id = int(current["show_id"])
+    connection.close()
+    return redirect(url_for("recital_show", show_id=show_id))
+
+
+@app.route("/admin/recitals/productions/<int:production_id>/rehearsals/save", methods=["POST"])
+@permission_required("recitals")
+def save_recital_rehearsal(production_id: int):
+    show_value = request.form.get("show_id", "").strip()
+    show_id = int(show_value) if show_value else None
+
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO recital_rehearsals (
+            production_id, show_id, title,
+            rehearsal_date, start_time, end_time,
+            location, notes, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            production_id,
+            show_id,
+            request.form.get("title", "").strip(),
+            request.form.get("rehearsal_date", "").strip(),
+            request.form.get("start_time", "").strip(),
+            request.form.get("end_time", "").strip(),
+            request.form.get("location", "").strip(),
+            request.form.get("notes", "").strip(),
+            request.form.get("status", "Scheduled").strip(),
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        "recital_rehearsal_created",
+        "recitals",
+        "Recital rehearsal scheduled",
+        request.form.get("title", "").strip(),
+        "info",
+        str(production_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash("Rehearsal saved.", "success")
+    return redirect(url_for("recital_production", production_id=production_id))
 
 
 def create_workflow_event(
