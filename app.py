@@ -431,6 +431,18 @@ MIGRATION_REGISTRY = [
             "ticket_canvas_settings": ["venue_id","canvas_width","canvas_height","background_label"],
         },
     },
+    {
+        "key": "018_public_ticket_sales",
+        "title": "Public Reserved Ticket Sales Portal",
+        "description": "Public show listings, temporary seat locks, checkout, ticket confirmation, and family billing.",
+        "required_tables": ["public_ticket_settings","ticket_checkout_sessions","ticket_checkout_seats"],
+        "required_columns": {
+            "public_ticket_settings": ["recital_show_id","public_slug","public_enabled","sales_open_at","sales_close_at","max_tickets_per_order","hold_minutes"],
+            "ticket_checkout_sessions": ["checkout_token","recital_show_id","status","expires_at","converted_order_id"],
+            "ticket_checkout_seats": ["checkout_session_id","recital_show_id","seat_id"],
+        },
+    },
+
 ]
 
 
@@ -1634,6 +1646,148 @@ def create_order():
 def generate_ticket_code() -> str:
     import secrets
     return "SS-" + secrets.token_hex(5).upper()
+
+
+
+def cleanup_public_checkout_locks(connection, show_id=None):
+    if show_id:
+        rows=connection.execute("SELECT id FROM ticket_checkout_sessions WHERE recital_show_id=? AND status='Active' AND expires_at<=CURRENT_TIMESTAMP",(show_id,)).fetchall()
+    else:
+        rows=connection.execute("SELECT id FROM ticket_checkout_sessions WHERE status='Active' AND expires_at<=CURRENT_TIMESTAMP").fetchall()
+    for row in rows:
+        connection.execute("DELETE FROM ticket_checkout_seats WHERE checkout_session_id=?",(row["id"],))
+        connection.execute("UPDATE ticket_checkout_sessions SET status='Expired',updated_at=CURRENT_TIMESTAMP WHERE id=?",(row["id"],))
+
+
+def make_public_slug(value):
+    import re
+    return re.sub(r"[^a-z0-9]+","-",value.lower()).strip("-") or uuid.uuid4().hex[:10]
+
+
+def get_public_show(connection, slug):
+    return connection.execute("""SELECT rs.id AS show_id,rs.name,rs.show_date,rs.start_time,rp.name AS production_name,
+        tss.venue_id,tss.default_price,tss.sales_status,tv.name AS venue_name,tv.address AS venue_address,pts.*
+        FROM public_ticket_settings pts JOIN recital_shows rs ON rs.id=pts.recital_show_id
+        JOIN recital_productions rp ON rp.id=rs.production_id
+        JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
+        LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id WHERE pts.public_slug=?""",(slug,)).fetchone()
+
+
+def public_sales_open(show):
+    if not show or not int(show["public_enabled"] or 0) or show["sales_status"]!="On Sale": return False
+    now=datetime.utcnow()
+    def parse(v):
+        if not v:return None
+        if isinstance(v,datetime): return v
+        try:return datetime.fromisoformat(str(v).replace("Z","+00:00")).replace(tzinfo=None)
+        except ValueError:return None
+    start,end=parse(show["sales_open_at"]),parse(show["sales_close_at"])
+    return not (start and now<start) and not (end and now>end)
+
+
+@app.route("/admin/ticketing/shows/<int:show_id>/public-settings",methods=["POST"])
+@permission_required("ticketing")
+def save_public_ticket_settings(show_id):
+    c=get_db(); show=c.execute("SELECT rs.name,rp.name AS production_name FROM recital_shows rs JOIN recital_productions rp ON rp.id=rs.production_id WHERE rs.id=?",(show_id,)).fetchone()
+    if not show:c.close();return ("Show not found",404)
+    existing=c.execute("SELECT public_slug FROM public_ticket_settings WHERE recital_show_id=?",(show_id,)).fetchone()
+    slug=make_public_slug(request.form.get("public_slug","").strip() or (existing["public_slug"] if existing else "") or f"{show['production_name']}-{show['name']}-{show_id}")
+    c.execute("""INSERT INTO public_ticket_settings(recital_show_id,public_slug,public_enabled,sales_open_at,sales_close_at,max_tickets_per_order,hold_minutes,allow_pay_at_studio,allow_family_billing,public_title,public_description,accessibility_notes,terms_text)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(recital_show_id) DO UPDATE SET public_slug=excluded.public_slug,public_enabled=excluded.public_enabled,sales_open_at=excluded.sales_open_at,sales_close_at=excluded.sales_close_at,max_tickets_per_order=excluded.max_tickets_per_order,hold_minutes=excluded.hold_minutes,allow_pay_at_studio=excluded.allow_pay_at_studio,allow_family_billing=excluded.allow_family_billing,public_title=excluded.public_title,public_description=excluded.public_description,accessibility_notes=excluded.accessibility_notes,terms_text=excluded.terms_text,updated_at=CURRENT_TIMESTAMP""",
+      (show_id,slug,1 if request.form.get("public_enabled")=="on" else 0,request.form.get("sales_open_at","").strip() or None,request.form.get("sales_close_at","").strip() or None,max(1,min(int(request.form.get("max_tickets_per_order","12") or 12),50)),max(5,min(int(request.form.get("hold_minutes","10") or 10),60)),1 if request.form.get("allow_pay_at_studio")=="on" else 0,1 if request.form.get("allow_family_billing")=="on" else 0,request.form.get("public_title","").strip(),request.form.get("public_description","").strip(),request.form.get("accessibility_notes","").strip(),request.form.get("terms_text","").strip()))
+    c.commit();c.close();flash("Public ticket sales settings saved.","success");return redirect(url_for("ticket_show",show_id=show_id))
+
+
+@app.route("/tickets")
+def public_ticket_portal():
+    c=get_db();cleanup_public_checkout_locks(c)
+    rows=c.execute("""SELECT pts.public_slug,pts.public_title,pts.public_description,rs.name,rs.show_date,rs.start_time,rp.name AS production_name,tv.name AS venue_name,tss.sales_status,
+      COUNT(DISTINCT ts.id) AS total_seats,COUNT(DISTINCT CASE WHEN tk.status='Valid' THEN tk.id END) AS sold_seats
+      FROM public_ticket_settings pts JOIN recital_shows rs ON rs.id=pts.recital_show_id JOIN recital_productions rp ON rp.id=rs.production_id
+      JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+      LEFT JOIN ticket_sections sec ON sec.venue_id=tss.venue_id LEFT JOIN ticket_seats ts ON ts.section_id=sec.id AND ts.active=1
+      LEFT JOIN tickets tk ON tk.recital_show_id=rs.id AND tk.seat_id=ts.id AND tk.status='Valid'
+      WHERE pts.public_enabled=1 GROUP BY pts.public_slug,pts.public_title,pts.public_description,rs.name,rs.show_date,rs.start_time,rp.name,tv.name,tss.sales_status ORDER BY rs.show_date,rs.start_time""").fetchall()
+    c.commit();c.close();return render_template("public_ticket_portal.html",shows=[dict(r) for r in rows])
+
+
+@app.route("/tickets/<slug>")
+def public_ticket_show(slug):
+    c=get_db();show=get_public_show(c,slug)
+    if not show:c.close();return ("Ticket event not found",404)
+    cleanup_public_checkout_locks(c,int(show["show_id"]))
+    canvas=c.execute("SELECT * FROM ticket_canvas_settings WHERE venue_id=?",(show["venue_id"],)).fetchone()
+    objects=c.execute("SELECT * FROM ticket_venue_objects WHERE venue_id=? AND active=1 ORDER BY z_index,sort_order,id",(show["venue_id"],)).fetchall()
+    seats=c.execute("""SELECT ts.id,ts.row_label,ts.seat_number,ts.seat_type,sec.id AS section_id,sec.name AS section_name,
+      COALESCE(trl.extra_space_after,0) AS extra_space_after,COALESCE(trl.seat_direction,'Low Left') AS seat_direction,
+      COALESCE(tsl.orientation,'Horizontal') AS section_orientation,COALESCE(tsl.x_pos,400) AS section_x_pos,COALESCE(tsl.y_pos,250) AS section_y_pos,
+      COALESCE(tsl.width_px,600) AS section_width_px,COALESCE(tsl.height_px,220) AS section_height_px,COALESCE(tsl.rotation_deg,0) AS section_rotation_deg,COALESCE(tsl.z_index,10) AS section_z_index,
+      tk.id AS ticket_id,ths.hold_id,tcs.checkout_session_id FROM ticket_seats ts JOIN ticket_sections sec ON sec.id=ts.section_id
+      LEFT JOIN ticket_row_layouts trl ON trl.section_id=ts.section_id AND trl.row_label=ts.row_label LEFT JOIN ticket_section_layouts tsl ON tsl.section_id=ts.section_id
+      LEFT JOIN tickets tk ON tk.seat_id=ts.id AND tk.recital_show_id=? AND tk.status='Valid'
+      LEFT JOIN ticket_hold_seats ths ON ths.seat_id=ts.id AND ths.recital_show_id=?
+      LEFT JOIN ticket_checkout_seats tcs ON tcs.seat_id=ts.id AND tcs.recital_show_id=?
+      WHERE sec.venue_id=? AND ts.active=1 ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number""",(show["show_id"],show["show_id"],show["show_id"],show["venue_id"])).fetchall()
+    grouped={}
+    for r in seats:
+        item=dict(r);grouped.setdefault((item["section_id"],item["section_name"]),{}).setdefault(item["row_label"],[]).append(item)
+    c.commit();c.close();return render_template("public_ticket_show.html",show=dict(show),grouped_seats=grouped,canvas=dict(canvas) if canvas else {"canvas_width":1400,"canvas_height":1100},objects=[dict(r) for r in objects],sales_open=public_sales_open(show))
+
+
+@app.route("/tickets/<slug>/checkout",methods=["POST"])
+def public_ticket_checkout_start(slug):
+    c=get_db();show=get_public_show(c,slug)
+    if not show or not public_sales_open(show):c.close();flash("Public ticket sales are not open.","error");return redirect(url_for("public_ticket_show",slug=slug))
+    cleanup_public_checkout_locks(c,int(show["show_id"]))
+    seats=[int(v) for v in request.form.getlist("seat_id") if v.isdigit()]
+    if not seats or len(seats)>int(show["max_tickets_per_order"] or 12):c.close();flash("Select an allowed number of seats.","error");return redirect(url_for("public_ticket_show",slug=slug))
+    ph=','.join('?' for _ in seats);params=tuple([show["show_id"]]+seats)
+    checks=[c.execute(f"SELECT seat_id FROM tickets WHERE recital_show_id=? AND status='Valid' AND seat_id IN ({ph})",params).fetchall(),c.execute(f"SELECT seat_id FROM ticket_hold_seats WHERE recital_show_id=? AND seat_id IN ({ph})",params).fetchall(),c.execute(f"SELECT seat_id FROM ticket_checkout_seats WHERE recital_show_id=? AND seat_id IN ({ph})",params).fetchall()]
+    if any(checks):c.close();flash("One or more selected seats are unavailable.","error");return redirect(url_for("public_ticket_show",slug=slug))
+    token=uuid.uuid4().hex;expires=datetime.utcnow()+timedelta(minutes=int(show["hold_minutes"] or 10));sql="INSERT INTO ticket_checkout_sessions(checkout_token,recital_show_id,status,expires_at) VALUES (?,?,'Active',?)"+(" RETURNING id" if c.backend=="postgresql" else "")
+    cur=c.execute(sql,(token,show["show_id"],expires));cid=int(cur.fetchone()["id"]) if c.backend=="postgresql" else int(cur.lastrowid)
+    for seat in seats:c.execute("INSERT INTO ticket_checkout_seats(checkout_session_id,recital_show_id,seat_id) VALUES (?,?,?)",(cid,show["show_id"],seat))
+    c.commit();c.close();return redirect(url_for("public_ticket_checkout",token=token))
+
+
+@app.route("/tickets/checkout/<token>")
+def public_ticket_checkout(token):
+    c=get_db();cleanup_public_checkout_locks(c)
+    co=c.execute("""SELECT tcs.*,rs.name AS show_name,rs.show_date,rs.start_time,rp.name AS production_name,tv.name AS venue_name,tv.address AS venue_address,tss.default_price,pts.allow_pay_at_studio,pts.allow_family_billing,pts.terms_text
+      FROM ticket_checkout_sessions tcs JOIN recital_shows rs ON rs.id=tcs.recital_show_id JOIN recital_productions rp ON rp.id=rs.production_id JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id JOIN public_ticket_settings pts ON pts.recital_show_id=rs.id LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id WHERE tcs.checkout_token=?""",(token,)).fetchone()
+    if not co:c.close();return ("Checkout not found",404)
+    seats=c.execute("""SELECT ts.id,ts.row_label,ts.seat_number,ts.seat_type,sec.name AS section_name FROM ticket_checkout_seats tcs JOIN ticket_seats ts ON ts.id=tcs.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id WHERE tcs.checkout_session_id=? ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number""",(co["id"],)).fetchall()
+    fam=c.execute("SELECT id,family_name FROM families ORDER BY family_name").fetchall();c.commit();c.close();return render_template("public_ticket_checkout.html",checkout=dict(co),seats=[dict(r) for r in seats],families=[dict(r) for r in fam])
+
+
+@app.route("/tickets/checkout/<token>/complete",methods=["POST"])
+def public_ticket_checkout_complete(token):
+    c=get_db();cleanup_public_checkout_locks(c)
+    co=c.execute("""SELECT tcs.*,pts.allow_pay_at_studio,pts.allow_family_billing,tss.default_price,rs.name AS show_name FROM ticket_checkout_sessions tcs JOIN public_ticket_settings pts ON pts.recital_show_id=tcs.recital_show_id JOIN ticket_show_settings tss ON tss.recital_show_id=tcs.recital_show_id JOIN recital_shows rs ON rs.id=tcs.recital_show_id WHERE tcs.checkout_token=?""",(token,)).fetchone()
+    if not co or co["status"]!="Active":c.close();return ("Checkout expired",410)
+    seats=[int(r["seat_id"]) for r in c.execute("SELECT seat_id FROM ticket_checkout_seats WHERE checkout_session_id=?",(co["id"],)).fetchall()]
+    name=request.form.get("purchaser_name","").strip();email=request.form.get("purchaser_email","").strip();phone=request.form.get("purchaser_phone","").strip();method=request.form.get("payment_method","Pay at Studio").strip();fv=request.form.get("family_id","").strip();family_id=int(fv) if fv else None
+    if not name or not email:c.close();flash("Name and email are required.","error");return redirect(url_for("public_ticket_checkout",token=token))
+    if method=="Family Billing" and (not family_id or not int(co["allow_family_billing"] or 0)):c.close();flash("Choose a family account.","error");return redirect(url_for("public_ticket_checkout",token=token))
+    price=float(co["default_price"] or 0);total=price*len(seats);sql="INSERT INTO ticket_orders(recital_show_id,family_id,purchaser_name,purchaser_email,purchaser_phone,order_status,payment_status,total_amount,notes,created_by) VALUES (?,?,?,?,?,'Confirmed','Due',?,?,NULL)"+(" RETURNING id" if c.backend=="postgresql" else "")
+    cur=c.execute(sql,(co["recital_show_id"],family_id,name,email,phone,total,f"Public portal · {method}"));oid=int(cur.fetchone()["id"]) if c.backend=="postgresql" else int(cur.lastrowid)
+    for seat in seats:
+        code=generate_ticket_code()
+        while c.execute("SELECT id FROM tickets WHERE ticket_code=?",(code,)).fetchone():code=generate_ticket_code()
+        c.execute("INSERT INTO tickets(order_id,recital_show_id,seat_id,ticket_code,price,status) VALUES (?,?,?,?,?,'Valid')",(oid,co["recital_show_id"],seat,code,price))
+    if method=="Family Billing" and family_id and total>0:
+        sql2="INSERT INTO billing_charges(family_id,charge_type,description,amount,due_date,status,reference,created_by) VALUES (?,'Other',?,?,?,'Open',?,NULL)"+(" RETURNING id" if c.backend=="postgresql" else "")
+        cur2=c.execute(sql2,(family_id,f"Reserved tickets - {co['show_name']}",total,request.form.get("due_date","").strip(),f"Public ticket order #{oid}"));bid=int(cur2.fetchone()["id"]) if c.backend=="postgresql" else int(cur2.lastrowid);c.execute("UPDATE ticket_orders SET billing_charge_id=? WHERE id=?",(bid,oid))
+    c.execute("UPDATE ticket_checkout_sessions SET family_id=?,purchaser_name=?,purchaser_email=?,purchaser_phone=?,status='Converted',converted_order_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",(family_id,name,email,phone,oid,co["id"]));c.execute("DELETE FROM ticket_checkout_seats WHERE checkout_session_id=?",(co["id"],));c.commit();c.close()
+    event_id=create_workflow_event("public_ticket_order_created","ticketing","Public reserved ticket order created",f"Order #{oid} · {len(seats)} seats · ${total:.2f}","success",str(oid));evaluate_workflow_rules(event_id)
+    return redirect(url_for("public_ticket_order",order_id=oid))
+
+
+@app.route("/tickets/order/<int:order_id>")
+def public_ticket_order(order_id):
+    c=get_db();order=c.execute("""SELECT tor.*,rs.name AS show_name,rs.show_date,rs.start_time,rp.name AS production_name,tv.name AS venue_name,tv.address AS venue_address FROM ticket_orders tor JOIN recital_shows rs ON rs.id=tor.recital_show_id JOIN recital_productions rp ON rp.id=rs.production_id LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id WHERE tor.id=?""",(order_id,)).fetchone()
+    if not order:c.close();return ("Order not found",404)
+    tickets=c.execute("""SELECT tk.*,ts.row_label,ts.seat_number,ts.seat_type,sec.name AS section_name FROM tickets tk JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id WHERE tk.order_id=? ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number""",(order_id,)).fetchall();c.close();return render_template("public_ticket_order.html",order=dict(order),tickets=[dict(r) for r in tickets])
 
 
 @app.route("/admin/ticketing")
@@ -2877,6 +3031,7 @@ def ticket_show(show_id: int):
         """,
         (show_id,),
     ).fetchall()
+    public_settings=connection.execute("SELECT * FROM public_ticket_settings WHERE recital_show_id=?",(show_id,)).fetchone()
     connection.close()
 
     grouped_seats = {}
@@ -2895,6 +3050,7 @@ def ticket_show(show_id: int):
         holds=[dict(row) for row in holds],
         show_canvas=dict(show_canvas) if show_canvas else {"canvas_width":1400,"canvas_height":1100,"background_label":""},
         show_objects=[dict(row) for row in show_objects],
+        public_settings=dict(public_settings) if public_settings else {},
     )
 
 

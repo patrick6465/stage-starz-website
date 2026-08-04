@@ -1072,6 +1072,48 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS public_ticket_settings (
+            id {id_column}, recital_show_id INTEGER NOT NULL UNIQUE,
+            public_slug TEXT NOT NULL UNIQUE, public_enabled INTEGER NOT NULL DEFAULT 0,
+            sales_open_at TIMESTAMP, sales_close_at TIMESTAMP,
+            max_tickets_per_order INTEGER NOT NULL DEFAULT 12,
+            hold_minutes INTEGER NOT NULL DEFAULT 10,
+            allow_pay_at_studio INTEGER NOT NULL DEFAULT 1,
+            allow_family_billing INTEGER NOT NULL DEFAULT 1,
+            public_title TEXT NOT NULL DEFAULT '', public_description TEXT NOT NULL DEFAULT '',
+            accessibility_notes TEXT NOT NULL DEFAULT '', terms_text TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE
+        )
+    """)
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS ticket_checkout_sessions (
+            id {id_column}, checkout_token TEXT NOT NULL UNIQUE,
+            recital_show_id INTEGER NOT NULL, family_id INTEGER,
+            purchaser_name TEXT NOT NULL DEFAULT '', purchaser_email TEXT NOT NULL DEFAULT '',
+            purchaser_phone TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'Active',
+            expires_at TIMESTAMP NOT NULL, converted_order_id INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
+            FOREIGN KEY(converted_order_id) REFERENCES ticket_orders(id) ON DELETE SET NULL
+        )
+    """)
+    cursor.execute(f"""
+        CREATE TABLE IF NOT EXISTS ticket_checkout_seats (
+            id {id_column}, checkout_session_id INTEGER NOT NULL,
+            recital_show_id INTEGER NOT NULL, seat_id INTEGER NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(recital_show_id,seat_id),
+            FOREIGN KEY(checkout_session_id) REFERENCES ticket_checkout_sessions(id) ON DELETE CASCADE,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(seat_id) REFERENCES ticket_seats(id) ON DELETE RESTRICT
+        )
+    """)
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         for column_name, column_definition in [

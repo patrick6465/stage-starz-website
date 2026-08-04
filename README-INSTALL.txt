@@ -1,33 +1,29 @@
-STAGE STARZ RESERVED TICKETING V2.0
+STAGE STARZ PUBLIC RESERVED TICKET SALES PORTAL V1
 
 REPLACE:
 - app.py
-- templates/ticket_venue.html
+- database.py
+- templates/dashboard.html
+- templates/ticket_show.html
+
+ADD:
+- templates/public_ticket_portal.html
+- templates/public_ticket_show.html
+- templates/public_ticket_checkout.html
+- templates/public_ticket_order.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py templates/ticket_venue.html
-git commit -m "Add mouse drag positioning to venue designer"
+git add app.py database.py templates/dashboard.html templates/ticket_show.html templates/public_ticket_portal.html templates/public_ticket_show.html templates/public_ticket_checkout.html templates/public_ticket_order.html
+git commit -m "Add public reserved ticket sales portal"
 git push origin railway-deployment
 
-NEW MOUSE CONTROLS:
-- Click and drag any seating section on the venue canvas.
-- Click and drag the stage, crew booth, labels, and other theater objects.
-- Positions save automatically when the mouse button is released.
-- A live status message confirms the saved X and Y coordinates.
-- The numeric X/Y fields update automatically after each drag.
-- Items cannot be dragged outside the canvas boundaries.
-- If saving fails, the item returns to its previous position.
-- Pointer events support both mouse and touchscreen dragging.
-- Dragging is disabled automatically after ticket history exists.
-- The live recital ticket-selling map continues using the saved coordinates.
-
-TEST:
-1. Deploy V2.0.
-2. Verify /health and /ready.
-3. Open an unfinished venue.
-4. Drag Upper Orchestra to a new location.
-5. Confirm the status reports Saved.
-6. Confirm its X/Y fields changed.
-7. Refresh the page and confirm the section remains in its new position.
-8. Drag the stage and crew booth and repeat the test.
+VERIFY:
+1. Railway Active.
+2. /health and /ready pass.
+3. Migration Center shows 018_public_ticket_sales.
+4. Open an admin ticket show and enable Public Ticket Sales.
+5. Open /tickets.
+6. Select seats and complete a Pay at Studio order.
+7. Test Family Billing with a family account.
+8. Confirm temporary seat locks and printable ticket codes.
