@@ -722,6 +722,96 @@ def init_db() -> None:
         """
     )
 
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS competitions (
+            id {id_column},
+            name TEXT NOT NULL,
+            venue TEXT NOT NULL DEFAULT '',
+            city TEXT NOT NULL DEFAULT '',
+            state TEXT NOT NULL DEFAULT '',
+            start_date TEXT NOT NULL DEFAULT '',
+            end_date TEXT NOT NULL DEFAULT '',
+            registration_deadline TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Planning',
+            website TEXT NOT NULL DEFAULT '',
+            hotel_name TEXT NOT NULL DEFAULT '',
+            hotel_deadline TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS competition_routines (
+            id {id_column},
+            competition_id INTEGER NOT NULL,
+            class_id INTEGER,
+            recital_performance_id INTEGER,
+            costume_id INTEGER,
+            title TEXT NOT NULL,
+            division TEXT NOT NULL DEFAULT '',
+            category TEXT NOT NULL DEFAULT '',
+            level TEXT NOT NULL DEFAULT '',
+            age_group TEXT NOT NULL DEFAULT '',
+            music_title TEXT NOT NULL DEFAULT '',
+            music_status TEXT NOT NULL DEFAULT 'Missing',
+            entry_status TEXT NOT NULL DEFAULT 'Planning',
+            performance_date TEXT NOT NULL DEFAULT '',
+            performance_time TEXT NOT NULL DEFAULT '',
+            stage TEXT NOT NULL DEFAULT '',
+            entry_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(competition_id) REFERENCES competitions(id) ON DELETE CASCADE,
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE SET NULL,
+            FOREIGN KEY(recital_performance_id) REFERENCES recital_performances(id) ON DELETE SET NULL,
+            FOREIGN KEY(costume_id) REFERENCES costumes(id) ON DELETE SET NULL
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS competition_dancers (
+            id {id_column},
+            routine_id INTEGER NOT NULL,
+            student_id INTEGER NOT NULL,
+            family_id INTEGER,
+            fee_charge_id INTEGER,
+            registration_status TEXT NOT NULL DEFAULT 'Assigned',
+            waiver_status TEXT NOT NULL DEFAULT 'Missing',
+            travel_status TEXT NOT NULL DEFAULT 'Unknown',
+            costume_ready INTEGER NOT NULL DEFAULT 0,
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(routine_id, student_id),
+            FOREIGN KEY(routine_id) REFERENCES competition_routines(id) ON DELETE CASCADE,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
+            FOREIGN KEY(fee_charge_id) REFERENCES billing_charges(id) ON DELETE SET NULL
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS competition_awards (
+            id {id_column},
+            routine_id INTEGER NOT NULL,
+            award_name TEXT NOT NULL,
+            placement TEXT NOT NULL DEFAULT '',
+            score DOUBLE PRECISION NOT NULL DEFAULT 0,
+            judge_notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(routine_id) REFERENCES competition_routines(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         costume_tables = {

@@ -67,7 +67,7 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","recitals","workflow","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","workflow","orders","website","announcements","media","search","reports"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
     "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","workflow","reports","media","search"}},
 }
@@ -391,6 +391,18 @@ MIGRATION_REGISTRY = [
         "required_columns": {
             "costumes": ["vendor_id","name","style_number","color","charge_amount","order_status"],
             "student_costume_assignments": ["costume_id","student_id","costume_size","assignment_status","alteration_status","pickup_status","billing_charge_id"],
+        },
+    },
+    {
+        "key": "016_competition_management",
+        "title": "Competition Management Center",
+        "description": "Competition events, routines, dancers, fees, deadlines, music, travel, and awards.",
+        "required_tables": ["competitions","competition_routines","competition_dancers","competition_awards"],
+        "required_columns": {
+            "competitions": ["name","venue","start_date","end_date","registration_deadline","status"],
+            "competition_routines": ["competition_id","title","class_id","music_status","entry_status","entry_fee"],
+            "competition_dancers": ["routine_id","student_id","registration_status","waiver_status","travel_status","costume_ready"],
+            "competition_awards": ["routine_id","award_name","placement","score"],
         },
     },
 ]
@@ -1591,6 +1603,230 @@ def create_order():
     sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+@app.route("/admin/competitions")
+@permission_required("competitions")
+def competition_center():
+    connection = get_db()
+    competitions = connection.execute(
+        """
+        SELECT c.*,
+               COUNT(DISTINCT r.id) AS routine_count,
+               COUNT(DISTINCT d.student_id) AS dancer_count,
+               COALESCE(SUM(CASE WHEN r.music_status!='Ready' THEN 1 ELSE 0 END),0) AS music_missing,
+               COALESCE(SUM(CASE WHEN r.entry_status NOT IN ('Submitted','Confirmed') THEN 1 ELSE 0 END),0) AS entries_pending
+        FROM competitions c
+        LEFT JOIN competition_routines r ON r.competition_id=c.id
+        LEFT JOIN competition_dancers d ON d.routine_id=r.id
+        GROUP BY c.id,c.name,c.venue,c.city,c.state,c.start_date,c.end_date,
+                 c.registration_deadline,c.status,c.website,c.hotel_name,
+                 c.hotel_deadline,c.notes,c.created_at,c.updated_at
+        ORDER BY c.start_date DESC,c.id DESC
+        """
+    ).fetchall()
+    connection.close()
+    return render_template("competition_center.html", competitions=[dict(r) for r in competitions])
+
+
+@app.route("/admin/competitions/save", methods=["POST"])
+@permission_required("competitions")
+def save_competition():
+    competition_id=request.form.get("id","").strip()
+    values=(
+        request.form.get("name","").strip(),
+        request.form.get("venue","").strip(),
+        request.form.get("city","").strip(),
+        request.form.get("state","").strip(),
+        request.form.get("start_date","").strip(),
+        request.form.get("end_date","").strip(),
+        request.form.get("registration_deadline","").strip(),
+        request.form.get("status","Planning").strip(),
+        request.form.get("website","").strip(),
+        request.form.get("hotel_name","").strip(),
+        request.form.get("hotel_deadline","").strip(),
+        request.form.get("notes","").strip(),
+    )
+    connection=get_db()
+    if competition_id:
+        connection.execute(
+            """UPDATE competitions SET name=?,venue=?,city=?,state=?,start_date=?,
+               end_date=?,registration_deadline=?,status=?,website=?,hotel_name=?,
+               hotel_deadline=?,notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?""",
+            values+(int(competition_id),)
+        )
+        saved_id=int(competition_id); event_type="competition_updated"
+    else:
+        sql="""INSERT INTO competitions
+               (name,venue,city,state,start_date,end_date,registration_deadline,
+                status,website,hotel_name,hotel_deadline,notes)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)"""
+        if connection.backend=="postgresql": sql+=" RETURNING id"
+        cursor=connection.execute(sql,values)
+        saved_id=int(cursor.fetchone()["id"]) if connection.backend=="postgresql" else int(cursor.lastrowid)
+        event_type="competition_created"
+    connection.commit(); connection.close()
+    event_id=create_workflow_event(event_type,"competitions","Competition saved",values[0],"info",str(saved_id))
+    evaluate_workflow_rules(event_id)
+    flash("Competition saved.","success")
+    return redirect(url_for("competition_profile",competition_id=saved_id))
+
+
+@app.route("/admin/competitions/<int:competition_id>")
+@permission_required("competitions")
+def competition_profile(competition_id):
+    connection=get_db()
+    competition=connection.execute("SELECT * FROM competitions WHERE id=?",(competition_id,)).fetchone()
+    if not competition:
+        connection.close(); return ("Competition not found",404)
+    routines=connection.execute(
+        """
+        SELECT r.*,c.name AS class_name,co.name AS costume_name,
+               COUNT(DISTINCT d.student_id) AS dancer_count,
+               COALESCE(SUM(CASE WHEN d.costume_ready=1 THEN 1 ELSE 0 END),0) AS costumes_ready
+        FROM competition_routines r
+        LEFT JOIN classes c ON c.id=r.class_id
+        LEFT JOIN costumes co ON co.id=r.costume_id
+        LEFT JOIN competition_dancers d ON d.routine_id=r.id
+        WHERE r.competition_id=?
+        GROUP BY r.id,r.competition_id,r.class_id,r.recital_performance_id,r.costume_id,
+                 r.title,r.division,r.category,r.level,r.age_group,r.music_title,
+                 r.music_status,r.entry_status,r.performance_date,r.performance_time,
+                 r.stage,r.entry_fee,r.notes,r.created_at,r.updated_at,c.name,co.name
+        ORDER BY r.performance_date,r.performance_time,r.title
+        """,(competition_id,)
+    ).fetchall()
+    classes=connection.execute("SELECT id,name FROM classes WHERE active=1 ORDER BY name").fetchall()
+    costumes=connection.execute("SELECT id,name FROM costumes WHERE active=1 ORDER BY name").fetchall()
+    performances=connection.execute("SELECT id,title FROM recital_performances ORDER BY title").fetchall()
+    connection.close()
+    return render_template("competition_profile.html",competition=dict(competition),
+        routines=[dict(r) for r in routines],classes=[dict(r) for r in classes],
+        costumes=[dict(r) for r in costumes],performances=[dict(r) for r in performances])
+
+
+@app.route("/admin/competitions/<int:competition_id>/routines/save",methods=["POST"])
+@permission_required("competitions")
+def save_competition_routine(competition_id):
+    class_value=request.form.get("class_id","").strip()
+    costume_value=request.form.get("costume_id","").strip()
+    performance_value=request.form.get("recital_performance_id","").strip()
+    values=(competition_id,int(class_value) if class_value else None,
+        int(performance_value) if performance_value else None,
+        int(costume_value) if costume_value else None,
+        request.form.get("title","").strip(),request.form.get("division","").strip(),
+        request.form.get("category","").strip(),request.form.get("level","").strip(),
+        request.form.get("age_group","").strip(),request.form.get("music_title","").strip(),
+        request.form.get("music_status","Missing").strip(),request.form.get("entry_status","Planning").strip(),
+        request.form.get("performance_date","").strip(),request.form.get("performance_time","").strip(),
+        request.form.get("stage","").strip(),float(request.form.get("entry_fee","0") or 0),
+        request.form.get("notes","").strip())
+    connection=get_db()
+    sql="""INSERT INTO competition_routines
+           (competition_id,class_id,recital_performance_id,costume_id,title,division,
+            category,level,age_group,music_title,music_status,entry_status,
+            performance_date,performance_time,stage,entry_fee,notes)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
+    if connection.backend=="postgresql": sql+=" RETURNING id"
+    cursor=connection.execute(sql,values)
+    routine_id=int(cursor.fetchone()["id"]) if connection.backend=="postgresql" else int(cursor.lastrowid)
+    if values[1]:
+        students=connection.execute(
+            """SELECT s.id,s.family_id FROM class_enrollments ce
+               JOIN students s ON s.id=ce.student_id
+               WHERE ce.class_id=? AND ce.status='Active'""",(values[1],)
+        ).fetchall()
+        for student in students:
+            connection.execute(
+                """INSERT INTO competition_dancers (routine_id,student_id,family_id)
+                   VALUES (?,?,?) ON CONFLICT(routine_id,student_id) DO NOTHING""",
+                (routine_id,student["id"],student["family_id"])
+            )
+    connection.commit(); connection.close()
+    event_id=create_workflow_event("competition_routine_created","competitions",
+        "Competition routine created",values[4],"info",str(routine_id))
+    evaluate_workflow_rules(event_id)
+    flash("Routine created and active class dancers assigned.","success")
+    return redirect(url_for("competition_routine",routine_id=routine_id))
+
+
+@app.route("/admin/competitions/routines/<int:routine_id>")
+@permission_required("competitions")
+def competition_routine(routine_id):
+    connection=get_db()
+    routine=connection.execute(
+        """SELECT r.*,c.name AS competition_name,cl.name AS class_name,co.name AS costume_name
+           FROM competition_routines r JOIN competitions c ON c.id=r.competition_id
+           LEFT JOIN classes cl ON cl.id=r.class_id LEFT JOIN costumes co ON co.id=r.costume_id
+           WHERE r.id=?""",(routine_id,)
+    ).fetchone()
+    if not routine:
+        connection.close(); return ("Routine not found",404)
+    dancers=connection.execute(
+        """SELECT d.*,s.first_name,s.last_name,s.preferred_name,f.family_name
+           FROM competition_dancers d JOIN students s ON s.id=d.student_id
+           LEFT JOIN families f ON f.id=d.family_id
+           WHERE d.routine_id=? ORDER BY s.last_name,s.first_name""",(routine_id,)
+    ).fetchall()
+    awards=connection.execute("SELECT * FROM competition_awards WHERE routine_id=? ORDER BY id DESC",(routine_id,)).fetchall()
+    connection.close()
+    return render_template("competition_routine.html",routine=dict(routine),
+        dancers=[dict(r) for r in dancers],awards=[dict(r) for r in awards])
+
+
+@app.route("/admin/competitions/dancers/<int:dancer_id>/update",methods=["POST"])
+@permission_required("competitions")
+def update_competition_dancer(dancer_id):
+    connection=get_db()
+    dancer=connection.execute(
+        """SELECT d.*,r.entry_fee,r.title FROM competition_dancers d
+           JOIN competition_routines r ON r.id=d.routine_id WHERE d.id=?""",(dancer_id,)
+    ).fetchone()
+    if not dancer:
+        connection.close(); return ("Dancer not found",404)
+    fee_charge_id=dancer["fee_charge_id"]
+    if request.form.get("create_fee_charge")=="on" and not fee_charge_id and dancer["family_id"] and float(dancer["entry_fee"] or 0)>0:
+        sql="""INSERT INTO billing_charges
+               (family_id,student_id,charge_type,description,amount,due_date,status,reference,created_by)
+               VALUES (?,?,'Competition',?,?,?,'Open',?,?)"""
+        if connection.backend=="postgresql": sql+=" RETURNING id"
+        cursor=connection.execute(sql,(dancer["family_id"],dancer["student_id"],dancer["title"],
+            float(dancer["entry_fee"]),request.form.get("due_date","").strip(),
+            f"Competition dancer #{dancer_id}",int(session.get("admin_user_id") or 0) or None))
+        fee_charge_id=int(cursor.fetchone()["id"]) if connection.backend=="postgresql" else int(cursor.lastrowid)
+    connection.execute(
+        """UPDATE competition_dancers SET registration_status=?,waiver_status=?,
+           travel_status=?,costume_ready=?,fee_charge_id=?,notes=?,updated_at=CURRENT_TIMESTAMP
+           WHERE id=?""",
+        (request.form.get("registration_status","Assigned").strip(),
+         request.form.get("waiver_status","Missing").strip(),
+         request.form.get("travel_status","Unknown").strip(),
+         1 if request.form.get("costume_ready")=="on" else 0,
+         fee_charge_id,request.form.get("notes","").strip(),dancer_id)
+    )
+    connection.commit(); routine_id=int(dancer["routine_id"]); connection.close()
+    flash("Dancer updated.","success")
+    return redirect(url_for("competition_routine",routine_id=routine_id))
+
+
+@app.route("/admin/competitions/routines/<int:routine_id>/awards",methods=["POST"])
+@permission_required("competitions")
+def add_competition_award(routine_id):
+    connection=get_db()
+    connection.execute(
+        """INSERT INTO competition_awards
+           (routine_id,award_name,placement,score,judge_notes) VALUES (?,?,?,?,?)""",
+        (routine_id,request.form.get("award_name","").strip(),
+         request.form.get("placement","").strip(),float(request.form.get("score","0") or 0),
+         request.form.get("judge_notes","").strip())
+    )
+    connection.commit(); connection.close()
+    event_id=create_workflow_event("competition_award_recorded","competitions",
+        "Competition award recorded",request.form.get("award_name","").strip(),
+        "success",str(routine_id))
+    evaluate_workflow_rules(event_id)
+    flash("Award recorded.","success")
+    return redirect(url_for("competition_routine",routine_id=routine_id))
 
 
 @app.route("/admin/costumes")
