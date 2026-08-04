@@ -2144,27 +2144,30 @@ def apply_meyer_theater_preset(venue_id):
         (venue_id,),
     )
 
-    main = insert_ticket_section(
+    upper_orchestra = insert_ticket_section(
         connection,
         venue_id,
-        "Main Orchestra",
+        "Upper Orchestra",
         10,
-        "Main Meyer Theater seating. Review each row against the final venue chart.",
+        "Meyer Theater Rows F through R.",
     )
-    configure_ticket_section_layout(connection, main, "Horizontal", "Center", 190, 100, 1020, 560, 0, 10)
+    configure_ticket_section_layout(
+        connection,
+        upper_orchestra,
+        "Horizontal",
+        "Center",
+        185,
+        120,
+        1030,
+        430,
+        0,
+        10,
+    )
 
-    # Editable starter ranges based on the supplied theater diagram.
-    # The preset emphasizes physical arrangement and special seating;
-    # staff can adjust any individual range before tickets are issued.
-    main_rows = [
-        ("A", 101, 121, 0),
-        ("B", 101, 122, 0),
-        ("C", 101, 123, 0),
-        ("D", 101, 124, 0),
-        ("E", 101, 125, 26),
+    upper_rows = [
         ("F", 101, 132, 0),
         ("G", 101, 131, 0),
-        ("H", 101, 132, 22),
+        ("H", 101, 132, 18),
         ("J", 101, 131, 0),
         ("K", 101, 131, 0),
         ("L", 101, 131, 0),
@@ -2175,17 +2178,17 @@ def apply_meyer_theater_preset(venue_id):
         ("Q", 101, 131, 0),
         ("R", 101, 131, 0),
     ]
-    for row_label, first_seat, last_seat, gap in main_rows:
+    for row_label, first_seat, last_seat, gap in upper_rows:
         add_ticket_row(
             connection,
-            main,
+            upper_orchestra,
             row_label,
             first_seat,
             last_seat,
             "Standard",
             "Low Right",
             gap,
-            "Preset row; verify the exact endpoints against the venue chart.",
+            "Meyer Theater upper orchestra row.",
         )
 
     row_x = insert_ticket_section(
@@ -2193,29 +2196,34 @@ def apply_meyer_theater_preset(venue_id):
         venue_id,
         "Row X Accessible and Soft Seating",
         20,
-        "Wheelchair spaces, companion seating, and soft seating.",
+        "One soft seat on each end with numbered seats 101 through 130.",
     )
-    configure_ticket_section_layout(connection, row_x, "Horizontal", "Center", 235, 585, 930, 135, 0, 18)
+    configure_ticket_section_layout(
+        connection,
+        row_x,
+        "Horizontal",
+        "Center",
+        115,
+        560,
+        1170,
+        125,
+        0,
+        20,
+    )
 
-    # Row X follows the supplied Meyer chart from chart-left to chart-right:
-    # two wheelchair spaces, soft seats 110 and 109, companion seats 108-103,
-    # soft seats 102 and 101, then two wheelchair spaces.
+    # Row X contains one soft-seat position on each end
+    # with thirty numbered seats, 101 through 130, between them.
     row_x_positions = [
-        (112, "Accessible", "X-WC-L2"),
-        (111, "Accessible", "X-WC-L1"),
-        (110, "Soft Seating", "X-110"),
-        (109, "Soft Seating", "X-109"),
-        (108, "Companion", "X-108"),
-        (107, "Companion", "X-107"),
-        (106, "Companion", "X-106"),
-        (105, "Companion", "X-105"),
-        (104, "Companion", "X-104"),
-        (103, "Companion", "X-103"),
-        (102, "Soft Seating", "X-102"),
-        (101, "Soft Seating", "X-101"),
-        (100, "Accessible", "X-WC-R1"),
-        (99, "Accessible", "X-WC-R2"),
+        (100, "Soft Seating", "X-SOFT-LEFT"),
     ]
+    row_x_positions.extend(
+        (seat_number, "Standard", f"X-{seat_number}")
+        for seat_number in range(101, 131)
+    )
+    row_x_positions.append(
+        (131, "Soft Seating", "X-SOFT-RIGHT")
+    )
+
     for seat_number, seat_type, seat_label in row_x_positions:
         connection.execute(
             """
@@ -2232,13 +2240,53 @@ def apply_meyer_theater_preset(venue_id):
         INSERT INTO ticket_row_layouts (
             section_id,row_label,extra_space_after,
             seat_direction,notes
-        ) VALUES (?,'X',28,'Low Left',?)
+        ) VALUES (?,'X',18,'Low Left',?)
         """,
         (
             row_x,
-            "Four wheelchair spaces, four soft seats, and six companion seats.",
+            "Soft seat, numbered seats 101 through 130, soft seat.",
         ),
     )
+
+    lower_orchestra = insert_ticket_section(
+        connection,
+        venue_id,
+        "Lower Orchestra",
+        30,
+        "Meyer Theater Rows A through E.",
+    )
+    configure_ticket_section_layout(
+        connection,
+        lower_orchestra,
+        "Horizontal",
+        "Center",
+        315,
+        720,
+        770,
+        235,
+        0,
+        10,
+    )
+
+    lower_rows = [
+        ("E", 101, 125, 0),
+        ("D", 101, 124, 0),
+        ("C", 101, 123, 0),
+        ("B", 101, 122, 0),
+        ("A", 101, 121, 0),
+    ]
+    for row_label, first_seat, last_seat, gap in lower_rows:
+        add_ticket_row(
+            connection,
+            lower_orchestra,
+            row_label,
+            first_seat,
+            last_seat,
+            "Standard",
+            "Low Right",
+            gap,
+            "Meyer Theater lower orchestra row.",
+        )
 
     vip_left = insert_ticket_section(
         connection,
@@ -2301,13 +2349,9 @@ def apply_meyer_theater_preset(venue_id):
     )
 
     objects = [
-        ("Stage","STAGE","Front Center",5,320,20,760,55,0,40,"Rectangle"),
-        ("VIP Table","VIP TABLE LEFT 1","Rear Left",10,92,760,64,64,0,30,"Circle"),
-        ("VIP Table","VIP TABLE LEFT 2","Rear Left",20,92,865,64,64,0,30,"Circle"),
-        ("VIP Table","VIP TABLE RIGHT 1","Rear Right",30,1244,760,64,64,0,30,"Circle"),
-        ("VIP Table","VIP TABLE RIGHT 2","Rear Right",40,1244,865,64,64,0,30,"Circle"),
-        ("Crew Booth","THEATER CREW BOOTH","Rear Center",50,540,930,320,90,0,35,"Rectangle"),
-        ("Label","ROW X — ACCESSIBLE & SOFT SEATING","Center",60,330,548,740,30,0,25,"Label"),
+        ("Stage","STAGE","Front Center",5,320,990,760,55,0,40,"Rectangle"),
+        ("Crew Booth","THEATER CREW BOOTH","Rear Center",50,540,20,320,80,0,35,"Rectangle"),
+        ("Label","ROW X — ACCESSIBLE & SOFT SEATING","Center",60,330,545,740,28,0,25,"Label"),
     ]
     for object_type,label,placement,sort_order,x_pos,y_pos,width_px,height_px,rotation_deg,z_index,shape in objects:
         connection.execute(

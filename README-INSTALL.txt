@@ -1,4 +1,4 @@
-STAGE STARZ RESERVED TICKETING V1.7
+STAGE STARZ RESERVED TICKETING V1.9
 
 REPLACE:
 - app.py
@@ -6,39 +6,25 @@ REPLACE:
 INSTALL:
 git checkout railway-deployment
 git add app.py
-git commit -m "Correct Meyer rows Row X and VIP table size"
+git commit -m "Correct Meyer Row X to seats 101 through 130"
 git push origin railway-deployment
 
-CORRECTED MEYER ROWS:
-A 101-121
-B 101-122
-C 101-123
-D 101-124
-E 101-125
-F 101-132
-G 101-131
-H 101-132
-J 101-131
-K 101-131
-L 101-131
-M 101-132
-N 101-132
-O 101-132
-P 101-131
-Q 101-131
-R 101-131
-
-ROW X:
-- Moved between upper and lower orchestra sections
-- Enlarged to 930 x 135
-- 14 total positions
-- 4 wheelchair spaces
-- Soft seats 110, 109, 102, 101
-- Companion seats 108 through 103
-
-VIP TABLES:
-- Reduced from 120 x 120 to 64 x 64
+ROW X CORRECTION:
+- Row X remains between Upper Orchestra and Lower Orchestra.
+- Row X now contains:
+  * One soft-seat position on the left
+  * Numbered seats 101 through 130
+  * One soft-seat position on the right
+- 30 numbered seats
+- 2 soft-seat positions
+- 32 total positions
+- Row X width increased to fit the complete sequence.
 
 IMPORTANT:
-Existing preset data does not update automatically.
-Reset the unfinished Meyer chart and reapply the coordinate Meyer preset.
+Existing Meyer preset data will not update automatically.
+1. Deploy V1.9.
+2. Open the unfinished Meyer Theater venue.
+3. Reset Seating Chart.
+4. Apply the Coordinate-Based Meyer Preset again.
+5. Confirm Row X displays:
+   Soft Seat · 101–130 · Soft Seat
