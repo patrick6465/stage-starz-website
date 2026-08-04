@@ -67,7 +67,7 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","recitals","workflow","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","recitals","workflow","orders","website","announcements","media","search","reports"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
     "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","workflow","reports","media","search"}},
 }
@@ -381,6 +381,16 @@ MIGRATION_REGISTRY = [
                 "production_id", "show_id", "title",
                 "rehearsal_date", "status"
             ],
+        },
+    },
+    {
+        "key": "015_costume_management",
+        "title": "Costume Management Center",
+        "description": "Costume catalog, vendors, class and student assignments, fulfillment, billing, and recital links.",
+        "required_tables": ["costume_vendors","costumes","costume_class_assignments","student_costume_assignments"],
+        "required_columns": {
+            "costumes": ["vendor_id","name","style_number","color","charge_amount","order_status"],
+            "student_costume_assignments": ["costume_id","student_id","costume_size","assignment_status","alteration_status","pickup_status","billing_charge_id"],
         },
     },
 ]
@@ -1582,6 +1592,58 @@ def create_order():
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
 
+
+@app.route("/admin/costumes")
+@permission_required("costumes")
+def costume_center():
+    connection=get_db()
+    costumes=connection.execute("""SELECT c.*,v.name AS vendor_name,COUNT(DISTINCT sca.student_id) AS student_count FROM costumes c LEFT JOIN costume_vendors v ON v.id=c.vendor_id LEFT JOIN student_costume_assignments sca ON sca.costume_id=c.id GROUP BY c.id,c.vendor_id,c.name,c.style_number,c.color,c.season,c.category,c.unit_cost,c.charge_amount,c.order_status,c.tracking_number,c.expected_date,c.received_date,c.notes,c.active,c.created_at,c.updated_at,v.name ORDER BY c.id DESC""").fetchall()
+    vendors=connection.execute("SELECT * FROM costume_vendors ORDER BY active DESC,name").fetchall()
+    summary=connection.execute("""SELECT COUNT(*) AS costume_count,COALESCE(SUM(CASE WHEN order_status='Ordered' THEN 1 ELSE 0 END),0) AS ordered_count,COALESCE(SUM(CASE WHEN order_status='Received' THEN 1 ELSE 0 END),0) AS received_count,(SELECT COUNT(*) FROM student_costume_assignments WHERE alteration_status='Needed') AS alterations_needed,(SELECT COUNT(*) FROM student_costume_assignments WHERE pickup_status='Ready') AS pickup_ready FROM costumes""").fetchone()
+    connection.close()
+    return render_template('costume_center.html',costumes=[dict(r) for r in costumes],vendors=[dict(r) for r in vendors],summary=dict(summary))
+
+@app.route("/admin/costumes/vendors/save",methods=["POST"])
+@permission_required("costumes")
+def save_costume_vendor():
+    c=get_db(); c.execute("INSERT INTO costume_vendors (name,website,contact_name,email,phone,notes,active) VALUES (?,?,?,?,?,?,?)",(request.form.get('name','').strip(),request.form.get('website','').strip(),request.form.get('contact_name','').strip(),request.form.get('email','').strip(),request.form.get('phone','').strip(),request.form.get('notes','').strip(),1 if request.form.get('active')=='on' else 0)); c.commit(); c.close(); flash('Vendor saved.','success'); return redirect(url_for('costume_center'))
+
+@app.route("/admin/costumes/save",methods=["POST"])
+@permission_required("costumes")
+def save_costume():
+    f=request.form; vendor=int(f.get('vendor_id')) if f.get('vendor_id') else None
+    vals=(vendor,f.get('name','').strip(),f.get('style_number','').strip(),f.get('color','').strip(),f.get('season','').strip(),f.get('category','').strip(),float(f.get('unit_cost','0') or 0),float(f.get('charge_amount','0') or 0),f.get('order_status','Planned').strip(),f.get('tracking_number','').strip(),f.get('expected_date','').strip(),f.get('received_date','').strip(),f.get('notes','').strip(),1 if f.get('active')=='on' else 0)
+    c=get_db(); sql="INSERT INTO costumes (vendor_id,name,style_number,color,season,category,unit_cost,charge_amount,order_status,tracking_number,expected_date,received_date,notes,active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"; sql += " RETURNING id" if c.backend=='postgresql' else ''
+    cur=c.execute(sql,vals); cid=int(cur.fetchone()['id']) if c.backend=='postgresql' else int(cur.lastrowid); c.commit(); c.close()
+    eid=create_workflow_event('costume_created','costumes','Costume created',vals[1],'info',str(cid)); evaluate_workflow_rules(eid)
+    return redirect(url_for('costume_profile',costume_id=cid))
+
+@app.route("/admin/costumes/<int:costume_id>")
+@permission_required("costumes")
+def costume_profile(costume_id):
+    c=get_db(); costume=c.execute("SELECT c.*,v.name AS vendor_name FROM costumes c LEFT JOIN costume_vendors v ON v.id=c.vendor_id WHERE c.id=?",(costume_id,)).fetchone()
+    if not costume: c.close(); return ('Costume not found',404)
+    assignments=c.execute("""SELECT sca.*,s.first_name,s.last_name,s.preferred_name,f.family_name,cl.name AS class_name FROM student_costume_assignments sca JOIN students s ON s.id=sca.student_id LEFT JOIN families f ON f.id=sca.family_id LEFT JOIN classes cl ON cl.id=sca.class_id WHERE sca.costume_id=? ORDER BY s.last_name,s.first_name""",(costume_id,)).fetchall()
+    classes=c.execute("SELECT id,name,day_of_week,start_time FROM classes WHERE active=1 ORDER BY name").fetchall(); performances=c.execute("SELECT rp.id,rp.title,rs.name AS show_name FROM recital_performances rp JOIN recital_shows rs ON rs.id=rp.show_id ORDER BY rs.show_date,rp.performance_order").fetchall(); c.close()
+    return render_template('costume_profile.html',costume=dict(costume),assignments=[dict(r) for r in assignments],classes=[dict(r) for r in classes],performances=[dict(r) for r in performances])
+
+@app.route("/admin/costumes/<int:costume_id>/assign-class",methods=["POST"])
+@permission_required("costumes")
+def assign_costume_class(costume_id):
+    class_id=int(request.form.get('class_id','0') or 0); perf=int(request.form.get('recital_performance_id')) if request.form.get('recital_performance_id') else None
+    c=get_db(); c.execute("INSERT INTO costume_class_assignments (costume_id,class_id,recital_performance_id,notes) VALUES (?,?,?,?) ON CONFLICT(costume_id,class_id) DO UPDATE SET recital_performance_id=excluded.recital_performance_id,notes=excluded.notes",(costume_id,class_id,perf,request.form.get('notes','').strip()))
+    students=c.execute("SELECT s.id,s.family_id,s.costume_size,s.shoe_size FROM class_enrollments ce JOIN students s ON s.id=ce.student_id WHERE ce.class_id=? AND ce.status='Active'",(class_id,)).fetchall()
+    for s in students: c.execute("INSERT INTO student_costume_assignments (costume_id,class_id,student_id,family_id,costume_size,shoe_size) VALUES (?,?,?,?,?,?) ON CONFLICT(costume_id,student_id) DO NOTHING",(costume_id,class_id,s['id'],s['family_id'],s['costume_size'] or '',s['shoe_size'] or ''))
+    c.commit(); c.close(); flash('Costume assigned to class and active students.','success'); return redirect(url_for('costume_profile',costume_id=costume_id))
+
+@app.route("/admin/costumes/assignments/<int:assignment_id>/update",methods=["POST"])
+@permission_required("costumes")
+def update_costume_assignment(assignment_id):
+    f=request.form; c=get_db(); a=c.execute("SELECT sca.*,co.name AS costume_name,co.charge_amount FROM student_costume_assignments sca JOIN costumes co ON co.id=sca.costume_id WHERE sca.id=?",(assignment_id,)).fetchone(); charge=a['billing_charge_id']
+    if f.get('create_billing_charge')=='on' and not charge and a['family_id'] and float(a['charge_amount'] or 0)>0:
+        sql="INSERT INTO billing_charges (family_id,student_id,charge_type,description,amount,due_date,status,reference,created_by) VALUES (?,?,'Costume',?,?,?,'Open',?,?)"; sql += " RETURNING id" if c.backend=='postgresql' else ''
+        cur=c.execute(sql,(a['family_id'],a['student_id'],a['costume_name'],float(a['charge_amount']),f.get('due_date',''),f'Costume assignment #{assignment_id}',int(session.get('admin_user_id') or 0) or None)); charge=int(cur.fetchone()['id']) if c.backend=='postgresql' else int(cur.lastrowid)
+    c.execute("UPDATE student_costume_assignments SET costume_size=?,tights_size=?,shoe_size=?,accessories=?,assignment_status=?,alteration_status=?,pickup_status=?,billing_charge_id=?,notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",(f.get('costume_size',''),f.get('tights_size',''),f.get('shoe_size',''),f.get('accessories',''),f.get('assignment_status','Assigned'),f.get('alteration_status','Not Needed'),f.get('pickup_status','Not Ready'),charge,f.get('notes',''),assignment_id)); c.commit(); cid=int(a['costume_id']); c.close(); flash('Assignment updated.','success'); return redirect(url_for('costume_profile',costume_id=cid))
 
 @app.route("/admin/recitals")
 @permission_required("recitals")

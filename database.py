@@ -656,8 +656,84 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS costume_vendors (
+            id {id_column}, name TEXT NOT NULL, website TEXT NOT NULL DEFAULT '',
+            contact_name TEXT NOT NULL DEFAULT '', email TEXT NOT NULL DEFAULT '',
+            phone TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS costumes (
+            id {id_column}, vendor_id INTEGER, name TEXT NOT NULL,
+            style_number TEXT NOT NULL DEFAULT '', color TEXT NOT NULL DEFAULT '',
+            season TEXT NOT NULL DEFAULT '', category TEXT NOT NULL DEFAULT '',
+            unit_cost DOUBLE PRECISION NOT NULL DEFAULT 0,
+            charge_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+            order_status TEXT NOT NULL DEFAULT 'Planned',
+            tracking_number TEXT NOT NULL DEFAULT '', expected_date TEXT NOT NULL DEFAULT '',
+            received_date TEXT NOT NULL DEFAULT '', notes TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(vendor_id) REFERENCES costume_vendors(id) ON DELETE SET NULL
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS costume_class_assignments (
+            id {id_column}, costume_id INTEGER NOT NULL, class_id INTEGER NOT NULL,
+            recital_performance_id INTEGER, notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(costume_id,class_id),
+            FOREIGN KEY(costume_id) REFERENCES costumes(id) ON DELETE CASCADE,
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE,
+            FOREIGN KEY(recital_performance_id) REFERENCES recital_performances(id) ON DELETE SET NULL
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS student_costume_assignments (
+            id {id_column}, costume_id INTEGER NOT NULL, class_id INTEGER,
+            student_id INTEGER NOT NULL, family_id INTEGER,
+            costume_size TEXT NOT NULL DEFAULT '', tights_size TEXT NOT NULL DEFAULT '',
+            shoe_size TEXT NOT NULL DEFAULT '', accessories TEXT NOT NULL DEFAULT '',
+            assignment_status TEXT NOT NULL DEFAULT 'Assigned',
+            alteration_status TEXT NOT NULL DEFAULT 'Not Needed',
+            pickup_status TEXT NOT NULL DEFAULT 'Not Ready',
+            billing_charge_id INTEGER, notes TEXT NOT NULL DEFAULT '',
+            assigned_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(costume_id,student_id),
+            FOREIGN KEY(costume_id) REFERENCES costumes(id) ON DELETE CASCADE,
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE SET NULL,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
+            FOREIGN KEY(billing_charge_id) REFERENCES billing_charges(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        costume_tables = {
+            "costume_vendors": [("name","TEXT NOT NULL DEFAULT ''"),("website","TEXT NOT NULL DEFAULT ''"),("contact_name","TEXT NOT NULL DEFAULT ''"),("email","TEXT NOT NULL DEFAULT ''"),("phone","TEXT NOT NULL DEFAULT ''"),("notes","TEXT NOT NULL DEFAULT ''"),("active","INTEGER NOT NULL DEFAULT 1"),("created_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),("updated_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")],
+            "costumes": [("vendor_id","INTEGER"),("name","TEXT NOT NULL DEFAULT ''"),("style_number","TEXT NOT NULL DEFAULT ''"),("color","TEXT NOT NULL DEFAULT ''"),("season","TEXT NOT NULL DEFAULT ''"),("category","TEXT NOT NULL DEFAULT ''"),("unit_cost","DOUBLE PRECISION NOT NULL DEFAULT 0"),("charge_amount","DOUBLE PRECISION NOT NULL DEFAULT 0"),("order_status","TEXT NOT NULL DEFAULT 'Planned'"),("tracking_number","TEXT NOT NULL DEFAULT ''"),("expected_date","TEXT NOT NULL DEFAULT ''"),("received_date","TEXT NOT NULL DEFAULT ''"),("notes","TEXT NOT NULL DEFAULT ''"),("active","INTEGER NOT NULL DEFAULT 1"),("created_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),("updated_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")],
+            "costume_class_assignments": [("costume_id","INTEGER"),("class_id","INTEGER"),("recital_performance_id","INTEGER"),("notes","TEXT NOT NULL DEFAULT ''"),("created_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")],
+            "student_costume_assignments": [("costume_id","INTEGER"),("class_id","INTEGER"),("student_id","INTEGER"),("family_id","INTEGER"),("costume_size","TEXT NOT NULL DEFAULT ''"),("tights_size","TEXT NOT NULL DEFAULT ''"),("shoe_size","TEXT NOT NULL DEFAULT ''"),("accessories","TEXT NOT NULL DEFAULT ''"),("assignment_status","TEXT NOT NULL DEFAULT 'Assigned'"),("alteration_status","TEXT NOT NULL DEFAULT 'Not Needed'"),("pickup_status","TEXT NOT NULL DEFAULT 'Not Ready'"),("billing_charge_id","INTEGER"),("notes","TEXT NOT NULL DEFAULT ''"),("assigned_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),("updated_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")],
+        }
+        for table_name, columns in costume_tables.items():
+            for column_name, column_definition in columns:
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {column_name} {column_definition}")
+
         recital_production_columns = [
             ("name", "TEXT NOT NULL DEFAULT ''"),
             ("season", "TEXT NOT NULL DEFAULT ''"),
@@ -968,6 +1044,18 @@ def init_db() -> None:
                 "PRAGMA table_info(customers)"
             ).fetchall()
         }
+        sqlite_costume_tables = {
+            "costume_vendors": [("name","TEXT NOT NULL DEFAULT ''"),("website","TEXT NOT NULL DEFAULT ''"),("contact_name","TEXT NOT NULL DEFAULT ''"),("email","TEXT NOT NULL DEFAULT ''"),("phone","TEXT NOT NULL DEFAULT ''"),("notes","TEXT NOT NULL DEFAULT ''"),("active","INTEGER NOT NULL DEFAULT 1"),("created_at","TIMESTAMP"),("updated_at","TIMESTAMP")],
+            "costumes": [("vendor_id","INTEGER"),("name","TEXT NOT NULL DEFAULT ''"),("style_number","TEXT NOT NULL DEFAULT ''"),("color","TEXT NOT NULL DEFAULT ''"),("season","TEXT NOT NULL DEFAULT ''"),("category","TEXT NOT NULL DEFAULT ''"),("unit_cost","REAL NOT NULL DEFAULT 0"),("charge_amount","REAL NOT NULL DEFAULT 0"),("order_status","TEXT NOT NULL DEFAULT 'Planned'"),("tracking_number","TEXT NOT NULL DEFAULT ''"),("expected_date","TEXT NOT NULL DEFAULT ''"),("received_date","TEXT NOT NULL DEFAULT ''"),("notes","TEXT NOT NULL DEFAULT ''"),("active","INTEGER NOT NULL DEFAULT 1"),("created_at","TIMESTAMP"),("updated_at","TIMESTAMP")],
+            "costume_class_assignments": [("costume_id","INTEGER"),("class_id","INTEGER"),("recital_performance_id","INTEGER"),("notes","TEXT NOT NULL DEFAULT ''"),("created_at","TIMESTAMP")],
+            "student_costume_assignments": [("costume_id","INTEGER"),("class_id","INTEGER"),("student_id","INTEGER"),("family_id","INTEGER"),("costume_size","TEXT NOT NULL DEFAULT ''"),("tights_size","TEXT NOT NULL DEFAULT ''"),("shoe_size","TEXT NOT NULL DEFAULT ''"),("accessories","TEXT NOT NULL DEFAULT ''"),("assignment_status","TEXT NOT NULL DEFAULT 'Assigned'"),("alteration_status","TEXT NOT NULL DEFAULT 'Not Needed'"),("pickup_status","TEXT NOT NULL DEFAULT 'Not Ready'"),("billing_charge_id","INTEGER"),("notes","TEXT NOT NULL DEFAULT ''"),("assigned_at","TIMESTAMP"),("updated_at","TIMESTAMP")],
+        }
+        for table_name, columns in sqlite_costume_tables.items():
+            existing = {row["name"] for row in cursor.execute(f"PRAGMA table_info({table_name})").fetchall()}
+            for column_name, column_definition in columns:
+                if column_name not in existing:
+                    cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}")
+
         existing_recital_production_columns = {
             row["name"] for row in cursor.execute("PRAGMA table_info(recital_productions)").fetchall()
         }
