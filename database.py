@@ -969,6 +969,21 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_row_layouts (
+            id {id_column},
+            section_id INTEGER NOT NULL,
+            row_label TEXT NOT NULL,
+            extra_space_after INTEGER NOT NULL DEFAULT 0,
+            notes TEXT NOT NULL DEFAULT '',
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(section_id, row_label),
+            FOREIGN KEY(section_id) REFERENCES ticket_sections(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         costume_tables = {

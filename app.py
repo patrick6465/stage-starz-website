@@ -412,7 +412,7 @@ MIGRATION_REGISTRY = [
         "required_tables": [
             "ticket_venues", "ticket_sections", "ticket_seats",
             "ticket_show_settings", "ticket_orders", "tickets",
-            "ticket_holds", "ticket_hold_seats"
+            "ticket_holds", "ticket_hold_seats", "ticket_row_layouts"
         ],
         "required_columns": {
             "ticket_venues": ["name","address","active"],
@@ -423,6 +423,7 @@ MIGRATION_REGISTRY = [
             "tickets": ["order_id","recital_show_id","seat_id","ticket_code","price","status","checked_in_at"],
             "ticket_holds": ["recital_show_id","family_id","held_for_name","notes","expires_at","status","converted_order_id"],
             "ticket_hold_seats": ["hold_id","recital_show_id","seat_id"],
+            "ticket_row_layouts": ["section_id","row_label","extra_space_after","notes"],
         },
     },
 ]
@@ -1776,9 +1777,14 @@ def ticket_venue(venue_id: int):
 
     seats = connection.execute(
         """
-        SELECT ts.*,sec.name AS section_name,sec.sort_order
+        SELECT ts.*,sec.name AS section_name,sec.sort_order,
+               COALESCE(trl.extra_space_after,0) AS extra_space_after,
+               COALESCE(trl.notes,'') AS row_layout_notes
         FROM ticket_seats ts
         JOIN ticket_sections sec ON sec.id=ts.section_id
+        LEFT JOIN ticket_row_layouts trl
+          ON trl.section_id=ts.section_id
+         AND trl.row_label=ts.row_label
         WHERE sec.venue_id=?
         ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number
         """,
@@ -1787,16 +1793,22 @@ def ticket_venue(venue_id: int):
     connection.close()
 
     grouped_seats = {}
+    row_layouts = {}
     for row in seats:
         item = dict(row)
         key = (item["section_id"], item["section_name"])
         grouped_seats.setdefault(key, {}).setdefault(item["row_label"], []).append(item)
+        row_layouts[(item["section_id"],item["row_label"])] = {
+            "extra_space_after": int(item["extra_space_after"] or 0),
+            "notes": item["row_layout_notes"] or "",
+        }
 
     return render_template(
         "ticket_venue.html",
         venue=dict(venue),
         sections=[dict(row) for row in sections],
         grouped_seats=grouped_seats,
+        row_layouts=row_layouts,
     )
 
 
@@ -1959,6 +1971,35 @@ def delete_ticket_section(section_id):
     venue_id=int(sec["venue_id"])
     if venue_has_ticket_history(c,venue_id): c.close(); flash("Layout is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
     c.execute("DELETE FROM ticket_sections WHERE id=?",(section_id,)); c.commit(); c.close(); flash("Section deleted.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+
+@app.route("/admin/ticketing/sections/<int:section_id>/rows/<row_label>/layout",methods=["POST"])
+@permission_required("ticketing")
+def update_ticket_row_layout(section_id,row_label):
+    connection=get_db()
+    section=connection.execute("SELECT venue_id FROM ticket_sections WHERE id=?",(section_id,)).fetchone()
+    if not section:
+        connection.close()
+        return ("Section not found",404)
+    venue_id=int(section["venue_id"])
+    if venue_has_ticket_history(connection,venue_id):
+        connection.close()
+        flash("Row layout is locked because tickets have been issued.","error")
+        return redirect(url_for("ticket_venue",venue_id=venue_id))
+    spacing=max(0,min(int(request.form.get("extra_space_after","0") or 0),200))
+    connection.execute(
+        """INSERT INTO ticket_row_layouts(section_id,row_label,extra_space_after,notes)
+           VALUES(?,?,?,?)
+           ON CONFLICT(section_id,row_label) DO UPDATE SET
+           extra_space_after=excluded.extra_space_after,
+           notes=excluded.notes,
+           updated_at=CURRENT_TIMESTAMP""",
+        (section_id,row_label.upper(),spacing,request.form.get("notes","").strip())
+    )
+    connection.commit()
+    connection.close()
+    flash(f"Row {row_label.upper()} spacing updated.","success")
+    return redirect(url_for("ticket_venue",venue_id=venue_id))
+
 
 @app.route("/admin/ticketing/seats/<int:seat_id>/update",methods=["POST"])
 @permission_required("ticketing")
