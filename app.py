@@ -2157,19 +2157,20 @@ def apply_meyer_theater_preset(venue_id):
     # The preset emphasizes physical arrangement and special seating;
     # staff can adjust any individual range before tickets are issued.
     main_rows = [
-        ("A", 101, 131, 0),
-        ("B", 101, 131, 0),
-        ("C", 101, 131, 0),
-        ("D", 101, 131, 0),
-        ("E", 101, 131, 30),
-        ("F", 101, 131, 0),
+        ("A", 101, 121, 0),
+        ("B", 101, 122, 0),
+        ("C", 101, 123, 0),
+        ("D", 101, 124, 0),
+        ("E", 101, 125, 26),
+        ("F", 101, 132, 0),
         ("G", 101, 131, 0),
-        ("H", 101, 131, 28),
+        ("H", 101, 132, 22),
         ("J", 101, 131, 0),
         ("K", 101, 131, 0),
         ("L", 101, 131, 0),
-        ("M", 101, 131, 0),
-        ("N", 101, 131, 0),
+        ("M", 101, 132, 0),
+        ("N", 101, 132, 0),
+        ("O", 101, 132, 0),
         ("P", 101, 131, 0),
         ("Q", 101, 131, 0),
         ("R", 101, 131, 0),
@@ -2194,50 +2195,48 @@ def apply_meyer_theater_preset(venue_id):
         20,
         "Wheelchair spaces, companion seating, and soft seating.",
     )
-    configure_ticket_section_layout(connection, row_x, "Horizontal", "Center", 420, 680, 560, 95, 0, 15)
+    configure_ticket_section_layout(connection, row_x, "Horizontal", "Center", 235, 585, 930, 135, 0, 18)
 
-    # Row X is deliberately represented as mixed seat types rather than
-    # a continuous standard-chair row.
-    for number in [101, 102]:
+    # Row X follows the supplied Meyer chart from chart-left to chart-right:
+    # two wheelchair spaces, soft seats 110 and 109, companion seats 108-103,
+    # soft seats 102 and 101, then two wheelchair spaces.
+    row_x_positions = [
+        (112, "Accessible", "X-WC-L2"),
+        (111, "Accessible", "X-WC-L1"),
+        (110, "Soft Seating", "X-110"),
+        (109, "Soft Seating", "X-109"),
+        (108, "Companion", "X-108"),
+        (107, "Companion", "X-107"),
+        (106, "Companion", "X-106"),
+        (105, "Companion", "X-105"),
+        (104, "Companion", "X-104"),
+        (103, "Companion", "X-103"),
+        (102, "Soft Seating", "X-102"),
+        (101, "Soft Seating", "X-101"),
+        (100, "Accessible", "X-WC-R1"),
+        (99, "Accessible", "X-WC-R2"),
+    ]
+    for seat_number, seat_type, seat_label in row_x_positions:
         connection.execute(
             """
             INSERT INTO ticket_seats (
                 section_id,row_label,seat_number,
                 seat_label,seat_type,active
-            ) VALUES (?,'X',?,?, 'Accessible',1)
+            ) VALUES (?,'X',?,?,?,1)
             """,
-            (row_x, number, f"X-{number}"),
+            (row_x, seat_number, seat_label, seat_type),
         )
-    for number in [103, 104]:
-        connection.execute(
-            """
-            INSERT INTO ticket_seats (
-                section_id,row_label,seat_number,
-                seat_label,seat_type,active
-            ) VALUES (?,'X',?,?, 'Companion',1)
-            """,
-            (row_x, number, f"X-{number}"),
-        )
-    for number in range(105, 111):
-        connection.execute(
-            """
-            INSERT INTO ticket_seats (
-                section_id,row_label,seat_number,
-                seat_label,seat_type,active
-            ) VALUES (?,'X',?,?, 'Soft Seating',1)
-            """,
-            (row_x, number, f"X-{number}"),
-        )
+
     connection.execute(
         """
         INSERT INTO ticket_row_layouts (
             section_id,row_label,extra_space_after,
             seat_direction,notes
-        ) VALUES (?,'X',32,'Low Right',?)
+        ) VALUES (?,'X',28,'Low Left',?)
         """,
         (
             row_x,
-            "Accessible and soft seating starter layout; adjust counts as required.",
+            "Four wheelchair spaces, four soft seats, and six companion seats.",
         ),
     )
 
@@ -2303,12 +2302,12 @@ def apply_meyer_theater_preset(venue_id):
 
     objects = [
         ("Stage","STAGE","Front Center",5,320,20,760,55,0,40,"Rectangle"),
-        ("VIP Table","VIP TABLE LEFT 1","Rear Left",10,70,760,120,120,0,30,"Circle"),
-        ("VIP Table","VIP TABLE LEFT 2","Rear Left",20,70,900,120,120,0,30,"Circle"),
-        ("VIP Table","VIP TABLE RIGHT 1","Rear Right",30,1210,760,120,120,0,30,"Circle"),
-        ("VIP Table","VIP TABLE RIGHT 2","Rear Right",40,1210,900,120,120,0,30,"Circle"),
+        ("VIP Table","VIP TABLE LEFT 1","Rear Left",10,92,760,64,64,0,30,"Circle"),
+        ("VIP Table","VIP TABLE LEFT 2","Rear Left",20,92,865,64,64,0,30,"Circle"),
+        ("VIP Table","VIP TABLE RIGHT 1","Rear Right",30,1244,760,64,64,0,30,"Circle"),
+        ("VIP Table","VIP TABLE RIGHT 2","Rear Right",40,1244,865,64,64,0,30,"Circle"),
         ("Crew Booth","THEATER CREW BOOTH","Rear Center",50,540,930,320,90,0,35,"Rectangle"),
-        ("Label","HANDICAP / SOFT SEATING — ROW X","Center",60,410,645,580,30,0,25,"Label"),
+        ("Label","ROW X — ACCESSIBLE & SOFT SEATING","Center",60,330,548,740,30,0,25,"Label"),
     ]
     for object_type,label,placement,sort_order,x_pos,y_pos,width_px,height_px,rotation_deg,z_index,shape in objects:
         connection.execute(
