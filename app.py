@@ -412,7 +412,7 @@ MIGRATION_REGISTRY = [
         "required_tables": [
             "ticket_venues", "ticket_sections", "ticket_seats",
             "ticket_show_settings", "ticket_orders", "tickets",
-            "ticket_holds", "ticket_hold_seats", "ticket_row_layouts"
+            "ticket_holds", "ticket_hold_seats", "ticket_row_layouts", "ticket_venue_layouts", "ticket_section_layouts", "ticket_venue_objects", "ticket_venue_presets"
         ],
         "required_columns": {
             "ticket_venues": ["name","address","active"],
@@ -423,7 +423,11 @@ MIGRATION_REGISTRY = [
             "tickets": ["order_id","recital_show_id","seat_id","ticket_code","price","status","checked_in_at"],
             "ticket_holds": ["recital_show_id","family_id","held_for_name","notes","expires_at","status","converted_order_id"],
             "ticket_hold_seats": ["hold_id","recital_show_id","seat_id"],
-            "ticket_row_layouts": ["section_id","row_label","extra_space_after","notes"],
+            "ticket_row_layouts": ["section_id","row_label","extra_space_after","seat_direction","notes"],
+            "ticket_venue_layouts": ["venue_id","booth_enabled","booth_label","booth_position"],
+            "ticket_section_layouts": ["section_id","orientation","placement"],
+            "ticket_venue_objects": ["venue_id","object_type","label","placement","sort_order","active"],
+            "ticket_venue_presets": ["venue_id","preset_key","applied_at"],
         },
     },
 ]
@@ -1750,8 +1754,11 @@ def ticket_venue(venue_id: int):
         """
         SELECT tv.*,
           COALESCE((SELECT COUNT(*) FROM ticket_show_settings tss WHERE tss.venue_id=tv.id),0) AS assigned_show_count,
-          COALESCE((SELECT COUNT(*) FROM tickets tk JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id WHERE sec.venue_id=tv.id),0) AS issued_ticket_count
-        FROM ticket_venues tv WHERE tv.id=?
+          COALESCE((SELECT COUNT(*) FROM tickets tk JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id WHERE sec.venue_id=tv.id),0) AS issued_ticket_count,
+          COALESCE(tvl.booth_enabled,0) AS booth_enabled,
+          COALESCE(tvl.booth_label,'CREW BOOTH') AS booth_label,
+          COALESCE(tvl.booth_position,'Rear Center') AS booth_position
+        FROM ticket_venues tv LEFT JOIN ticket_venue_layouts tvl ON tvl.venue_id=tv.id WHERE tv.id=?
         """,
         (venue_id,),
     ).fetchone()
@@ -1761,15 +1768,14 @@ def ticket_venue(venue_id: int):
 
     sections = connection.execute(
         """
-        SELECT
-            sec.*,
-            COUNT(ts.id) AS seat_count
+        SELECT sec.*, COUNT(ts.id) AS seat_count,
+               COALESCE(tsl.orientation,'Horizontal') AS orientation,
+               COALESCE(tsl.placement,'Center') AS placement
         FROM ticket_sections sec
         LEFT JOIN ticket_seats ts ON ts.section_id=sec.id AND ts.active=1
+        LEFT JOIN ticket_section_layouts tsl ON tsl.section_id=sec.id
         WHERE sec.venue_id=?
-        GROUP BY
-            sec.id,sec.venue_id,sec.name,
-            sec.sort_order,sec.notes,sec.created_at
+        GROUP BY sec.id,sec.venue_id,sec.name,sec.sort_order,sec.notes,sec.created_at,tsl.orientation,tsl.placement
         ORDER BY sec.sort_order,sec.name
         """,
         (venue_id,),
@@ -1779,14 +1785,27 @@ def ticket_venue(venue_id: int):
         """
         SELECT ts.*,sec.name AS section_name,sec.sort_order,
                COALESCE(trl.extra_space_after,0) AS extra_space_after,
-               COALESCE(trl.notes,'') AS row_layout_notes
+               COALESCE(trl.seat_direction,'Low Left') AS seat_direction,
+               COALESCE(trl.notes,'') AS row_layout_notes,
+               COALESCE(tsl.orientation,'Horizontal') AS section_orientation,
+               COALESCE(tsl.placement,'Center') AS section_placement
         FROM ticket_seats ts
         JOIN ticket_sections sec ON sec.id=ts.section_id
         LEFT JOIN ticket_row_layouts trl
           ON trl.section_id=ts.section_id
          AND trl.row_label=ts.row_label
+        LEFT JOIN ticket_section_layouts tsl ON tsl.section_id=ts.section_id
         WHERE sec.venue_id=?
         ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number
+        """,
+        (venue_id,),
+    ).fetchall()
+    venue_objects = connection.execute(
+        """
+        SELECT *
+        FROM ticket_venue_objects
+        WHERE venue_id=? AND active=1
+        ORDER BY sort_order,id
         """,
         (venue_id,),
     ).fetchall()
@@ -1800,6 +1819,7 @@ def ticket_venue(venue_id: int):
         grouped_seats.setdefault(key, {}).setdefault(item["row_label"], []).append(item)
         row_layouts[(item["section_id"],item["row_label"])] = {
             "extra_space_after": int(item["extra_space_after"] or 0),
+            "seat_direction": item["seat_direction"] or "Low Left",
             "notes": item["row_layout_notes"] or "",
         }
 
@@ -1809,6 +1829,7 @@ def ticket_venue(venue_id: int):
         sections=[dict(row) for row in sections],
         grouped_seats=grouped_seats,
         row_layouts=row_layouts,
+        venue_objects=[dict(row) for row in venue_objects],
     )
 
 
@@ -1972,6 +1993,440 @@ def delete_ticket_section(section_id):
     if venue_has_ticket_history(c,venue_id): c.close(); flash("Layout is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
     c.execute("DELETE FROM ticket_sections WHERE id=?",(section_id,)); c.commit(); c.close(); flash("Section deleted.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
 
+def insert_ticket_section(connection, venue_id, name, sort_order, notes=""):
+    sql = """
+        INSERT INTO ticket_sections (
+            venue_id,name,sort_order,notes
+        ) VALUES (?,?,?,?)
+    """
+    if connection.backend == "postgresql":
+        sql += " RETURNING id"
+    cursor = connection.execute(sql, (venue_id, name, sort_order, notes))
+    return (
+        int(cursor.fetchone()["id"])
+        if connection.backend == "postgresql"
+        else int(cursor.lastrowid)
+    )
+
+
+def add_ticket_row(
+    connection,
+    section_id,
+    row_label,
+    first_seat,
+    last_seat,
+    seat_type="Standard",
+    seat_direction="Low Right",
+    extra_space_after=0,
+    row_notes="",
+):
+    step = 1 if last_seat >= first_seat else -1
+    for seat_number in range(first_seat, last_seat + step, step):
+        connection.execute(
+            """
+            INSERT INTO ticket_seats (
+                section_id,row_label,seat_number,
+                seat_label,seat_type,active
+            ) VALUES (?,?,?,?,?,1)
+            ON CONFLICT(section_id,row_label,seat_number) DO NOTHING
+            """,
+            (
+                section_id,
+                row_label,
+                seat_number,
+                f"{row_label}-{seat_number}",
+                seat_type,
+            ),
+        )
+
+    connection.execute(
+        """
+        INSERT INTO ticket_row_layouts (
+            section_id,row_label,extra_space_after,
+            seat_direction,notes
+        ) VALUES (?,?,?,?,?)
+        ON CONFLICT(section_id,row_label) DO UPDATE SET
+            extra_space_after=excluded.extra_space_after,
+            seat_direction=excluded.seat_direction,
+            notes=excluded.notes,
+            updated_at=CURRENT_TIMESTAMP
+        """,
+        (
+            section_id,
+            row_label,
+            extra_space_after,
+            seat_direction,
+            row_notes,
+        ),
+    )
+
+
+def configure_ticket_section_layout(
+    connection,
+    section_id,
+    orientation="Horizontal",
+    placement="Center",
+):
+    connection.execute(
+        """
+        INSERT INTO ticket_section_layouts (
+            section_id,orientation,placement
+        ) VALUES (?,?,?)
+        ON CONFLICT(section_id) DO UPDATE SET
+            orientation=excluded.orientation,
+            placement=excluded.placement,
+            updated_at=CURRENT_TIMESTAMP
+        """,
+        (section_id, orientation, placement),
+    )
+
+
+@app.route("/admin/ticketing/venues/<int:venue_id>/presets/meyer", methods=["POST"])
+@permission_required("ticketing")
+def apply_meyer_theater_preset(venue_id):
+    connection = get_db()
+
+    if venue_has_ticket_history(connection, venue_id):
+        connection.close()
+        flash(
+            "The Meyer Theater preset cannot be applied after tickets exist.",
+            "error",
+        )
+        return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+    existing_sections = connection.execute(
+        "SELECT COUNT(*) AS count FROM ticket_sections WHERE venue_id=?",
+        (venue_id,),
+    ).fetchone()
+    if int(existing_sections["count"] or 0) > 0:
+        connection.close()
+        flash(
+            "Reset the unfinished seating chart before applying the Meyer Theater preset.",
+            "error",
+        )
+        return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+    connection.execute(
+        """
+        INSERT INTO ticket_venue_layouts (
+            venue_id,booth_enabled,booth_label,booth_position
+        ) VALUES (?,1,'THEATER CREW BOOTH','Rear Center')
+        ON CONFLICT(venue_id) DO UPDATE SET
+            booth_enabled=1,
+            booth_label='THEATER CREW BOOTH',
+            booth_position='Rear Center',
+            updated_at=CURRENT_TIMESTAMP
+        """,
+        (venue_id,),
+    )
+
+    main = insert_ticket_section(
+        connection,
+        venue_id,
+        "Main Orchestra",
+        10,
+        "Main Meyer Theater seating. Review each row against the final venue chart.",
+    )
+    configure_ticket_section_layout(connection, main, "Horizontal", "Center")
+
+    # Editable starter ranges based on the supplied theater diagram.
+    # The preset emphasizes physical arrangement and special seating;
+    # staff can adjust any individual range before tickets are issued.
+    main_rows = [
+        ("A", 101, 131, 0),
+        ("B", 101, 131, 0),
+        ("C", 101, 131, 0),
+        ("D", 101, 131, 0),
+        ("E", 101, 131, 30),
+        ("F", 101, 131, 0),
+        ("G", 101, 131, 0),
+        ("H", 101, 131, 28),
+        ("J", 101, 131, 0),
+        ("K", 101, 131, 0),
+        ("L", 101, 131, 0),
+        ("M", 101, 131, 0),
+        ("N", 101, 131, 0),
+        ("P", 101, 131, 0),
+        ("Q", 101, 131, 0),
+        ("R", 101, 131, 0),
+    ]
+    for row_label, first_seat, last_seat, gap in main_rows:
+        add_ticket_row(
+            connection,
+            main,
+            row_label,
+            first_seat,
+            last_seat,
+            "Standard",
+            "Low Right",
+            gap,
+            "Preset row; verify the exact endpoints against the venue chart.",
+        )
+
+    row_x = insert_ticket_section(
+        connection,
+        venue_id,
+        "Row X Accessible and Soft Seating",
+        20,
+        "Wheelchair spaces, companion seating, and soft seating.",
+    )
+    configure_ticket_section_layout(connection, row_x, "Horizontal", "Center")
+
+    # Row X is deliberately represented as mixed seat types rather than
+    # a continuous standard-chair row.
+    for number in [101, 102]:
+        connection.execute(
+            """
+            INSERT INTO ticket_seats (
+                section_id,row_label,seat_number,
+                seat_label,seat_type,active
+            ) VALUES (?,'X',?,?, 'Accessible',1)
+            """,
+            (row_x, number, f"X-{number}"),
+        )
+    for number in [103, 104]:
+        connection.execute(
+            """
+            INSERT INTO ticket_seats (
+                section_id,row_label,seat_number,
+                seat_label,seat_type,active
+            ) VALUES (?,'X',?,?, 'Companion',1)
+            """,
+            (row_x, number, f"X-{number}"),
+        )
+    for number in range(105, 111):
+        connection.execute(
+            """
+            INSERT INTO ticket_seats (
+                section_id,row_label,seat_number,
+                seat_label,seat_type,active
+            ) VALUES (?,'X',?,?, 'Soft Seating',1)
+            """,
+            (row_x, number, f"X-{number}"),
+        )
+    connection.execute(
+        """
+        INSERT INTO ticket_row_layouts (
+            section_id,row_label,extra_space_after,
+            seat_direction,notes
+        ) VALUES (?,'X',32,'Low Right',?)
+        """,
+        (
+            row_x,
+            "Accessible and soft seating starter layout; adjust counts as required.",
+        ),
+    )
+
+    vip_left = insert_ticket_section(
+        connection,
+        venue_id,
+        "Upper VIP Left",
+        30,
+        "Vertical VIP seating beside round guest tables.",
+    )
+    configure_ticket_section_layout(connection, vip_left, "Vertical", "Left")
+    add_ticket_row(
+        connection,
+        vip_left,
+        "VL",
+        101,
+        114,
+        "VIP",
+        "Low Left",
+        0,
+        "Upper-deck VIP starter range.",
+    )
+
+    vip_right = insert_ticket_section(
+        connection,
+        venue_id,
+        "Upper VIP Right",
+        40,
+        "Vertical VIP seating beside round guest tables.",
+    )
+    configure_ticket_section_layout(connection, vip_right, "Vertical", "Right")
+    add_ticket_row(
+        connection,
+        vip_right,
+        "VR",
+        115,
+        128,
+        "VIP",
+        "Low Right",
+        0,
+        "Upper-deck VIP starter range.",
+    )
+
+    vip_rear = insert_ticket_section(
+        connection,
+        venue_id,
+        "Upper VIP Rear",
+        50,
+        "Small horizontal VIP group beside the crew booth.",
+    )
+    configure_ticket_section_layout(connection, vip_rear, "Horizontal", "Center")
+    add_ticket_row(
+        connection,
+        vip_rear,
+        "V",
+        129,
+        132,
+        "VIP",
+        "Low Left",
+        18,
+        "Rear VIP seating beside the crew booth.",
+    )
+
+    objects = [
+        ("VIP Table", "VIP TABLE LEFT 1", "Rear Left", 10),
+        ("VIP Table", "VIP TABLE LEFT 2", "Rear Left", 20),
+        ("VIP Table", "VIP TABLE RIGHT 1", "Rear Right", 30),
+        ("VIP Table", "VIP TABLE RIGHT 2", "Rear Right", 40),
+        ("Crew Booth", "THEATER CREW BOOTH", "Rear Center", 50),
+        ("Label", "HANDICAP / SOFT SEATING — ROW X", "Center", 60),
+    ]
+    for object_type, label, placement, sort_order in objects:
+        connection.execute(
+            """
+            INSERT INTO ticket_venue_objects (
+                venue_id,object_type,label,placement,
+                sort_order,width_units,height_units,
+                notes,active
+            ) VALUES (?,?,?,?,?,2,1,'Meyer Theater preset object',1)
+            """,
+            (
+                venue_id,
+                object_type,
+                label,
+                placement,
+                sort_order,
+            ),
+        )
+
+    connection.execute(
+        """
+        INSERT INTO ticket_venue_presets (
+            venue_id,preset_key,applied_by
+        ) VALUES (?,'meyer_theater_v1',?)
+        ON CONFLICT(venue_id,preset_key) DO NOTHING
+        """,
+        (
+            venue_id,
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        "ticket_venue_preset_applied",
+        "ticketing",
+        "Meyer Theater seating preset applied",
+        f"Venue #{venue_id}",
+        "success",
+        str(venue_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash(
+        "Meyer Theater preset created. Review and adjust the editable seat ranges before selling tickets.",
+        "success",
+    )
+    return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+
+@app.route("/admin/ticketing/venues/<int:venue_id>/objects/save", methods=["POST"])
+@permission_required("ticketing")
+def save_ticket_venue_object(venue_id):
+    connection = get_db()
+    if venue_has_ticket_history(connection, venue_id):
+        connection.close()
+        flash("Venue objects are locked because tickets have been issued.", "error")
+        return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+    object_id = request.form.get("id", "").strip()
+    values = (
+        request.form.get("object_type", "Label").strip(),
+        request.form.get("label", "").strip(),
+        request.form.get("placement", "Center").strip(),
+        int(request.form.get("sort_order", "0") or 0),
+        max(1, int(request.form.get("width_units", "2") or 2)),
+        max(1, int(request.form.get("height_units", "1") or 1)),
+        request.form.get("notes", "").strip(),
+        1 if request.form.get("active") == "on" else 0,
+    )
+
+    if object_id:
+        connection.execute(
+            """
+            UPDATE ticket_venue_objects SET
+                object_type=?,label=?,placement=?,sort_order=?,
+                width_units=?,height_units=?,notes=?,active=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=? AND venue_id=?
+            """,
+            values + (int(object_id), venue_id),
+        )
+    else:
+        connection.execute(
+            """
+            INSERT INTO ticket_venue_objects (
+                venue_id,object_type,label,placement,
+                sort_order,width_units,height_units,
+                notes,active
+            ) VALUES (?,?,?,?,?,?,?,?,?)
+            """,
+            (venue_id,) + values,
+        )
+
+    connection.commit()
+    connection.close()
+    flash("Theater object saved.", "success")
+    return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+
+@app.route("/admin/ticketing/venues/<int:venue_id>/objects/<int:object_id>/delete", methods=["POST"])
+@permission_required("ticketing")
+def delete_ticket_venue_object(venue_id, object_id):
+    connection = get_db()
+    if venue_has_ticket_history(connection, venue_id):
+        connection.close()
+        flash("Venue objects are locked because tickets have been issued.", "error")
+        return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+    connection.execute(
+        "DELETE FROM ticket_venue_objects WHERE id=? AND venue_id=?",
+        (object_id, venue_id),
+    )
+    connection.commit()
+    connection.close()
+    flash("Theater object deleted.", "success")
+    return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+
+@app.route("/admin/ticketing/venues/<int:venue_id>/layout",methods=["POST"])
+@permission_required("ticketing")
+def update_ticket_venue_layout(venue_id):
+    c=get_db()
+    if venue_has_ticket_history(c,venue_id): c.close(); flash("Venue layout is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    c.execute("""INSERT INTO ticket_venue_layouts(venue_id,booth_enabled,booth_label,booth_position) VALUES(?,?,?,?)
+      ON CONFLICT(venue_id) DO UPDATE SET booth_enabled=excluded.booth_enabled,booth_label=excluded.booth_label,booth_position=excluded.booth_position,updated_at=CURRENT_TIMESTAMP""",
+      (venue_id,1 if request.form.get("booth_enabled")=="on" else 0,request.form.get("booth_label","CREW BOOTH").strip() or "CREW BOOTH",request.form.get("booth_position","Rear Center").strip()))
+    c.commit(); c.close(); flash("Theater objects updated.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+
+@app.route("/admin/ticketing/sections/<int:section_id>/layout",methods=["POST"])
+@permission_required("ticketing")
+def update_ticket_section_layout(section_id):
+    c=get_db(); sec=c.execute("SELECT venue_id FROM ticket_sections WHERE id=?",(section_id,)).fetchone()
+    if not sec: c.close(); return ("Section not found",404)
+    venue_id=int(sec["venue_id"])
+    if venue_has_ticket_history(c,venue_id): c.close(); flash("Section layout is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    c.execute("""INSERT INTO ticket_section_layouts(section_id,orientation,placement) VALUES(?,?,?)
+      ON CONFLICT(section_id) DO UPDATE SET orientation=excluded.orientation,placement=excluded.placement,updated_at=CURRENT_TIMESTAMP""",
+      (section_id,request.form.get("orientation","Horizontal").strip(),request.form.get("placement","Center").strip()))
+    c.commit(); c.close(); flash("Section layout updated.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+
 @app.route("/admin/ticketing/sections/<int:section_id>/rows/<row_label>/layout",methods=["POST"])
 @permission_required("ticketing")
 def update_ticket_row_layout(section_id,row_label):
@@ -1987,13 +2442,14 @@ def update_ticket_row_layout(section_id,row_label):
         return redirect(url_for("ticket_venue",venue_id=venue_id))
     spacing=max(0,min(int(request.form.get("extra_space_after","0") or 0),200))
     connection.execute(
-        """INSERT INTO ticket_row_layouts(section_id,row_label,extra_space_after,notes)
-           VALUES(?,?,?,?)
+        """INSERT INTO ticket_row_layouts(section_id,row_label,extra_space_after,seat_direction,notes)
+           VALUES(?,?,?,?,?)
            ON CONFLICT(section_id,row_label) DO UPDATE SET
            extra_space_after=excluded.extra_space_after,
+           seat_direction=excluded.seat_direction,
            notes=excluded.notes,
            updated_at=CURRENT_TIMESTAMP""",
-        (section_id,row_label.upper(),spacing,request.form.get("notes","").strip())
+        (section_id,row_label.upper(),spacing,request.form.get("seat_direction","Low Left").strip(),request.form.get("notes","").strip())
     )
     connection.commit()
     connection.close()
@@ -2131,11 +2587,15 @@ def ticket_show(show_id: int):
             tss.default_price,
             tss.sales_status,
             tss.notes AS ticket_notes,
-            tv.name AS venue_name
+            tv.name AS venue_name,
+            COALESCE(tvl.booth_enabled,0) AS booth_enabled,
+            COALESCE(tvl.booth_label,'CREW BOOTH') AS booth_label,
+            COALESCE(tvl.booth_position,'Rear Center') AS booth_position
         FROM recital_shows rs
         JOIN recital_productions rp ON rp.id=rs.production_id
         LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
         LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+        LEFT JOIN ticket_venue_layouts tvl ON tvl.venue_id=tv.id
         WHERE rs.id=?
         """,
         (show_id,),
@@ -2161,6 +2621,10 @@ def ticket_show(show_id: int):
                 sec.id AS section_id,
                 sec.name AS section_name,
                 sec.sort_order,
+                COALESCE(trl.extra_space_after,0) AS extra_space_after,
+                COALESCE(trl.seat_direction,'Low Left') AS seat_direction,
+                COALESCE(tsl.orientation,'Horizontal') AS section_orientation,
+                COALESCE(tsl.placement,'Center') AS section_placement,
                 tk.id AS ticket_id,
                 tk.status AS ticket_status,
                 tk.checked_in_at,
@@ -2173,6 +2637,8 @@ def ticket_show(show_id: int):
                 th.expires_at AS hold_expires_at
             FROM ticket_seats ts
             JOIN ticket_sections sec ON sec.id=ts.section_id
+            LEFT JOIN ticket_row_layouts trl ON trl.section_id=ts.section_id AND trl.row_label=ts.row_label
+            LEFT JOIN ticket_section_layouts tsl ON tsl.section_id=ts.section_id
             LEFT JOIN tickets tk
               ON tk.seat_id=ts.id
              AND tk.recital_show_id=?

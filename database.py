@@ -976,10 +976,71 @@ def init_db() -> None:
             section_id INTEGER NOT NULL,
             row_label TEXT NOT NULL,
             extra_space_after INTEGER NOT NULL DEFAULT 0,
+            seat_direction TEXT NOT NULL DEFAULT 'Low Left',
             notes TEXT NOT NULL DEFAULT '',
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(section_id, row_label),
             FOREIGN KEY(section_id) REFERENCES ticket_sections(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_venue_layouts (
+            id {id_column}, venue_id INTEGER NOT NULL UNIQUE,
+            booth_enabled INTEGER NOT NULL DEFAULT 0,
+            booth_label TEXT NOT NULL DEFAULT 'CREW BOOTH',
+            booth_position TEXT NOT NULL DEFAULT 'Rear Center',
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(venue_id) REFERENCES ticket_venues(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_section_layouts (
+            id {id_column}, section_id INTEGER NOT NULL UNIQUE,
+            orientation TEXT NOT NULL DEFAULT 'Horizontal',
+            placement TEXT NOT NULL DEFAULT 'Center',
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(section_id) REFERENCES ticket_sections(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_venue_objects (
+            id {id_column},
+            venue_id INTEGER NOT NULL,
+            object_type TEXT NOT NULL,
+            label TEXT NOT NULL DEFAULT '',
+            placement TEXT NOT NULL DEFAULT 'Rear Center',
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            width_units INTEGER NOT NULL DEFAULT 2,
+            height_units INTEGER NOT NULL DEFAULT 1,
+            notes TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(venue_id) REFERENCES ticket_venues(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_venue_presets (
+            id {id_column},
+            venue_id INTEGER NOT NULL,
+            preset_key TEXT NOT NULL,
+            applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            applied_by INTEGER,
+            UNIQUE(venue_id, preset_key),
+            FOREIGN KEY(venue_id) REFERENCES ticket_venues(id) ON DELETE CASCADE,
+            FOREIGN KEY(applied_by) REFERENCES admin_users(id) ON DELETE SET NULL
         )
         """
     )
@@ -1687,6 +1748,14 @@ def init_db() -> None:
                     ADD COLUMN {column_name} {column_definition}
                     """
                 )
+
+    # Ticketing V1.4 safe layout upgrades.
+    if connection.backend == "postgresql":
+        cursor.execute("ALTER TABLE ticket_row_layouts ADD COLUMN IF NOT EXISTS seat_direction TEXT NOT NULL DEFAULT 'Low Left'")
+    else:
+        ticket_row_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(ticket_row_layouts)").fetchall()}
+        if "seat_direction" not in ticket_row_columns:
+            cursor.execute("ALTER TABLE ticket_row_layouts ADD COLUMN seat_direction TEXT NOT NULL DEFAULT 'Low Left'")
 
     # Early PostgreSQL versions may have created these date fields as TEXT.
     # Convert them to proper TIMESTAMP columns before dashboard queries run.
