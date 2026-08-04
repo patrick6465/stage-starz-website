@@ -1,30 +1,33 @@
-STAGE STARZ RESERVED TICKETING V1.9
+STAGE STARZ RESERVED TICKETING V2.0
 
 REPLACE:
 - app.py
+- templates/ticket_venue.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py
-git commit -m "Correct Meyer Row X to seats 101 through 130"
+git add app.py templates/ticket_venue.html
+git commit -m "Add mouse drag positioning to venue designer"
 git push origin railway-deployment
 
-ROW X CORRECTION:
-- Row X remains between Upper Orchestra and Lower Orchestra.
-- Row X now contains:
-  * One soft-seat position on the left
-  * Numbered seats 101 through 130
-  * One soft-seat position on the right
-- 30 numbered seats
-- 2 soft-seat positions
-- 32 total positions
-- Row X width increased to fit the complete sequence.
+NEW MOUSE CONTROLS:
+- Click and drag any seating section on the venue canvas.
+- Click and drag the stage, crew booth, labels, and other theater objects.
+- Positions save automatically when the mouse button is released.
+- A live status message confirms the saved X and Y coordinates.
+- The numeric X/Y fields update automatically after each drag.
+- Items cannot be dragged outside the canvas boundaries.
+- If saving fails, the item returns to its previous position.
+- Pointer events support both mouse and touchscreen dragging.
+- Dragging is disabled automatically after ticket history exists.
+- The live recital ticket-selling map continues using the saved coordinates.
 
-IMPORTANT:
-Existing Meyer preset data will not update automatically.
-1. Deploy V1.9.
-2. Open the unfinished Meyer Theater venue.
-3. Reset Seating Chart.
-4. Apply the Coordinate-Based Meyer Preset again.
-5. Confirm Row X displays:
-   Soft Seat · 101–130 · Soft Seat
+TEST:
+1. Deploy V2.0.
+2. Verify /health and /ready.
+3. Open an unfinished venue.
+4. Drag Upper Orchestra to a new location.
+5. Confirm the status reports Saved.
+6. Confirm its X/Y fields changed.
+7. Refresh the page and confirm the section remains in its new position.
+8. Drag the stage and crew booth and repeat the test.

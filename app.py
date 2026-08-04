@@ -2398,6 +2398,121 @@ def apply_meyer_theater_preset(venue_id):
     return redirect(url_for("ticket_venue", venue_id=venue_id))
 
 
+@app.route("/admin/ticketing/venues/<int:venue_id>/canvas/position", methods=["POST"])
+@permission_required("ticketing")
+def save_ticket_canvas_position(venue_id):
+    connection = get_db()
+
+    if venue_has_ticket_history(connection, venue_id):
+        connection.close()
+        return jsonify({
+            "ok": False,
+            "message": "The venue layout is locked because ticket history exists.",
+        }), 409
+
+    payload = request.get_json(silent=True) or {}
+    item_type = str(payload.get("item_type", "")).strip().lower()
+    item_id = int(payload.get("item_id", 0) or 0)
+    x_pos = int(round(float(payload.get("x_pos", 0) or 0)))
+    y_pos = int(round(float(payload.get("y_pos", 0) or 0)))
+
+    canvas = connection.execute(
+        """
+        SELECT canvas_width,canvas_height
+        FROM ticket_canvas_settings
+        WHERE venue_id=?
+        """,
+        (venue_id,),
+    ).fetchone()
+
+    canvas_width = int(canvas["canvas_width"] or 1400) if canvas else 1400
+    canvas_height = int(canvas["canvas_height"] or 1100) if canvas else 1100
+
+    if item_type == "section":
+        item = connection.execute(
+            """
+            SELECT
+                sec.id,
+                COALESCE(tsl.width_px,600) AS width_px,
+                COALESCE(tsl.height_px,220) AS height_px
+            FROM ticket_sections sec
+            LEFT JOIN ticket_section_layouts tsl ON tsl.section_id=sec.id
+            WHERE sec.id=? AND sec.venue_id=?
+            """,
+            (item_id, venue_id),
+        ).fetchone()
+
+        if not item:
+            connection.close()
+            return jsonify({"ok": False, "message": "Section not found."}), 404
+
+        max_x = max(0, canvas_width - int(item["width_px"] or 600))
+        max_y = max(0, canvas_height - int(item["height_px"] or 220))
+        x_pos = max(0, min(x_pos, max_x))
+        y_pos = max(0, min(y_pos, max_y))
+
+        connection.execute(
+            """
+            INSERT INTO ticket_section_layouts (
+                section_id,x_pos,y_pos
+            ) VALUES (?,?,?)
+            ON CONFLICT(section_id) DO UPDATE SET
+                x_pos=excluded.x_pos,
+                y_pos=excluded.y_pos,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (item_id, x_pos, y_pos),
+        )
+
+    elif item_type == "object":
+        item = connection.execute(
+            """
+            SELECT id,width_px,height_px
+            FROM ticket_venue_objects
+            WHERE id=? AND venue_id=?
+            """,
+            (item_id, venue_id),
+        ).fetchone()
+
+        if not item:
+            connection.close()
+            return jsonify({"ok": False, "message": "Theater object not found."}), 404
+
+        max_x = max(0, canvas_width - int(item["width_px"] or 180))
+        max_y = max(0, canvas_height - int(item["height_px"] or 90))
+        x_pos = max(0, min(x_pos, max_x))
+        y_pos = max(0, min(y_pos, max_y))
+
+        connection.execute(
+            """
+            UPDATE ticket_venue_objects SET
+                x_pos=?,
+                y_pos=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=? AND venue_id=?
+            """,
+            (x_pos, y_pos, item_id, venue_id),
+        )
+
+    else:
+        connection.close()
+        return jsonify({
+            "ok": False,
+            "message": "Unsupported canvas item type.",
+        }), 400
+
+    connection.commit()
+    connection.close()
+
+    return jsonify({
+        "ok": True,
+        "item_type": item_type,
+        "item_id": item_id,
+        "x_pos": x_pos,
+        "y_pos": y_pos,
+    })
+
+
 @app.route("/admin/ticketing/venues/<int:venue_id>/canvas", methods=["POST"])
 @permission_required("ticketing")
 def update_ticket_canvas(venue_id):

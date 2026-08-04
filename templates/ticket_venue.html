@@ -1,8 +1,171 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ venue.name }}</title><style>
-:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--teal:#50d6d0;--gold:#ffc867;--danger:#ff6c7d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}header{padding:18px 4vw;display:flex;justify-content:space-between;border-bottom:1px solid var(--line)}.wrap{width:min(1500px,calc(100% - 28px));margin:24px auto}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:17px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.full{grid-column:1/-1}label{display:block;font-size:.78rem;font-weight:850;margin-bottom:4px}input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border-radius:9px;background:#100a1d;color:#fff}button{padding:10px 13px;border:0;border-radius:9px;color:#fff;font-weight:900;background:linear-gradient(110deg,#ef3d98,#9b4dcc,#50d6d0)}.danger{background:var(--danger)}.muted{color:var(--muted)}.canvas-shell{overflow:auto;background:#08050f;border:1px solid var(--line);border-radius:18px;padding:18px}.canvas{position:relative;background:#120a20;border:2px solid #5c4276;border-radius:16px}.section{position:absolute;border:1px dashed #6d508a;border-radius:12px;padding:8px;overflow:hidden;background:rgba(23,16,42,.68)}.section-title{text-align:center;font-size:.7rem;color:var(--muted);font-weight:900}.row{display:flex;justify-content:center;align-items:center;gap:3px;min-height:27px}.section.vertical .row{flex-direction:column;margin:0 4px!important}.seat{width:28px;height:24px;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;font-size:.56rem}.seat.vip{border-color:var(--gold)}.seat.accessible,.seat.companion,.seat.soft-seating{border-color:var(--teal)}.object{position:absolute;display:grid;place-items:center;text-align:center;padding:5px;border:2px solid var(--teal);background:rgba(23,16,42,.9);font-size:.68rem;font-weight:900;overflow:hidden}.object.circle{border-radius:50%;border-color:var(--gold)}.object.label{border-style:dashed;background:transparent}.editor{padding:14px;border:1px solid var(--line);border-radius:14px;margin:12px 0}@media(max-width:900px){.grid,.fields{grid-template-columns:1fr}}
+:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--teal:#50d6d0;--gold:#ffc867;--danger:#ff6c7d}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}header{padding:18px 4vw;display:flex;justify-content:space-between;border-bottom:1px solid var(--line)}.wrap{width:min(1500px,calc(100% - 28px));margin:24px auto}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:17px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.fields{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.full{grid-column:1/-1}label{display:block;font-size:.78rem;font-weight:850;margin-bottom:4px}input,select,textarea{width:100%;padding:9px;border:1px solid var(--line);border-radius:9px;background:#100a1d;color:#fff}button{padding:10px 13px;border:0;border-radius:9px;color:#fff;font-weight:900;background:linear-gradient(110deg,#ef3d98,#9b4dcc,#50d6d0)}.danger{background:var(--danger)}.muted{color:var(--muted)}.canvas-shell{overflow:auto;background:#08050f;border:1px solid var(--line);border-radius:18px;padding:18px}.canvas{position:relative;background:#120a20;border:2px solid #5c4276;border-radius:16px}.section{position:absolute;cursor:grab;touch-action:none;user-select:none;border:1px dashed #6d508a;border-radius:12px;padding:8px;overflow:hidden;background:rgba(23,16,42,.68)}.section-title{text-align:center;font-size:.7rem;color:var(--muted);font-weight:900}.row{display:flex;justify-content:center;align-items:center;gap:3px;min-height:27px}.section.vertical .row{flex-direction:column;margin:0 4px!important}.seat{width:28px;height:24px;display:grid;place-items:center;border:1px solid var(--line);border-radius:7px;font-size:.56rem}.seat.vip{border-color:var(--gold)}.seat.accessible,.seat.companion,.seat.soft-seating{border-color:var(--teal)}.object{position:absolute;cursor:grab;touch-action:none;user-select:none;display:grid;place-items:center;text-align:center;padding:5px;border:2px solid var(--teal);background:rgba(23,16,42,.9);font-size:.68rem;font-weight:900;overflow:hidden}.object.circle{border-radius:50%;border-color:var(--gold)}.object.label{border-style:dashed;background:transparent}.editor{padding:14px;border:1px solid var(--line);border-radius:14px;margin:12px 0}@media(max-width:900px){.grid,.fields{grid-template-columns:1fr}}
+
+.dragging{cursor:grabbing!important;outline:3px solid var(--teal)!important;opacity:.92}
+.drag-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.drag-status{min-height:24px;color:var(--muted);font-size:.85rem}
+.drag-status.saving{color:var(--gold)}
+.drag-status.saved{color:var(--teal)}
+.drag-status.error{color:var(--danger)}
+.drag-help{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#100a1d;color:var(--muted)}
 </style></head><body><header><strong>🎟 {{ venue.name }} — Coordinate Venue Designer</strong><a href="/admin/ticketing">← Ticketing</a></header><main class="wrap">
 <div class="grid"><section class="card"><h2>Venue & Canvas</h2><form method="post" action="/admin/ticketing/venues/save"><input type="hidden" name="id" value="{{ venue.id }}"><label>Name</label><input name="name" value="{{ venue.name }}"><label>Address</label><input name="address" value="{{ venue.address }}"><label>Notes</label><textarea name="notes">{{ venue.notes }}</textarea><label><input type="checkbox" name="active" {% if venue.active %}checked{% endif %} style="width:auto"> Active</label><p><button>Save Venue</button></p></form>{% if not venue.issued_ticket_count %}<form method="post" action="/admin/ticketing/venues/{{ venue.id }}/canvas"><div class="fields"><div><label>Canvas width</label><input name="canvas_width" type="number" value="{{ canvas.canvas_width }}"></div><div><label>Canvas height</label><input name="canvas_height" type="number" value="{{ canvas.canvas_height }}"></div><div><label>Label</label><input name="background_label" value="{{ canvas.background_label }}"></div></div><p><button>Save Canvas</button></p></form><form method="post" action="/admin/ticketing/venues/{{ venue.id }}/reset"><button class="danger">Reset Seating Chart</button></form>{% endif %}</section>
 <section class="card"><h2>Coordinate Meyer Preset</h2><p class="muted">Use on an empty chart. It places the stage, main seating, Row X, side VIP sections, tables, and booth at separate coordinates.</p>{% if not venue.issued_ticket_count %}<form method="post" action="/admin/ticketing/venues/{{ venue.id }}/presets/meyer"><button>Apply Coordinate Meyer Preset</button></form>{% endif %}<h3>Add Row</h3><form method="post" action="/admin/ticketing/venues/{{ venue.id }}/sections/generate"><div class="fields"><div><label>Section</label><input name="name"></div><div><label>Order</label><input name="sort_order" type="number" value="10"></div><div><label>Row</label><input name="row_label" value="A"></div><div><label>First</label><input name="first_seat" type="number" value="101"></div><div><label>Last</label><input name="last_seat" type="number" value="121"></div><div><label>Type</label><select name="seat_type"><option>Standard</option><option>VIP</option><option>Accessible</option><option>Companion</option><option>Soft Seating</option></select></div></div><p><button>Add Row</button></p></form></section></div>
-<section class="card"><h2>Live Coordinate Preview</h2><div class="canvas-shell"><div class="canvas" style="width:{{ canvas.canvas_width }}px;height:{{ canvas.canvas_height }}px">{% for obj in venue_objects %}<div class="object {{ obj.shape|lower }}" style="left:{{ obj.x_pos }}px;top:{{ obj.y_pos }}px;width:{{ obj.width_px }}px;height:{{ obj.height_px }}px;transform:rotate({{ obj.rotation_deg }}deg);z-index:{{ obj.z_index }}">{{ obj.label }}</div>{% endfor %}{% for section in sections %}<div class="section {% if section.orientation=='Vertical' %}vertical{% endif %}" style="left:{{ section.x_pos }}px;top:{{ section.y_pos }}px;width:{{ section.width_px }}px;height:{{ section.height_px }}px;transform:rotate({{ section.rotation_deg }}deg);z-index:{{ section.z_index }}"><div class="section-title">{{ section.name }}</div>{% for key,rows in grouped_seats.items() %}{% if key[0]==section.id %}{% for row_label,seats in rows.items() %}{% set layout=row_layouts.get((section.id,row_label),{}) %}{% set shown=seats|reverse|list if layout.get('seat_direction')=='Low Right' else seats %}<div class="row" style="margin-bottom:{{ layout.get('extra_space_after',0) }}px"><span style="font-size:.56rem;color:#ffc867">{{ row_label }}</span>{% for seat in shown %}<span class="seat {{ seat.seat_type|lower|replace(' ','-') }}">{% if seat.seat_type=="Accessible" %}♿{% else %}{{ seat.seat_number }}{% endif %}</span>{% endfor %}</div>{% endfor %}{% endif %}{% endfor %}</div>{% endfor %}</div></div></section>
-<section class="card"><h2>Section Coordinates</h2>{% for section in sections %}<div class="editor"><h3>{{ section.name }}</h3>{% if not venue.issued_ticket_count %}<form method="post" action="/admin/ticketing/sections/{{ section.id }}/layout"><div class="fields"><div><label>Orientation</label><select name="orientation"><option {% if section.orientation=='Horizontal' %}selected{% endif %}>Horizontal</option><option {% if section.orientation=='Vertical' %}selected{% endif %}>Vertical</option></select></div><div><label>Placement note</label><input name="placement" value="{{ section.placement }}"></div><div><label>X</label><input name="x_pos" type="number" value="{{ section.x_pos }}"></div><div><label>Y</label><input name="y_pos" type="number" value="{{ section.y_pos }}"></div><div><label>Width</label><input name="width_px" type="number" value="{{ section.width_px }}"></div><div><label>Height</label><input name="height_px" type="number" value="{{ section.height_px }}"></div><div><label>Rotation</label><input name="rotation_deg" type="number" value="{{ section.rotation_deg }}"></div><div><label>Layer</label><input name="z_index" type="number" value="{{ section.z_index }}"></div></div><p><button>Save Position</button></p></form>{% endif %}{% for key,rows in grouped_seats.items() %}{% if key[0]==section.id %}{% for row_label,seats in rows.items() %}{% set layout=row_layouts.get((section.id,row_label),{}) %}<form method="post" action="/admin/ticketing/sections/{{ section.id }}/rows/{{ row_label }}/layout"><div class="fields"><div><label>Row {{ row_label }} gap</label><input name="extra_space_after" type="number" value="{{ layout.get('extra_space_after',0) }}"></div><div><label>Lowest number side</label><select name="seat_direction"><option value="Low Left" {% if layout.get('seat_direction')=='Low Left' %}selected{% endif %}>Chart left</option><option value="Low Right" {% if layout.get('seat_direction')=='Low Right' %}selected{% endif %}>Chart right</option></select></div><div><label>Note</label><input name="notes" value="{{ layout.get('notes','') }}"></div></div><p><button>Save Row</button></p></form>{% endfor %}{% endif %}{% endfor %}</div>{% endfor %}</section>
-<section class="card"><h2>Object Coordinates</h2>{% if not venue.issued_ticket_count %}<form method="post" action="/admin/ticketing/venues/{{ venue.id }}/objects/save"><div class="fields"><div><label>Type</label><input name="object_type" value="VIP Table"></div><div><label>Label</label><input name="label"></div><div><label>Shape</label><select name="shape"><option>Rectangle</option><option>Circle</option><option>Label</option></select></div><div><label>Placement note</label><input name="placement" value="Center"></div><div><label>Order</label><input name="sort_order" type="number" value="10"></div><div><label>X</label><input name="x_pos" type="number" value="500"></div><div><label>Y</label><input name="y_pos" type="number" value="800"></div><div><label>Width</label><input name="width_px" type="number" value="180"></div><div><label>Height</label><input name="height_px" type="number" value="90"></div><div><label>Rotation</label><input name="rotation_deg" type="number" value="0"></div><div><label>Layer</label><input name="z_index" type="number" value="20"></div><label><input type="checkbox" name="active" checked style="width:auto"> Active</label><input type="hidden" name="width_units" value="2"><input type="hidden" name="height_units" value="1"><div><label>Notes</label><input name="notes"></div></div><p><button>Add Object</button></p></form>{% endif %}{% for obj in venue_objects %}<div class="editor"><strong>{{ obj.object_type }} — {{ obj.label }}</strong>{% if not venue.issued_ticket_count %}<form method="post" action="/admin/ticketing/venues/{{ venue.id }}/objects/save"><input type="hidden" name="id" value="{{ obj.id }}"><div class="fields"><input name="object_type" value="{{ obj.object_type }}"><input name="label" value="{{ obj.label }}"><select name="shape"><option {% if obj.shape=='Rectangle' %}selected{% endif %}>Rectangle</option><option {% if obj.shape=='Circle' %}selected{% endif %}>Circle</option><option {% if obj.shape=='Label' %}selected{% endif %}>Label</option></select><input name="placement" value="{{ obj.placement }}"><input name="sort_order" type="number" value="{{ obj.sort_order }}"><input name="x_pos" type="number" value="{{ obj.x_pos }}"><input name="y_pos" type="number" value="{{ obj.y_pos }}"><input name="width_px" type="number" value="{{ obj.width_px }}"><input name="height_px" type="number" value="{{ obj.height_px }}"><input name="rotation_deg" type="number" value="{{ obj.rotation_deg }}"><input name="z_index" type="number" value="{{ obj.z_index }}"><label><input type="checkbox" name="active" {% if obj.active %}checked{% endif %} style="width:auto"> Active</label><input type="hidden" name="width_units" value="{{ obj.width_units }}"><input type="hidden" name="height_units" value="{{ obj.height_units }}"><input name="notes" value="{{ obj.notes }}"></div><p><button>Save Object</button></p></form>{% endif %}</div>{% endfor %}</section></main></body></html>
+<section class="card"><div class="drag-toolbar"><div><h2>Mouse-Position Venue Designer</h2><div class="drag-help">Click and drag a seating section or theater object. Release the mouse to save its position automatically.</div></div><div id="drag-status" class="drag-status" aria-live="polite">Ready</div></div><div class="canvas-shell"><div class="canvas" style="width:{{ canvas.canvas_width }}px;height:{{ canvas.canvas_height }}px">{% for obj in venue_objects %}<div class="object draggable-canvas-item {{ obj.shape|lower }}"
+data-item-type="object"
+data-item-id="{{ obj.id }}"
+data-x="{{ obj.x_pos }}"
+data-y="{{ obj.y_pos }}"
+style="left:{{ obj.x_pos }}px;top:{{ obj.y_pos }}px;width:{{ obj.width_px }}px;height:{{ obj.height_px }}px;transform:rotate({{ obj.rotation_deg }}deg);z-index:{{ obj.z_index }}"
+title="Drag to move {{ obj.label }}">{{ obj.label }}</div>{% endfor %}{% for section in sections %}<div class="section draggable-canvas-item {% if section.orientation=='Vertical' %}vertical{% endif %}"
+data-item-type="section"
+data-item-id="{{ section.id }}"
+data-x="{{ section.x_pos }}"
+data-y="{{ section.y_pos }}"
+style="left:{{ section.x_pos }}px;top:{{ section.y_pos }}px;width:{{ section.width_px }}px;height:{{ section.height_px }}px;transform:rotate({{ section.rotation_deg }}deg);z-index:{{ section.z_index }}"
+title="Drag to move {{ section.name }}"><div class="section-title">{{ section.name }}</div>{% for key,rows in grouped_seats.items() %}{% if key[0]==section.id %}{% for row_label,seats in rows.items() %}{% set layout=row_layouts.get((section.id,row_label),{}) %}{% set shown=seats|reverse|list if layout.get('seat_direction')=='Low Right' else seats %}<div class="row" style="margin-bottom:{{ layout.get('extra_space_after',0) }}px"><span style="font-size:.56rem;color:#ffc867">{{ row_label }}</span>{% for seat in shown %}<span class="seat {{ seat.seat_type|lower|replace(' ','-') }}">{% if seat.seat_type=="Accessible" %}♿{% else %}{{ seat.seat_number }}{% endif %}</span>{% endfor %}</div>{% endfor %}{% endif %}{% endfor %}</div>{% endfor %}</div></div></section>
+<section class="card"><h2>Section Coordinates</h2>{% for section in sections %}<div class="editor"><h3>{{ section.name }}</h3>{% if not venue.issued_ticket_count %}<form method="post" action="/admin/ticketing/sections/{{ section.id }}/layout"><div class="fields"><div><label>Orientation</label><select name="orientation"><option {% if section.orientation=='Horizontal' %}selected{% endif %}>Horizontal</option><option {% if section.orientation=='Vertical' %}selected{% endif %}>Vertical</option></select></div><div><label>Placement note</label><input name="placement" value="{{ section.placement }}"></div><div><label>X</label><input id="section-{{ section.id }}-x" name="x_pos" type="number" value="{{ section.x_pos }}"></div><div><label>Y</label><input id="section-{{ section.id }}-y" name="y_pos" type="number" value="{{ section.y_pos }}"></div><div><label>Width</label><input name="width_px" type="number" value="{{ section.width_px }}"></div><div><label>Height</label><input name="height_px" type="number" value="{{ section.height_px }}"></div><div><label>Rotation</label><input name="rotation_deg" type="number" value="{{ section.rotation_deg }}"></div><div><label>Layer</label><input name="z_index" type="number" value="{{ section.z_index }}"></div></div><p><button>Save Position</button></p></form>{% endif %}{% for key,rows in grouped_seats.items() %}{% if key[0]==section.id %}{% for row_label,seats in rows.items() %}{% set layout=row_layouts.get((section.id,row_label),{}) %}<form method="post" action="/admin/ticketing/sections/{{ section.id }}/rows/{{ row_label }}/layout"><div class="fields"><div><label>Row {{ row_label }} gap</label><input name="extra_space_after" type="number" value="{{ layout.get('extra_space_after',0) }}"></div><div><label>Lowest number side</label><select name="seat_direction"><option value="Low Left" {% if layout.get('seat_direction')=='Low Left' %}selected{% endif %}>Chart left</option><option value="Low Right" {% if layout.get('seat_direction')=='Low Right' %}selected{% endif %}>Chart right</option></select></div><div><label>Note</label><input name="notes" value="{{ layout.get('notes','') }}"></div></div><p><button>Save Row</button></p></form>{% endfor %}{% endif %}{% endfor %}</div>{% endfor %}</section>
+<section class="card"><h2>Object Coordinates</h2>{% if not venue.issued_ticket_count %}<form method="post" action="/admin/ticketing/venues/{{ venue.id }}/objects/save"><div class="fields"><div><label>Type</label><input name="object_type" value="VIP Table"></div><div><label>Label</label><input name="label"></div><div><label>Shape</label><select name="shape"><option>Rectangle</option><option>Circle</option><option>Label</option></select></div><div><label>Placement note</label><input name="placement" value="Center"></div><div><label>Order</label><input name="sort_order" type="number" value="10"></div><div><label>X</label><input name="x_pos" type="number" value="500"></div><div><label>Y</label><input name="y_pos" type="number" value="800"></div><div><label>Width</label><input name="width_px" type="number" value="180"></div><div><label>Height</label><input name="height_px" type="number" value="90"></div><div><label>Rotation</label><input name="rotation_deg" type="number" value="0"></div><div><label>Layer</label><input name="z_index" type="number" value="20"></div><label><input type="checkbox" name="active" checked style="width:auto"> Active</label><input type="hidden" name="width_units" value="2"><input type="hidden" name="height_units" value="1"><div><label>Notes</label><input name="notes"></div></div><p><button>Add Object</button></p></form>{% endif %}{% for obj in venue_objects %}<div class="editor"><strong>{{ obj.object_type }} — {{ obj.label }}</strong>{% if not venue.issued_ticket_count %}<form method="post" action="/admin/ticketing/venues/{{ venue.id }}/objects/save"><input type="hidden" name="id" value="{{ obj.id }}"><div class="fields"><input name="object_type" value="{{ obj.object_type }}"><input name="label" value="{{ obj.label }}"><select name="shape"><option {% if obj.shape=='Rectangle' %}selected{% endif %}>Rectangle</option><option {% if obj.shape=='Circle' %}selected{% endif %}>Circle</option><option {% if obj.shape=='Label' %}selected{% endif %}>Label</option></select><input name="placement" value="{{ obj.placement }}"><input name="sort_order" type="number" value="{{ obj.sort_order }}"><input id="object-{{ obj.id }}-x" name="x_pos" type="number" value="{{ obj.x_pos }}"><input id="object-{{ obj.id }}-y" name="y_pos" type="number" value="{{ obj.y_pos }}"><input name="width_px" type="number" value="{{ obj.width_px }}"><input name="height_px" type="number" value="{{ obj.height_px }}"><input name="rotation_deg" type="number" value="{{ obj.rotation_deg }}"><input name="z_index" type="number" value="{{ obj.z_index }}"><label><input type="checkbox" name="active" {% if obj.active %}checked{% endif %} style="width:auto"> Active</label><input type="hidden" name="width_units" value="{{ obj.width_units }}"><input type="hidden" name="height_units" value="{{ obj.height_units }}"><input name="notes" value="{{ obj.notes }}"></div><p><button>Save Object</button></p></form>{% endif %}</div>{% endfor %}</section></main>
+<script>
+(() => {
+  const canvas = document.querySelector(".canvas");
+  const status = document.getElementById("drag-status");
+  const locked = {{ "true" if venue.issued_ticket_count else "false" }};
+  if (!canvas || locked) {
+    if (status && locked) {
+      status.textContent = "Layout locked because ticket history exists.";
+      status.className = "drag-status error";
+    }
+    return;
+  }
+
+  let drag = null;
+
+  const setStatus = (message, state = "") => {
+    if (!status) return;
+    status.textContent = message;
+    status.className = `drag-status ${state}`.trim();
+  };
+
+  const pointerPosition = (event) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.offsetWidth / rect.width;
+    const scaleY = canvas.offsetHeight / rect.height;
+    return {
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY
+    };
+  };
+
+  const updateCoordinateInputs = (itemType, itemId, x, y) => {
+    const xInput = document.getElementById(`${itemType}-${itemId}-x`);
+    const yInput = document.getElementById(`${itemType}-${itemId}-y`);
+    if (xInput) xInput.value = x;
+    if (yInput) yInput.value = y;
+  };
+
+  const savePosition = async (element) => {
+    const itemType = element.dataset.itemType;
+    const itemId = Number(element.dataset.itemId);
+    const x = Math.round(parseFloat(element.style.left) || 0);
+    const y = Math.round(parseFloat(element.style.top) || 0);
+
+    setStatus("Saving position…", "saving");
+
+    try {
+      const response = await fetch(
+        "/admin/ticketing/venues/{{ venue.id }}/canvas/position",
+        {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            item_type: itemType,
+            item_id: itemId,
+            x_pos: x,
+            y_pos: y
+          })
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || "Could not save the position.");
+      }
+
+      element.style.left = `${result.x_pos}px`;
+      element.style.top = `${result.y_pos}px`;
+      element.dataset.x = String(result.x_pos);
+      element.dataset.y = String(result.y_pos);
+      updateCoordinateInputs(
+        itemType,
+        itemId,
+        result.x_pos,
+        result.y_pos
+      );
+      setStatus(
+        `Saved ${itemType} at X ${result.x_pos}, Y ${result.y_pos}`,
+        "saved"
+      );
+    } catch (error) {
+      element.style.left = `${element.dataset.x}px`;
+      element.style.top = `${element.dataset.y}px`;
+      setStatus(error.message || "Position save failed.", "error");
+    }
+  };
+
+  canvas.querySelectorAll(".draggable-canvas-item").forEach((element) => {
+    element.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+
+      const point = pointerPosition(event);
+      drag = {
+        element,
+        pointerId: event.pointerId,
+        offsetX: point.x - (parseFloat(element.style.left) || 0),
+        offsetY: point.y - (parseFloat(element.style.top) || 0)
+      };
+
+      element.setPointerCapture(event.pointerId);
+      element.classList.add("dragging");
+      setStatus("Moving…", "saving");
+      event.preventDefault();
+    });
+
+    element.addEventListener("pointermove", (event) => {
+      if (!drag || drag.element !== element) return;
+
+      const point = pointerPosition(event);
+      const maxX = Math.max(0, canvas.clientWidth - element.offsetWidth);
+      const maxY = Math.max(0, canvas.clientHeight - element.offsetHeight);
+      const x = Math.max(0, Math.min(point.x - drag.offsetX, maxX));
+      const y = Math.max(0, Math.min(point.y - drag.offsetY, maxY));
+
+      element.style.left = `${Math.round(x)}px`;
+      element.style.top = `${Math.round(y)}px`;
+    });
+
+    const finishDrag = async (event) => {
+      if (!drag || drag.element !== element) return;
+
+      try {
+        element.releasePointerCapture(event.pointerId);
+      } catch (_) {}
+
+      element.classList.remove("dragging");
+      drag = null;
+      await savePosition(element);
+    };
+
+    element.addEventListener("pointerup", finishDrag);
+    element.addEventListener("pointercancel", () => {
+      if (!drag || drag.element !== element) return;
+      element.style.left = `${element.dataset.x}px`;
+      element.style.top = `${element.dataset.y}px`;
+      element.classList.remove("dragging");
+      drag = null;
+      setStatus("Move cancelled.");
+    });
+  });
+})();
+</script>
+</body></html>
