@@ -1003,6 +1003,12 @@ def init_db() -> None:
             id {id_column}, section_id INTEGER NOT NULL UNIQUE,
             orientation TEXT NOT NULL DEFAULT 'Horizontal',
             placement TEXT NOT NULL DEFAULT 'Center',
+            x_pos INTEGER NOT NULL DEFAULT 400,
+            y_pos INTEGER NOT NULL DEFAULT 250,
+            width_px INTEGER NOT NULL DEFAULT 600,
+            height_px INTEGER NOT NULL DEFAULT 220,
+            rotation_deg INTEGER NOT NULL DEFAULT 0,
+            z_index INTEGER NOT NULL DEFAULT 10,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(section_id) REFERENCES ticket_sections(id) ON DELETE CASCADE
         )
@@ -1019,6 +1025,13 @@ def init_db() -> None:
             label TEXT NOT NULL DEFAULT '',
             placement TEXT NOT NULL DEFAULT 'Rear Center',
             sort_order INTEGER NOT NULL DEFAULT 0,
+            x_pos INTEGER NOT NULL DEFAULT 500,
+            y_pos INTEGER NOT NULL DEFAULT 800,
+            width_px INTEGER NOT NULL DEFAULT 180,
+            height_px INTEGER NOT NULL DEFAULT 90,
+            rotation_deg INTEGER NOT NULL DEFAULT 0,
+            z_index INTEGER NOT NULL DEFAULT 20,
+            shape TEXT NOT NULL DEFAULT 'Rectangle',
             width_units INTEGER NOT NULL DEFAULT 2,
             height_units INTEGER NOT NULL DEFAULT 1,
             notes TEXT NOT NULL DEFAULT '',
@@ -1045,8 +1058,42 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_canvas_settings (
+            id {id_column},
+            venue_id INTEGER NOT NULL UNIQUE,
+            canvas_width INTEGER NOT NULL DEFAULT 1400,
+            canvas_height INTEGER NOT NULL DEFAULT 1100,
+            background_label TEXT NOT NULL DEFAULT '',
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(venue_id) REFERENCES ticket_venues(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
+        for column_name, column_definition in [
+            ("x_pos", "INTEGER NOT NULL DEFAULT 400"),
+            ("y_pos", "INTEGER NOT NULL DEFAULT 250"),
+            ("width_px", "INTEGER NOT NULL DEFAULT 600"),
+            ("height_px", "INTEGER NOT NULL DEFAULT 220"),
+            ("rotation_deg", "INTEGER NOT NULL DEFAULT 0"),
+            ("z_index", "INTEGER NOT NULL DEFAULT 10"),
+        ]:
+            cursor.execute(f"ALTER TABLE ticket_section_layouts ADD COLUMN IF NOT EXISTS {column_name} {column_definition}")
+        for column_name, column_definition in [
+            ("x_pos", "INTEGER NOT NULL DEFAULT 500"),
+            ("y_pos", "INTEGER NOT NULL DEFAULT 800"),
+            ("width_px", "INTEGER NOT NULL DEFAULT 180"),
+            ("height_px", "INTEGER NOT NULL DEFAULT 90"),
+            ("rotation_deg", "INTEGER NOT NULL DEFAULT 0"),
+            ("z_index", "INTEGER NOT NULL DEFAULT 20"),
+            ("shape", "TEXT NOT NULL DEFAULT 'Rectangle'"),
+        ]:
+            cursor.execute(f"ALTER TABLE ticket_venue_objects ADD COLUMN IF NOT EXISTS {column_name} {column_definition}")
+
         costume_tables = {
             "costume_vendors": [("name","TEXT NOT NULL DEFAULT ''"),("website","TEXT NOT NULL DEFAULT ''"),("contact_name","TEXT NOT NULL DEFAULT ''"),("email","TEXT NOT NULL DEFAULT ''"),("phone","TEXT NOT NULL DEFAULT ''"),("notes","TEXT NOT NULL DEFAULT ''"),("active","INTEGER NOT NULL DEFAULT 1"),("created_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),("updated_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")],
             "costumes": [("vendor_id","INTEGER"),("name","TEXT NOT NULL DEFAULT ''"),("style_number","TEXT NOT NULL DEFAULT ''"),("color","TEXT NOT NULL DEFAULT ''"),("season","TEXT NOT NULL DEFAULT ''"),("category","TEXT NOT NULL DEFAULT ''"),("unit_cost","DOUBLE PRECISION NOT NULL DEFAULT 0"),("charge_amount","DOUBLE PRECISION NOT NULL DEFAULT 0"),("order_status","TEXT NOT NULL DEFAULT 'Planned'"),("tracking_number","TEXT NOT NULL DEFAULT ''"),("expected_date","TEXT NOT NULL DEFAULT ''"),("received_date","TEXT NOT NULL DEFAULT ''"),("notes","TEXT NOT NULL DEFAULT ''"),("active","INTEGER NOT NULL DEFAULT 1"),("created_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"),("updated_at","TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")],
@@ -1361,6 +1408,30 @@ def init_db() -> None:
                 """
             )
     else:
+        existing_section_canvas_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(ticket_section_layouts)").fetchall()}
+        for column_name, column_definition in [
+            ("x_pos", "INTEGER NOT NULL DEFAULT 400"),
+            ("y_pos", "INTEGER NOT NULL DEFAULT 250"),
+            ("width_px", "INTEGER NOT NULL DEFAULT 600"),
+            ("height_px", "INTEGER NOT NULL DEFAULT 220"),
+            ("rotation_deg", "INTEGER NOT NULL DEFAULT 0"),
+            ("z_index", "INTEGER NOT NULL DEFAULT 10"),
+        ]:
+            if column_name not in existing_section_canvas_columns:
+                cursor.execute(f"ALTER TABLE ticket_section_layouts ADD COLUMN {column_name} {column_definition}")
+        existing_object_canvas_columns = {row["name"] for row in cursor.execute("PRAGMA table_info(ticket_venue_objects)").fetchall()}
+        for column_name, column_definition in [
+            ("x_pos", "INTEGER NOT NULL DEFAULT 500"),
+            ("y_pos", "INTEGER NOT NULL DEFAULT 800"),
+            ("width_px", "INTEGER NOT NULL DEFAULT 180"),
+            ("height_px", "INTEGER NOT NULL DEFAULT 90"),
+            ("rotation_deg", "INTEGER NOT NULL DEFAULT 0"),
+            ("z_index", "INTEGER NOT NULL DEFAULT 20"),
+            ("shape", "TEXT NOT NULL DEFAULT 'Rectangle'"),
+        ]:
+            if column_name not in existing_object_canvas_columns:
+                cursor.execute(f"ALTER TABLE ticket_venue_objects ADD COLUMN {column_name} {column_definition}")
+
         existing_customer_columns = {
             row["name"]
             for row in cursor.execute(
