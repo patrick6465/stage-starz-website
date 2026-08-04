@@ -925,6 +925,50 @@ def init_db() -> None:
         """
     )
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_holds (
+            id {id_column},
+            recital_show_id INTEGER NOT NULL,
+            family_id INTEGER,
+            held_for_name TEXT NOT NULL,
+            email TEXT NOT NULL DEFAULT '',
+            phone TEXT NOT NULL DEFAULT '',
+            reason TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            expires_at TIMESTAMP,
+            status TEXT NOT NULL DEFAULT 'Active',
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            released_at TIMESTAMP,
+            released_by INTEGER,
+            release_reason TEXT NOT NULL DEFAULT '',
+            converted_order_id INTEGER,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+            FOREIGN KEY(released_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+            FOREIGN KEY(converted_order_id) REFERENCES ticket_orders(id) ON DELETE SET NULL
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_hold_seats (
+            id {id_column},
+            hold_id INTEGER NOT NULL,
+            recital_show_id INTEGER NOT NULL,
+            seat_id INTEGER NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(recital_show_id, seat_id),
+            FOREIGN KEY(hold_id) REFERENCES ticket_holds(id) ON DELETE CASCADE,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(seat_id) REFERENCES ticket_seats(id) ON DELETE RESTRICT
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         costume_tables = {

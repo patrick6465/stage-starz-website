@@ -411,7 +411,8 @@ MIGRATION_REGISTRY = [
         "description": "Venue layouts, assigned seating, ticket orders, printable tickets, billing, and door check-in.",
         "required_tables": [
             "ticket_venues", "ticket_sections", "ticket_seats",
-            "ticket_show_settings", "ticket_orders", "tickets"
+            "ticket_show_settings", "ticket_orders", "tickets",
+            "ticket_holds", "ticket_hold_seats"
         ],
         "required_columns": {
             "ticket_venues": ["name","address","active"],
@@ -420,6 +421,8 @@ MIGRATION_REGISTRY = [
             "ticket_show_settings": ["recital_show_id","venue_id","default_price","sales_status"],
             "ticket_orders": ["recital_show_id","family_id","purchaser_name","order_status","payment_status","total_amount"],
             "tickets": ["order_id","recital_show_id","seat_id","ticket_code","price","status","checked_in_at"],
+            "ticket_holds": ["recital_show_id","family_id","held_for_name","notes","expires_at","status","converted_order_id"],
+            "ticket_hold_seats": ["hold_id","recital_show_id","seat_id"],
         },
     },
 ]
@@ -1683,7 +1686,7 @@ def ticketing_center():
             COALESCE((SELECT COUNT(*) FROM tickets WHERE status='Valid'),0) AS tickets_sold,
             COALESCE((SELECT SUM(price) FROM tickets WHERE status='Valid'),0) AS revenue,
             COALESCE((SELECT COUNT(*) FROM tickets WHERE checked_in_at IS NOT NULL AND status='Valid'),0) AS checked_in,
-            COALESCE((SELECT COUNT(*) FROM ticket_orders WHERE order_status='Held'),0) AS held_orders
+            COALESCE((SELECT COUNT(*) FROM ticket_holds WHERE status='Active'),0) AS held_orders
         """
     ).fetchone()
     connection.close()
@@ -1743,7 +1746,12 @@ def save_ticket_venue():
 def ticket_venue(venue_id: int):
     connection = get_db()
     venue = connection.execute(
-        "SELECT * FROM ticket_venues WHERE id=?",
+        """
+        SELECT tv.*,
+          COALESCE((SELECT COUNT(*) FROM ticket_show_settings tss WHERE tss.venue_id=tv.id),0) AS assigned_show_count,
+          COALESCE((SELECT COUNT(*) FROM tickets tk JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id WHERE sec.venue_id=tv.id),0) AS issued_ticket_count
+        FROM ticket_venues tv WHERE tv.id=?
+        """,
         (venue_id,),
     ).fetchone()
     if not venue:
@@ -1851,6 +1859,121 @@ def generate_ticket_section(venue_id: int):
     return redirect(url_for("ticket_venue", venue_id=venue_id))
 
 
+def venue_has_ticket_history(connection, venue_id: int) -> bool:
+    row = connection.execute("""SELECT COUNT(*) AS count FROM tickets tk JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id WHERE sec.venue_id=?""",(venue_id,)).fetchone()
+    return int(row["count"] or 0)>0
+
+@app.route("/admin/ticketing/venues/<int:venue_id>/delete",methods=["POST"])
+@permission_required("ticketing")
+def delete_ticket_venue(venue_id):
+    c=get_db()
+    if venue_has_ticket_history(c,venue_id):
+        c.close(); flash("This venue has ticket history and cannot be deleted. Mark it inactive instead.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    used=c.execute("SELECT COUNT(*) AS count FROM ticket_show_settings WHERE venue_id=?",(venue_id,)).fetchone()
+    if int(used["count"] or 0)>0:
+        c.close(); flash("Remove this venue from recital shows before deleting it.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    c.execute("DELETE FROM ticket_venues WHERE id=?",(venue_id,)); c.commit(); c.close(); flash("Unfinished venue deleted.","success"); return redirect(url_for("ticketing_center"))
+
+@app.route("/admin/ticketing/venues/<int:venue_id>/reset",methods=["POST"])
+@permission_required("ticketing")
+def reset_ticket_venue_chart(venue_id):
+    c=get_db()
+    if venue_has_ticket_history(c,venue_id): c.close(); flash("Chart is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    c.execute("DELETE FROM ticket_sections WHERE venue_id=?",(venue_id,)); c.commit(); c.close(); flash("Unfinished seating chart reset.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+
+@app.route("/admin/ticketing/sections/<int:section_id>/update",methods=["POST"])
+@permission_required("ticketing")
+def update_ticket_section(section_id):
+    c=get_db(); sec=c.execute("SELECT venue_id FROM ticket_sections WHERE id=?",(section_id,)).fetchone()
+    if not sec: c.close(); return ("Section not found",404)
+    venue_id=int(sec["venue_id"])
+    if venue_has_ticket_history(c,venue_id): c.close(); flash("Layout is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    c.execute("UPDATE ticket_sections SET name=?,sort_order=?,notes=? WHERE id=?",(request.form.get("name","").strip(),int(request.form.get("sort_order","0") or 0),request.form.get("notes","").strip(),section_id)); c.commit(); c.close(); flash("Section updated.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+
+@app.route("/admin/ticketing/sections/<int:section_id>/delete",methods=["POST"])
+@permission_required("ticketing")
+def delete_ticket_section(section_id):
+    c=get_db(); sec=c.execute("SELECT venue_id FROM ticket_sections WHERE id=?",(section_id,)).fetchone()
+    if not sec: c.close(); return ("Section not found",404)
+    venue_id=int(sec["venue_id"])
+    if venue_has_ticket_history(c,venue_id): c.close(); flash("Layout is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    c.execute("DELETE FROM ticket_sections WHERE id=?",(section_id,)); c.commit(); c.close(); flash("Section deleted.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+
+@app.route("/admin/ticketing/seats/<int:seat_id>/update",methods=["POST"])
+@permission_required("ticketing")
+def update_ticket_seat(seat_id):
+    c=get_db(); seat=c.execute("SELECT sec.venue_id FROM ticket_seats ts JOIN ticket_sections sec ON sec.id=ts.section_id WHERE ts.id=?",(seat_id,)).fetchone()
+    if not seat: c.close(); return ("Seat not found",404)
+    venue_id=int(seat["venue_id"])
+    if venue_has_ticket_history(c,venue_id): c.close(); flash("Layout is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    row=request.form.get("row_label","").strip().upper(); num=int(request.form.get("seat_number","0") or 0)
+    c.execute("UPDATE ticket_seats SET row_label=?,seat_number=?,seat_label=?,seat_type=?,active=? WHERE id=?",(row,num,request.form.get("seat_label","").strip() or f"{row}-{num}",request.form.get("seat_type","Standard").strip(),1 if request.form.get("active")=="on" else 0,seat_id)); c.commit(); c.close(); flash("Seat updated.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+
+@app.route("/admin/ticketing/seats/<int:seat_id>/delete",methods=["POST"])
+@permission_required("ticketing")
+def delete_ticket_seat(seat_id):
+    c=get_db(); seat=c.execute("SELECT sec.venue_id FROM ticket_seats ts JOIN ticket_sections sec ON sec.id=ts.section_id WHERE ts.id=?",(seat_id,)).fetchone()
+    if not seat: c.close(); return ("Seat not found",404)
+    venue_id=int(seat["venue_id"])
+    if venue_has_ticket_history(c,venue_id): c.close(); flash("Layout is locked because tickets exist.","error"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+    c.execute("DELETE FROM ticket_seats WHERE id=?",(seat_id,)); c.commit(); c.close(); flash("Seat deleted.","success"); return redirect(url_for("ticket_venue",venue_id=venue_id))
+
+@app.route("/admin/ticketing/shows/<int:show_id>/holds",methods=["POST"])
+@permission_required("ticketing")
+def create_ticket_hold(show_id):
+    seats=[int(v) for v in request.form.getlist("seat_id") if v.isdigit()]
+    if not seats: flash("Select at least one seat to hold.","error"); return redirect(url_for("ticket_show",show_id=show_id))
+    c=get_db(); marks=','.join('?' for _ in seats)
+    if c.execute(f"SELECT seat_id FROM tickets WHERE recital_show_id=? AND status='Valid' AND seat_id IN ({marks})",tuple([show_id]+seats)).fetchall() or c.execute(f"SELECT seat_id FROM ticket_hold_seats WHERE recital_show_id=? AND seat_id IN ({marks})",tuple([show_id]+seats)).fetchall():
+        c.close(); flash("One or more seats are no longer available.","error"); return redirect(url_for("ticket_show",show_id=show_id))
+    family=request.form.get("family_id","").strip(); sql="INSERT INTO ticket_holds (recital_show_id,family_id,held_for_name,email,phone,reason,notes,expires_at,status,created_by) VALUES (?,?,?,?,?,?,?,?,'Active',?)"
+    if c.backend=='postgresql': sql+=' RETURNING id'
+    cur=c.execute(sql,(show_id,int(family) if family else None,request.form.get("held_for_name","").strip(),request.form.get("email","").strip(),request.form.get("phone","").strip(),request.form.get("reason","").strip(),request.form.get("notes","").strip(),request.form.get("expires_at","").strip() or None,int(session.get("admin_user_id") or 0) or None))
+    hold_id=int(cur.fetchone()["id"]) if c.backend=='postgresql' else int(cur.lastrowid)
+    for seat_id in seats: c.execute("INSERT INTO ticket_hold_seats (hold_id,recital_show_id,seat_id) VALUES (?,?,?)",(hold_id,show_id,seat_id))
+    c.commit(); c.close(); event_id=create_workflow_event("ticket_hold_created","ticketing","Seats placed on hold",f"Hold #{hold_id} · {len(seats)} seats","warning",str(hold_id)); evaluate_workflow_rules(event_id); flash("Seats placed on hold.","success"); return redirect(url_for("ticket_hold",hold_id=hold_id))
+
+@app.route("/admin/ticketing/holds/<int:hold_id>")
+@permission_required("ticketing")
+def ticket_hold(hold_id):
+    c=get_db(); hold=c.execute("""SELECT th.*,rs.name AS show_name,rs.show_date,rs.start_time,rp.name AS production_name,f.family_name FROM ticket_holds th JOIN recital_shows rs ON rs.id=th.recital_show_id JOIN recital_productions rp ON rp.id=rs.production_id LEFT JOIN families f ON f.id=th.family_id WHERE th.id=?""",(hold_id,)).fetchone()
+    if not hold: c.close(); return ("Hold not found",404)
+    seats=c.execute("""SELECT ts.id,ts.row_label,ts.seat_number,ts.seat_type,sec.name AS section_name FROM ticket_hold_seats hs JOIN ticket_seats ts ON ts.id=hs.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id WHERE hs.hold_id=? ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number""",(hold_id,)).fetchall(); c.close(); return render_template("ticket_hold.html",hold=dict(hold),seats=[dict(r) for r in seats])
+
+@app.route("/admin/ticketing/holds/<int:hold_id>/update",methods=["POST"])
+@permission_required("ticketing")
+def update_ticket_hold(hold_id):
+    c=get_db(); hold=c.execute("SELECT status FROM ticket_holds WHERE id=?",(hold_id,)).fetchone()
+    if not hold: c.close(); return ("Hold not found",404)
+    if hold["status"]!='Active': c.close(); flash("Only active holds can be edited.","error"); return redirect(url_for("ticket_hold",hold_id=hold_id))
+    c.execute("UPDATE ticket_holds SET held_for_name=?,email=?,phone=?,reason=?,notes=?,expires_at=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",(request.form.get("held_for_name","").strip(),request.form.get("email","").strip(),request.form.get("phone","").strip(),request.form.get("reason","").strip(),request.form.get("notes","").strip(),request.form.get("expires_at","").strip() or None,hold_id)); c.commit(); c.close(); flash("Hold updated.","success"); return redirect(url_for("ticket_hold",hold_id=hold_id))
+
+@app.route("/admin/ticketing/holds/<int:hold_id>/release",methods=["POST"])
+@permission_required("ticketing")
+def release_ticket_hold(hold_id):
+    c=get_db(); hold=c.execute("SELECT recital_show_id,status FROM ticket_holds WHERE id=?",(hold_id,)).fetchone()
+    if not hold: c.close(); return ("Hold not found",404)
+    if hold["status"]=='Active': c.execute("UPDATE ticket_holds SET status='Released',released_at=CURRENT_TIMESTAMP,released_by=?,release_reason=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",(int(session.get("admin_user_id") or 0) or None,request.form.get("release_reason","").strip(),hold_id)); c.execute("DELETE FROM ticket_hold_seats WHERE hold_id=?",(hold_id,)); c.commit()
+    show_id=int(hold["recital_show_id"]); c.close(); event_id=create_workflow_event("ticket_hold_released","ticketing","Seat hold released",f"Hold #{hold_id}","info",str(hold_id)); evaluate_workflow_rules(event_id); flash("Hold released.","success"); return redirect(url_for("ticket_show",show_id=show_id))
+
+@app.route("/admin/ticketing/holds/<int:hold_id>/convert",methods=["POST"])
+@permission_required("ticketing")
+def convert_ticket_hold(hold_id):
+    c=get_db(); hold=c.execute("SELECT * FROM ticket_holds WHERE id=?",(hold_id,)).fetchone()
+    if not hold: c.close(); return ("Hold not found",404)
+    if hold["status"]!='Active': c.close(); flash("Only active holds can be converted.","error"); return redirect(url_for("ticket_hold",hold_id=hold_id))
+    seats=[int(r["seat_id"]) for r in c.execute("SELECT seat_id FROM ticket_hold_seats WHERE hold_id=?",(hold_id,)).fetchall()]
+    setting=c.execute("SELECT default_price FROM ticket_show_settings WHERE recital_show_id=?",(hold["recital_show_id"],)).fetchone(); default=float(setting["default_price"] or 0) if setting else 0
+    pay=request.form.get("payment_status","Due").strip(); price=0 if pay=='Complimentary' else float(request.form.get("price_each",str(default)) or default); total=price*len(seats)
+    sql="INSERT INTO ticket_orders (recital_show_id,family_id,purchaser_name,purchaser_email,purchaser_phone,order_status,payment_status,total_amount,notes,created_by) VALUES (?,?,?,?,?,?,?,?,?,?)"
+    if c.backend=='postgresql': sql+=' RETURNING id'
+    cur=c.execute(sql,(hold["recital_show_id"],hold["family_id"],hold["held_for_name"],hold["email"],hold["phone"],request.form.get("order_status","Confirmed").strip(),pay,total,hold["notes"],int(session.get("admin_user_id") or 0) or None)); order_id=int(cur.fetchone()["id"]) if c.backend=='postgresql' else int(cur.lastrowid)
+    for seat_id in seats:
+        code=generate_ticket_code()
+        while c.execute("SELECT id FROM tickets WHERE ticket_code=?",(code,)).fetchone(): code=generate_ticket_code()
+        c.execute("INSERT INTO tickets (order_id,recital_show_id,seat_id,ticket_code,price,status) VALUES (?,?,?,?,?,'Valid')",(order_id,hold["recital_show_id"],seat_id,code,price))
+    c.execute("UPDATE ticket_holds SET status='Converted',converted_order_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",(order_id,hold_id)); c.execute("DELETE FROM ticket_hold_seats WHERE hold_id=?",(hold_id,)); c.commit(); c.close(); event_id=create_workflow_event("ticket_hold_converted","ticketing","Seat hold converted",f"Hold #{hold_id} to Order #{order_id}","success",str(order_id)); evaluate_workflow_rules(event_id); flash("Hold converted to order.","success"); return redirect(url_for("ticket_order",order_id=order_id))
+
 @app.route("/admin/ticketing/shows/<int:show_id>/settings", methods=["POST"])
 @permission_required("ticketing")
 def save_ticket_show_settings(show_id: int):
@@ -1941,7 +2064,11 @@ def ticket_show(show_id: int):
                 tk.checked_in_at,
                 tor.id AS order_id,
                 tor.order_status,
-                tor.purchaser_name
+                tor.purchaser_name,
+                ths.hold_id,
+                th.held_for_name,
+                th.notes AS hold_notes,
+                th.expires_at AS hold_expires_at
             FROM ticket_seats ts
             JOIN ticket_sections sec ON sec.id=ts.section_id
             LEFT JOIN tickets tk
@@ -1949,12 +2076,26 @@ def ticket_show(show_id: int):
              AND tk.recital_show_id=?
              AND tk.status='Valid'
             LEFT JOIN ticket_orders tor ON tor.id=tk.order_id
+            LEFT JOIN ticket_hold_seats ths ON ths.seat_id=ts.id AND ths.recital_show_id=?
+            LEFT JOIN ticket_holds th ON th.id=ths.hold_id AND th.status='Active'
             WHERE sec.venue_id=?
               AND ts.active=1
             ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number
             """,
-            (show_id, show["venue_id"]),
+            (show_id, show_id, show["venue_id"]),
         ).fetchall()
+
+    holds = connection.execute(
+        """
+        SELECT th.*,f.family_name,COUNT(ths.id) AS seat_count
+        FROM ticket_holds th
+        LEFT JOIN families f ON f.id=th.family_id
+        LEFT JOIN ticket_hold_seats ths ON ths.hold_id=th.id
+        WHERE th.recital_show_id=? AND th.status='Active'
+        GROUP BY th.id,th.recital_show_id,th.family_id,th.held_for_name,th.email,th.phone,th.reason,th.notes,th.expires_at,th.status,th.created_by,th.created_at,th.updated_at,th.released_at,th.released_by,th.release_reason,th.converted_order_id,f.family_name
+        ORDER BY th.id DESC
+        """,(show_id,)
+    ).fetchall()
 
     orders = connection.execute(
         """
@@ -1995,6 +2136,7 @@ def ticket_show(show_id: int):
         families=[dict(row) for row in families],
         grouped_seats=grouped_seats,
         orders=[dict(row) for row in orders],
+        holds=[dict(row) for row in holds],
     )
 
 
