@@ -1804,59 +1804,120 @@ def ticket_venue(venue_id: int):
 @permission_required("ticketing")
 def generate_ticket_section(venue_id: int):
     section_name = request.form.get("name", "").strip()
-    row_start = request.form.get("row_start", "A").strip().upper()[:1] or "A"
-    row_count = max(int(request.form.get("row_count", "1") or 1), 1)
-    seats_per_row = max(int(request.form.get("seats_per_row", "1") or 1), 1)
+    row_label = request.form.get("row_label", "A").strip().upper()
+    first_seat = int(request.form.get("first_seat", "1") or 1)
+    last_seat = int(request.form.get("last_seat", "1") or 1)
     seat_type = request.form.get("seat_type", "Standard").strip()
     sort_order = int(request.form.get("sort_order", "0") or 0)
+    notes = request.form.get("notes", "").strip()
+
+    if not section_name:
+        flash("Section name is required.", "error")
+        return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+    if not row_label:
+        flash("Row label is required.", "error")
+        return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+    step = 1 if last_seat >= first_seat else -1
+    seat_numbers = list(range(first_seat, last_seat + step, step))
+
+    if len(seat_numbers) > 500:
+        flash("A single row cannot contain more than 500 seats.", "error")
+        return redirect(url_for("ticket_venue", venue_id=venue_id))
 
     connection = get_db()
-    section_sql = """
-        INSERT INTO ticket_sections (
-            venue_id,name,sort_order,notes
-        ) VALUES (?,?,?,?)
-    """
-    if connection.backend == "postgresql":
-        section_sql += " RETURNING id"
-    cursor = connection.execute(
-        section_sql,
-        (
-            venue_id,
-            section_name,
-            sort_order,
-            request.form.get("notes", "").strip(),
-        ),
-    )
-    section_id = (
-        int(cursor.fetchone()["id"])
-        if connection.backend == "postgresql"
-        else int(cursor.lastrowid)
-    )
 
-    start_code = ord(row_start)
-    for row_offset in range(row_count):
-        row_label = chr(start_code + row_offset)
-        for seat_number in range(1, seats_per_row + 1):
-            connection.execute(
-                """
-                INSERT INTO ticket_seats (
-                    section_id,row_label,seat_number,
-                    seat_label,seat_type,active
-                ) VALUES (?,?,?,?,?,1)
-                """,
-                (
-                    section_id,
-                    row_label,
-                    seat_number,
-                    f"{row_label}-{seat_number}",
-                    seat_type,
-                ),
-            )
+    section = connection.execute(
+        """
+        SELECT id
+        FROM ticket_sections
+        WHERE venue_id=? AND LOWER(name)=LOWER(?)
+        """,
+        (venue_id, section_name),
+    ).fetchone()
+
+    if section:
+        section_id = int(section["id"])
+        connection.execute(
+            """
+            UPDATE ticket_sections SET
+                sort_order=?,
+                notes=CASE WHEN ?!='' THEN ? ELSE notes END
+            WHERE id=?
+            """,
+            (sort_order, notes, notes, section_id),
+        )
+    else:
+        section_sql = """
+            INSERT INTO ticket_sections (
+                venue_id,name,sort_order,notes
+            ) VALUES (?,?,?,?)
+        """
+        if connection.backend == "postgresql":
+            section_sql += " RETURNING id"
+
+        cursor = connection.execute(
+            section_sql,
+            (venue_id, section_name, sort_order, notes),
+        )
+        section_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+
+    existing_rows = connection.execute(
+        """
+        SELECT seat_number
+        FROM ticket_seats
+        WHERE section_id=? AND row_label=?
+        """,
+        (section_id, row_label),
+    ).fetchall()
+    existing_numbers = {
+        int(existing_row["seat_number"])
+        for existing_row in existing_rows
+    }
+
+    created = 0
+    skipped = 0
+
+    for seat_number in seat_numbers:
+        if seat_number in existing_numbers:
+            skipped += 1
+            continue
+
+        connection.execute(
+            """
+            INSERT INTO ticket_seats (
+                section_id,row_label,seat_number,
+                seat_label,seat_type,active
+            ) VALUES (?,?,?,?,?,1)
+            """,
+            (
+                section_id,
+                row_label,
+                seat_number,
+                f"{row_label}-{seat_number}",
+                seat_type,
+            ),
+        )
+        created += 1
 
     connection.commit()
     connection.close()
-    flash("Section and reserved seats generated.", "success")
+
+    message = (
+        f"Row {row_label} added with {created} seat(s), "
+        f"numbered {first_seat} through {last_seat}."
+    )
+    if skipped:
+        message += f" {skipped} duplicate seat number(s) were skipped."
+
+    flash(message, "success")
     return redirect(url_for("ticket_venue", venue_id=venue_id))
+
 
 
 def venue_has_ticket_history(connection, venue_id: int) -> bool:
