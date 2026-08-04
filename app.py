@@ -67,9 +67,9 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","workflow","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","ticketing","workflow","orders","website","announcements","media","search","reports"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
-    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","workflow","reports","media","search"}},
+    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","ticketing","workflow","reports","media","search"}},
 }
 
 def current_admin():
@@ -403,6 +403,23 @@ MIGRATION_REGISTRY = [
             "competition_routines": ["competition_id","title","class_id","music_status","entry_status","entry_fee"],
             "competition_dancers": ["routine_id","student_id","registration_status","waiver_status","travel_status","costume_ready"],
             "competition_awards": ["routine_id","award_name","placement","score"],
+        },
+    },
+    {
+        "key": "017_ticketing_center",
+        "title": "Reserved Seating and Ticketing Center",
+        "description": "Venue layouts, assigned seating, ticket orders, printable tickets, billing, and door check-in.",
+        "required_tables": [
+            "ticket_venues", "ticket_sections", "ticket_seats",
+            "ticket_show_settings", "ticket_orders", "tickets"
+        ],
+        "required_columns": {
+            "ticket_venues": ["name","address","active"],
+            "ticket_sections": ["venue_id","name","sort_order"],
+            "ticket_seats": ["section_id","row_label","seat_number","seat_label","seat_type","active"],
+            "ticket_show_settings": ["recital_show_id","venue_id","default_price","sales_status"],
+            "ticket_orders": ["recital_show_id","family_id","purchaser_name","order_status","payment_status","total_amount"],
+            "tickets": ["order_id","recital_show_id","seat_id","ticket_code","price","status","checked_in_at"],
         },
     },
 ]
@@ -1603,6 +1620,675 @@ def create_order():
     sync_customer_from_email(email)
     log_activity("New store order", order_number)
     return jsonify({"ok": True, "order_number": order_number})
+
+
+def generate_ticket_code() -> str:
+    import secrets
+    return "SS-" + secrets.token_hex(5).upper()
+
+
+@app.route("/admin/ticketing")
+@permission_required("ticketing")
+def ticketing_center():
+    connection = get_db()
+    shows = connection.execute(
+        """
+        SELECT
+            rs.id,
+            rs.name,
+            rs.show_date,
+            rs.start_time,
+            rp.name AS production_name,
+            tss.venue_id,
+            tss.default_price,
+            tss.sales_status,
+            tv.name AS venue_name,
+            COUNT(DISTINCT ts.id) AS seat_count,
+            COUNT(DISTINCT CASE WHEN tk.status='Valid' THEN tk.id END) AS sold_count,
+            COALESCE(SUM(CASE WHEN tk.status='Valid' THEN tk.price ELSE 0 END),0) AS ticket_revenue
+        FROM recital_shows rs
+        JOIN recital_productions rp ON rp.id=rs.production_id
+        LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
+        LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+        LEFT JOIN ticket_sections sec ON sec.venue_id=tss.venue_id
+        LEFT JOIN ticket_seats ts ON ts.section_id=sec.id AND ts.active=1
+        LEFT JOIN tickets tk ON tk.recital_show_id=rs.id AND tk.seat_id=ts.id
+        GROUP BY
+            rs.id,rs.name,rs.show_date,rs.start_time,
+            rp.name,tss.venue_id,tss.default_price,
+            tss.sales_status,tv.name
+        ORDER BY rs.show_date,rs.start_time,rs.id
+        """
+    ).fetchall()
+
+    venues = connection.execute(
+        """
+        SELECT
+            tv.*,
+            COUNT(DISTINCT sec.id) AS section_count,
+            COUNT(DISTINCT ts.id) AS seat_count
+        FROM ticket_venues tv
+        LEFT JOIN ticket_sections sec ON sec.venue_id=tv.id
+        LEFT JOIN ticket_seats ts ON ts.section_id=sec.id AND ts.active=1
+        GROUP BY
+            tv.id,tv.name,tv.address,tv.notes,tv.active,
+            tv.created_at,tv.updated_at
+        ORDER BY tv.active DESC,tv.name
+        """
+    ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            COALESCE((SELECT COUNT(*) FROM tickets WHERE status='Valid'),0) AS tickets_sold,
+            COALESCE((SELECT SUM(price) FROM tickets WHERE status='Valid'),0) AS revenue,
+            COALESCE((SELECT COUNT(*) FROM tickets WHERE checked_in_at IS NOT NULL AND status='Valid'),0) AS checked_in,
+            COALESCE((SELECT COUNT(*) FROM ticket_orders WHERE order_status='Held'),0) AS held_orders
+        """
+    ).fetchone()
+    connection.close()
+
+    return render_template(
+        "ticketing_center.html",
+        shows=[dict(row) for row in shows],
+        venues=[dict(row) for row in venues],
+        summary=dict(summary),
+    )
+
+
+@app.route("/admin/ticketing/venues/save", methods=["POST"])
+@permission_required("ticketing")
+def save_ticket_venue():
+    venue_id = request.form.get("id", "").strip()
+    values = (
+        request.form.get("name", "").strip(),
+        request.form.get("address", "").strip(),
+        request.form.get("notes", "").strip(),
+        1 if request.form.get("active") == "on" else 0,
+    )
+    connection = get_db()
+    if venue_id:
+        connection.execute(
+            """
+            UPDATE ticket_venues SET
+                name=?,address=?,notes=?,active=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            values + (int(venue_id),),
+        )
+        saved_id = int(venue_id)
+    else:
+        sql = """
+            INSERT INTO ticket_venues (
+                name,address,notes,active
+            ) VALUES (?,?,?,?)
+        """
+        if connection.backend == "postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(sql, values)
+        saved_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+    connection.commit()
+    connection.close()
+    flash("Venue saved.", "success")
+    return redirect(url_for("ticket_venue", venue_id=saved_id))
+
+
+@app.route("/admin/ticketing/venues/<int:venue_id>")
+@permission_required("ticketing")
+def ticket_venue(venue_id: int):
+    connection = get_db()
+    venue = connection.execute(
+        "SELECT * FROM ticket_venues WHERE id=?",
+        (venue_id,),
+    ).fetchone()
+    if not venue:
+        connection.close()
+        return ("Venue not found", 404)
+
+    sections = connection.execute(
+        """
+        SELECT
+            sec.*,
+            COUNT(ts.id) AS seat_count
+        FROM ticket_sections sec
+        LEFT JOIN ticket_seats ts ON ts.section_id=sec.id AND ts.active=1
+        WHERE sec.venue_id=?
+        GROUP BY
+            sec.id,sec.venue_id,sec.name,
+            sec.sort_order,sec.notes,sec.created_at
+        ORDER BY sec.sort_order,sec.name
+        """,
+        (venue_id,),
+    ).fetchall()
+
+    seats = connection.execute(
+        """
+        SELECT ts.*,sec.name AS section_name,sec.sort_order
+        FROM ticket_seats ts
+        JOIN ticket_sections sec ON sec.id=ts.section_id
+        WHERE sec.venue_id=?
+        ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number
+        """,
+        (venue_id,),
+    ).fetchall()
+    connection.close()
+
+    grouped_seats = {}
+    for row in seats:
+        item = dict(row)
+        key = (item["section_id"], item["section_name"])
+        grouped_seats.setdefault(key, {}).setdefault(item["row_label"], []).append(item)
+
+    return render_template(
+        "ticket_venue.html",
+        venue=dict(venue),
+        sections=[dict(row) for row in sections],
+        grouped_seats=grouped_seats,
+    )
+
+
+@app.route("/admin/ticketing/venues/<int:venue_id>/sections/generate", methods=["POST"])
+@permission_required("ticketing")
+def generate_ticket_section(venue_id: int):
+    section_name = request.form.get("name", "").strip()
+    row_start = request.form.get("row_start", "A").strip().upper()[:1] or "A"
+    row_count = max(int(request.form.get("row_count", "1") or 1), 1)
+    seats_per_row = max(int(request.form.get("seats_per_row", "1") or 1), 1)
+    seat_type = request.form.get("seat_type", "Standard").strip()
+    sort_order = int(request.form.get("sort_order", "0") or 0)
+
+    connection = get_db()
+    section_sql = """
+        INSERT INTO ticket_sections (
+            venue_id,name,sort_order,notes
+        ) VALUES (?,?,?,?)
+    """
+    if connection.backend == "postgresql":
+        section_sql += " RETURNING id"
+    cursor = connection.execute(
+        section_sql,
+        (
+            venue_id,
+            section_name,
+            sort_order,
+            request.form.get("notes", "").strip(),
+        ),
+    )
+    section_id = (
+        int(cursor.fetchone()["id"])
+        if connection.backend == "postgresql"
+        else int(cursor.lastrowid)
+    )
+
+    start_code = ord(row_start)
+    for row_offset in range(row_count):
+        row_label = chr(start_code + row_offset)
+        for seat_number in range(1, seats_per_row + 1):
+            connection.execute(
+                """
+                INSERT INTO ticket_seats (
+                    section_id,row_label,seat_number,
+                    seat_label,seat_type,active
+                ) VALUES (?,?,?,?,?,1)
+                """,
+                (
+                    section_id,
+                    row_label,
+                    seat_number,
+                    f"{row_label}-{seat_number}",
+                    seat_type,
+                ),
+            )
+
+    connection.commit()
+    connection.close()
+    flash("Section and reserved seats generated.", "success")
+    return redirect(url_for("ticket_venue", venue_id=venue_id))
+
+
+@app.route("/admin/ticketing/shows/<int:show_id>/settings", methods=["POST"])
+@permission_required("ticketing")
+def save_ticket_show_settings(show_id: int):
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO ticket_show_settings (
+            recital_show_id,venue_id,default_price,
+            sales_status,notes
+        ) VALUES (?,?,?,?,?)
+        ON CONFLICT(recital_show_id) DO UPDATE SET
+            venue_id=excluded.venue_id,
+            default_price=excluded.default_price,
+            sales_status=excluded.sales_status,
+            notes=excluded.notes,
+            updated_at=CURRENT_TIMESTAMP
+        """,
+        (
+            show_id,
+            int(request.form.get("venue_id", "0") or 0),
+            float(request.form.get("default_price", "0") or 0),
+            request.form.get("sales_status", "Not On Sale").strip(),
+            request.form.get("notes", "").strip(),
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        "ticket_sales_settings_updated",
+        "ticketing",
+        "Ticket sales settings updated",
+        f"Recital show #{show_id}",
+        "info",
+        str(show_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash("Ticket settings saved.", "success")
+    return redirect(url_for("ticket_show", show_id=show_id))
+
+
+@app.route("/admin/ticketing/shows/<int:show_id>")
+@permission_required("ticketing")
+def ticket_show(show_id: int):
+    connection = get_db()
+    show = connection.execute(
+        """
+        SELECT
+            rs.*,
+            rp.name AS production_name,
+            tss.venue_id,
+            tss.default_price,
+            tss.sales_status,
+            tss.notes AS ticket_notes,
+            tv.name AS venue_name
+        FROM recital_shows rs
+        JOIN recital_productions rp ON rp.id=rs.production_id
+        LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
+        LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+        WHERE rs.id=?
+        """,
+        (show_id,),
+    ).fetchone()
+    if not show:
+        connection.close()
+        return ("Show not found", 404)
+
+    venues = connection.execute(
+        "SELECT id,name FROM ticket_venues WHERE active=1 ORDER BY name"
+    ).fetchall()
+    families = connection.execute(
+        "SELECT id,family_name,primary_email,primary_phone FROM families ORDER BY family_name"
+    ).fetchall()
+
+    seats = []
+    if show["venue_id"]:
+        seats = connection.execute(
+            """
+            SELECT
+                ts.id,ts.row_label,ts.seat_number,
+                ts.seat_label,ts.seat_type,
+                sec.id AS section_id,
+                sec.name AS section_name,
+                sec.sort_order,
+                tk.id AS ticket_id,
+                tk.status AS ticket_status,
+                tk.checked_in_at,
+                tor.id AS order_id,
+                tor.order_status,
+                tor.purchaser_name
+            FROM ticket_seats ts
+            JOIN ticket_sections sec ON sec.id=ts.section_id
+            LEFT JOIN tickets tk
+              ON tk.seat_id=ts.id
+             AND tk.recital_show_id=?
+             AND tk.status='Valid'
+            LEFT JOIN ticket_orders tor ON tor.id=tk.order_id
+            WHERE sec.venue_id=?
+              AND ts.active=1
+            ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number
+            """,
+            (show_id, show["venue_id"]),
+        ).fetchall()
+
+    orders = connection.execute(
+        """
+        SELECT
+            tor.*,
+            f.family_name,
+            COUNT(tk.id) AS ticket_count
+        FROM ticket_orders tor
+        LEFT JOIN families f ON f.id=tor.family_id
+        LEFT JOIN tickets tk ON tk.order_id=tor.id AND tk.status='Valid'
+        WHERE tor.recital_show_id=?
+          AND tor.order_status!='Voided'
+        GROUP BY
+            tor.id,tor.recital_show_id,tor.family_id,
+            tor.purchaser_name,tor.purchaser_email,
+            tor.purchaser_phone,tor.order_status,
+            tor.payment_status,tor.total_amount,
+            tor.billing_charge_id,tor.notes,
+            tor.created_by,tor.created_at,
+            tor.voided_at,tor.voided_by,tor.void_reason,
+            f.family_name
+        ORDER BY tor.id DESC
+        """,
+        (show_id,),
+    ).fetchall()
+    connection.close()
+
+    grouped_seats = {}
+    for row in seats:
+        item = dict(row)
+        key = (item["section_id"], item["section_name"])
+        grouped_seats.setdefault(key, {}).setdefault(item["row_label"], []).append(item)
+
+    return render_template(
+        "ticket_show.html",
+        show=dict(show),
+        venues=[dict(row) for row in venues],
+        families=[dict(row) for row in families],
+        grouped_seats=grouped_seats,
+        orders=[dict(row) for row in orders],
+    )
+
+
+@app.route("/admin/ticketing/shows/<int:show_id>/orders", methods=["POST"])
+@permission_required("ticketing")
+def create_ticket_order(show_id: int):
+    selected_seats = [
+        int(value)
+        for value in request.form.getlist("seat_id")
+        if value.isdigit()
+    ]
+    if not selected_seats:
+        flash("Select at least one available reserved seat.", "error")
+        return redirect(url_for("ticket_show", show_id=show_id))
+
+    family_value = request.form.get("family_id", "").strip()
+    family_id = int(family_value) if family_value else None
+    purchaser_name = request.form.get("purchaser_name", "").strip()
+    order_status = request.form.get("order_status", "Confirmed").strip()
+    payment_status = request.form.get("payment_status", "Due").strip()
+
+    connection = get_db()
+    setting = connection.execute(
+        """
+        SELECT default_price
+        FROM ticket_show_settings
+        WHERE recital_show_id=?
+        """,
+        (show_id,),
+    ).fetchone()
+    default_price = float(setting["default_price"] or 0) if setting else 0
+
+    placeholders = ",".join("?" for _ in selected_seats)
+    unavailable = connection.execute(
+        f"""
+        SELECT seat_id
+        FROM tickets
+        WHERE recital_show_id=?
+          AND status='Valid'
+          AND seat_id IN ({placeholders})
+        """,
+        tuple([show_id] + selected_seats),
+    ).fetchall()
+    if unavailable:
+        connection.close()
+        flash("One or more selected seats were just taken. Reload and select again.", "error")
+        return redirect(url_for("ticket_show", show_id=show_id))
+
+    price_each = 0 if payment_status == "Complimentary" else float(
+        request.form.get("price_each", str(default_price)) or default_price
+    )
+    total_amount = price_each * len(selected_seats)
+
+    order_sql = """
+        INSERT INTO ticket_orders (
+            recital_show_id,family_id,purchaser_name,
+            purchaser_email,purchaser_phone,
+            order_status,payment_status,total_amount,
+            notes,created_by
+        ) VALUES (?,?,?,?,?,?,?,?,?,?)
+    """
+    if connection.backend == "postgresql":
+        order_sql += " RETURNING id"
+
+    cursor = connection.execute(
+        order_sql,
+        (
+            show_id,
+            family_id,
+            purchaser_name,
+            request.form.get("purchaser_email", "").strip(),
+            request.form.get("purchaser_phone", "").strip(),
+            order_status,
+            payment_status,
+            total_amount,
+            request.form.get("notes", "").strip(),
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    order_id = (
+        int(cursor.fetchone()["id"])
+        if connection.backend == "postgresql"
+        else int(cursor.lastrowid)
+    )
+
+    for seat_id in selected_seats:
+        code = generate_ticket_code()
+        while connection.execute(
+            "SELECT id FROM tickets WHERE ticket_code=?",
+            (code,),
+        ).fetchone():
+            code = generate_ticket_code()
+
+        connection.execute(
+            """
+            INSERT INTO tickets (
+                order_id,recital_show_id,seat_id,
+                ticket_code,price,status
+            ) VALUES (?,?,?,?,?,'Valid')
+            """,
+            (order_id, show_id, seat_id, code, price_each),
+        )
+
+    billing_charge_id = None
+    if (
+        request.form.get("create_billing_charge") == "on"
+        and family_id
+        and total_amount > 0
+        and payment_status == "Due"
+    ):
+        show_record = connection.execute(
+            "SELECT name,show_date FROM recital_shows WHERE id=?",
+            (show_id,),
+        ).fetchone()
+
+        charge_sql = """
+            INSERT INTO billing_charges (
+                family_id,charge_type,description,
+                amount,due_date,status,reference,created_by
+            ) VALUES (?,'Other',?,?,?,'Open',?,?)
+        """
+        if connection.backend == "postgresql":
+            charge_sql += " RETURNING id"
+
+        charge_cursor = connection.execute(
+            charge_sql,
+            (
+                family_id,
+                f"Reserved tickets - {show_record['name']}",
+                total_amount,
+                request.form.get("due_date", "").strip(),
+                f"Ticket order #{order_id}",
+                int(session.get("admin_user_id") or 0) or None,
+            ),
+        )
+        billing_charge_id = (
+            int(charge_cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(charge_cursor.lastrowid)
+        )
+        connection.execute(
+            "UPDATE ticket_orders SET billing_charge_id=? WHERE id=?",
+            (billing_charge_id, order_id),
+        )
+
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        "ticket_order_created",
+        "ticketing",
+        "Reserved ticket order created",
+        f"Order #{order_id} · {len(selected_seats)} seat(s) · ${total_amount:.2f}",
+        "success",
+        str(order_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash("Reserved ticket order created.", "success")
+    return redirect(url_for("ticket_order", order_id=order_id))
+
+
+@app.route("/admin/ticketing/orders/<int:order_id>")
+@permission_required("ticketing")
+def ticket_order(order_id: int):
+    connection = get_db()
+    order = connection.execute(
+        """
+        SELECT
+            tor.*,
+            rs.name AS show_name,
+            rs.show_date,
+            rs.start_time,
+            rp.name AS production_name,
+            tv.name AS venue_name,
+            tv.address AS venue_address,
+            f.family_name
+        FROM ticket_orders tor
+        JOIN recital_shows rs ON rs.id=tor.recital_show_id
+        JOIN recital_productions rp ON rp.id=rs.production_id
+        LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
+        LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+        LEFT JOIN families f ON f.id=tor.family_id
+        WHERE tor.id=?
+        """,
+        (order_id,),
+    ).fetchone()
+    if not order:
+        connection.close()
+        return ("Ticket order not found", 404)
+
+    tickets = connection.execute(
+        """
+        SELECT
+            tk.*,
+            ts.row_label,
+            ts.seat_number,
+            ts.seat_label,
+            ts.seat_type,
+            sec.name AS section_name
+        FROM tickets tk
+        JOIN ticket_seats ts ON ts.id=tk.seat_id
+        JOIN ticket_sections sec ON sec.id=ts.section_id
+        WHERE tk.order_id=?
+        ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number
+        """,
+        (order_id,),
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "ticket_order.html",
+        order=dict(order),
+        tickets=[dict(row) for row in tickets],
+    )
+
+
+@app.route("/admin/ticketing/tickets/<int:ticket_id>/check-in", methods=["POST"])
+@permission_required("ticketing")
+def check_in_ticket(ticket_id: int):
+    connection = get_db()
+    ticket = connection.execute(
+        "SELECT order_id,status,checked_in_at FROM tickets WHERE id=?",
+        (ticket_id,),
+    ).fetchone()
+    if not ticket:
+        connection.close()
+        return ("Ticket not found", 404)
+
+    if ticket["status"] != "Valid":
+        connection.close()
+        flash("This ticket is not valid.", "error")
+        return redirect(url_for("ticket_order", order_id=ticket["order_id"]))
+
+    if ticket["checked_in_at"]:
+        connection.close()
+        flash("This ticket was already checked in.", "error")
+        return redirect(url_for("ticket_order", order_id=ticket["order_id"]))
+
+    connection.execute(
+        """
+        UPDATE tickets SET
+            checked_in_at=CURRENT_TIMESTAMP,
+            checked_in_by=?
+        WHERE id=?
+        """,
+        (
+            int(session.get("admin_user_id") or 0) or None,
+            ticket_id,
+        ),
+    )
+    connection.commit()
+    order_id = int(ticket["order_id"])
+    connection.close()
+
+    flash("Guest checked in.", "success")
+    return redirect(url_for("ticket_order", order_id=order_id))
+
+
+@app.route("/admin/ticketing/orders/<int:order_id>/void", methods=["POST"])
+@permission_required("ticketing")
+def void_ticket_order(order_id: int):
+    reason = request.form.get("void_reason", "").strip()
+    connection = get_db()
+    order = connection.execute(
+        "SELECT recital_show_id,order_status FROM ticket_orders WHERE id=?",
+        (order_id,),
+    ).fetchone()
+    if order and order["order_status"] != "Voided":
+        connection.execute(
+            """
+            UPDATE ticket_orders SET
+                order_status='Voided',
+                voided_at=CURRENT_TIMESTAMP,
+                voided_by=?,
+                void_reason=?
+            WHERE id=?
+            """,
+            (
+                int(session.get("admin_user_id") or 0) or None,
+                reason,
+                order_id,
+            ),
+        )
+        connection.execute(
+            "UPDATE tickets SET status='Voided' WHERE order_id=?",
+            (order_id,),
+        )
+        connection.commit()
+
+    show_id = int(order["recital_show_id"]) if order else 0
+    connection.close()
+    flash("Ticket order voided and seats released.", "success")
+    return redirect(url_for("ticket_show", show_id=show_id))
 
 
 @app.route("/admin/competitions")

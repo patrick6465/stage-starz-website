@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reserved Ticketing | Stage Starz</title><style>
+:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867;--danger:#ff6c7d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}
+header{padding:18px 4vw;display:flex;justify-content:space-between;gap:15px;border-bottom:1px solid var(--line)}
+.wrap{width:min(1300px,calc(100% - 28px));margin:24px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:17px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.value{font-size:1.8rem;font-weight:950}.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.full{grid-column:1/-1}
+label{display:block;font-size:.8rem;font-weight:850;margin-bottom:5px}input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:#100a1d;color:#fff}
+button,.button{display:inline-block;padding:10px 13px;border:0;border-radius:9px;color:#fff;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));cursor:pointer}
+.item{display:block;padding:14px;border:1px solid var(--line);border-radius:14px;margin:10px 0}.row{display:flex;justify-content:space-between;gap:12px}.badge{padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.13);color:var(--teal);font-size:.72rem;font-weight:900}
+@media(max-width:850px){.stats,.grid,.fields{grid-template-columns:1fr}.full{grid-column:auto}}
+</style></head>
+<body><header><strong>🎟 Reserved Seating & Ticketing</strong><a href="/admin">Command Center</a></header>
+<main class="wrap">
+<section class="stats">
+<div class="card"><div class="value">{{ summary.tickets_sold }}</div><div class="muted">Tickets sold</div></div>
+<div class="card"><div class="value">${{ "%.2f"|format(summary.revenue or 0) }}</div><div class="muted">Ticket revenue</div></div>
+<div class="card"><div class="value">{{ summary.checked_in }}</div><div class="muted">Checked in</div></div>
+<div class="card"><div class="value">{{ summary.held_orders }}</div><div class="muted">Held orders</div></div>
+</section>
+<div class="grid">
+<section class="card"><h2>Create Venue</h2>
+<form method="post" action="/admin/ticketing/venues/save"><div class="fields">
+<div class="full"><label>Venue name</label><input name="name" required></div>
+<div class="full"><label>Address</label><input name="address"></div>
+<div class="full"><label>Notes</label><textarea name="notes" rows="3"></textarea></div>
+<div class="full"><label><input type="checkbox" name="active" checked style="width:auto"> Active</label></div>
+</div><p><button>Save Venue</button></p></form>
+<h2>Venues</h2>
+{% for v in venues %}<a class="item" href="/admin/ticketing/venues/{{ v.id }}"><strong>{{ v.name }}</strong><div class="muted">{{ v.address or 'No address' }}</div><p>{{ v.section_count }} section(s) · {{ v.seat_count }} reserved seats</p></a>{% else %}<p class="muted">No venues yet.</p>{% endfor %}
+</section>
+<section class="card"><h2>Recital Shows</h2>
+{% for s in shows %}<div class="item"><div class="row"><div><strong>{{ s.production_name }} — {{ s.name }}</strong><div class="muted">{{ s.show_date }} · {{ s.start_time }} · {{ s.venue_name or 'No seating venue assigned' }}</div></div><span class="badge">{{ s.sales_status or 'Not Configured' }}</span></div><p>{{ s.sold_count }}/{{ s.seat_count }} seats sold · ${{ "%.2f"|format(s.ticket_revenue or 0) }}</p><a class="button" href="/admin/ticketing/shows/{{ s.id }}">Open Seat Map</a></div>{% else %}<p class="muted">Create recital shows before configuring ticket sales.</p>{% endfor %}
+</section></div></main></body></html>

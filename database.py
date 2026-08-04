@@ -812,6 +812,119 @@ def init_db() -> None:
         """
     )
 
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_venues (
+            id {id_column},
+            name TEXT NOT NULL,
+            address TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_sections (
+            id {id_column},
+            venue_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(venue_id) REFERENCES ticket_venues(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_seats (
+            id {id_column},
+            section_id INTEGER NOT NULL,
+            row_label TEXT NOT NULL,
+            seat_number INTEGER NOT NULL,
+            seat_label TEXT NOT NULL,
+            seat_type TEXT NOT NULL DEFAULT 'Standard',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(section_id, row_label, seat_number),
+            FOREIGN KEY(section_id) REFERENCES ticket_sections(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_show_settings (
+            id {id_column},
+            recital_show_id INTEGER NOT NULL UNIQUE,
+            venue_id INTEGER NOT NULL,
+            default_price DOUBLE PRECISION NOT NULL DEFAULT 0,
+            sales_status TEXT NOT NULL DEFAULT 'Not On Sale',
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(venue_id) REFERENCES ticket_venues(id) ON DELETE RESTRICT
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_orders (
+            id {id_column},
+            recital_show_id INTEGER NOT NULL,
+            family_id INTEGER,
+            purchaser_name TEXT NOT NULL,
+            purchaser_email TEXT NOT NULL DEFAULT '',
+            purchaser_phone TEXT NOT NULL DEFAULT '',
+            order_status TEXT NOT NULL DEFAULT 'Confirmed',
+            payment_status TEXT NOT NULL DEFAULT 'Due',
+            total_amount DOUBLE PRECISION NOT NULL DEFAULT 0,
+            billing_charge_id INTEGER,
+            notes TEXT NOT NULL DEFAULT '',
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            voided_at TIMESTAMP,
+            voided_by INTEGER,
+            void_reason TEXT NOT NULL DEFAULT '',
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
+            FOREIGN KEY(billing_charge_id) REFERENCES billing_charges(id) ON DELETE SET NULL,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+            FOREIGN KEY(voided_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS tickets (
+            id {id_column},
+            order_id INTEGER NOT NULL,
+            recital_show_id INTEGER NOT NULL,
+            seat_id INTEGER NOT NULL,
+            ticket_code TEXT NOT NULL UNIQUE,
+            price DOUBLE PRECISION NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'Valid',
+            checked_in_at TIMESTAMP,
+            checked_in_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(recital_show_id, seat_id),
+            FOREIGN KEY(order_id) REFERENCES ticket_orders(id) ON DELETE CASCADE,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(seat_id) REFERENCES ticket_seats(id) ON DELETE RESTRICT,
+            FOREIGN KEY(checked_in_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         costume_tables = {

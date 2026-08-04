@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{ show.name }} Tickets | Stage Starz</title><style>
+:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867;--danger:#ff6c7d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}
+header{padding:18px 4vw;display:flex;justify-content:space-between;gap:15px;border-bottom:1px solid var(--line)}
+.wrap{width:min(1300px,calc(100% - 28px));margin:24px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:17px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.value{font-size:1.8rem;font-weight:950}.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.full{grid-column:1/-1}
+label{display:block;font-size:.8rem;font-weight:850;margin-bottom:5px}input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:#100a1d;color:#fff}
+button,.button{display:inline-block;padding:10px 13px;border:0;border-radius:9px;color:#fff;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));cursor:pointer}
+.item{display:block;padding:14px;border:1px solid var(--line);border-radius:14px;margin:10px 0}.row{display:flex;justify-content:space-between;gap:12px}.badge{padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.13);color:var(--teal);font-size:.72rem;font-weight:900}
+@media(max-width:850px){.stats,.grid,.fields{grid-template-columns:1fr}.full{grid-column:auto}}
+
+.stage{text-align:center;padding:12px;border-radius:12px;background:linear-gradient(110deg,#ef3d98,#9b4dcc,#50d6d0);font-weight:950;margin:15px 0 25px}.section{margin-bottom:24px}.seat-row{display:flex;align-items:center;gap:6px;margin:7px 0;overflow:auto}.row-label{width:28px;font-weight:950}.seat-choice input{position:absolute;opacity:0}.seat-choice span{display:block;min-width:43px;padding:9px 5px;text-align:center;border:1px solid var(--line);border-radius:8px;background:#100a1d;font-size:.75rem;cursor:pointer}.seat-choice input:checked+span{background:var(--teal);color:#071514;border-color:var(--teal)}.seat-choice.sold span{background:#3b2335;color:#b6a7b5;cursor:not-allowed}.seat-choice.held span{background:#554117;color:var(--gold);cursor:not-allowed}
+</style></head><body>
+<header><strong>🎟 {{ show.production_name }} — {{ show.name }}</strong><a href="/admin/ticketing">← Ticketing Center</a></header>
+<main class="wrap">
+<section class="card"><h1>Reserved Seating</h1><p>{{ show.show_date }} · {{ show.start_time }} · {{ show.venue_name or 'Venue not configured' }}</p>
+<form method="post" action="/admin/ticketing/shows/{{ show.id }}/settings"><div class="fields">
+<div><label>Seating venue</label><select name="venue_id" required><option value="">Select venue</option>{% for v in venues %}<option value="{{ v.id }}" {% if show.venue_id==v.id %}selected{% endif %}>{{ v.name }}</option>{% endfor %}</select></div>
+<div><label>Default ticket price</label><input name="default_price" type="number" min="0" step="0.01" value="{{ show.default_price or 0 }}"></div>
+<div><label>Sales status</label><select name="sales_status">{% for s in ['Not On Sale','On Sale','Paused','Sold Out','Closed'] %}<option {% if show.sales_status==s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
+<div class="full"><label>Ticket notes</label><textarea name="notes" rows="2">{{ show.ticket_notes or '' }}</textarea></div>
+</div><p><button>Save Ticket Settings</button></p></form></section>
+
+<form method="post" action="/admin/ticketing/shows/{{ show.id }}/orders">
+<section class="card"><h2>Select Reserved Seats</h2><div class="stage">STAGE</div>
+{% for key,rows in grouped_seats.items() %}<div class="section"><h3>{{ key[1] }}</h3>
+{% for row_label,seats in rows.items() %}<div class="seat-row"><span class="row-label">{{ row_label }}</span>
+{% for seat in seats %}
+{% if seat.ticket_id %}
+<label class="seat-choice {% if seat.order_status=='Held' %}held{% else %}sold{% endif %}"><span title="{{ seat.purchaser_name or '' }}">{{ seat.seat_number }}<br><small>{{ 'Held' if seat.order_status=='Held' else 'Sold' }}</small></span></label>
+{% else %}
+<label class="seat-choice"><input type="checkbox" name="seat_id" value="{{ seat.id }}"><span>{{ seat.seat_number }}<br><small>{{ seat.seat_type }}</small></span></label>
+{% endif %}
+{% endfor %}</div>{% endfor %}</div>
+{% else %}<p class="muted">Assign a seating venue and save settings to display the reserved seat map.</p>{% endfor %}
+</section>
+
+<section class="card"><h2>Create Ticket Order</h2><div class="fields">
+<div><label>Family account</label><select name="family_id"><option value="">No family account</option>{% for f in families %}<option value="{{ f.id }}">{{ f.family_name }}</option>{% endfor %}</select></div>
+<div><label>Purchaser name</label><input name="purchaser_name" required></div>
+<div><label>Email</label><input name="purchaser_email" type="email"></div>
+<div><label>Phone</label><input name="purchaser_phone"></div>
+<div><label>Order status</label><select name="order_status"><option>Confirmed</option><option>Held</option><option>Complimentary</option></select></div>
+<div><label>Payment status</label><select name="payment_status"><option>Due</option><option>Paid</option><option>Complimentary</option></select></div>
+<div><label>Price per seat</label><input name="price_each" type="number" min="0" step="0.01" value="{{ show.default_price or 0 }}"></div>
+<div><label>Billing due date</label><input name="due_date" type="date"></div>
+<div class="full"><label><input type="checkbox" name="create_billing_charge" style="width:auto"> Create family billing charge when payment is due</label></div>
+<div class="full"><label>Notes</label><textarea name="notes" rows="3"></textarea></div>
+</div><p><button>Create Reserved Ticket Order</button></p></section>
+</form>
+
+<section class="card"><h2>Orders</h2>{% for o in orders %}<div class="item"><div class="row"><div><a href="/admin/ticketing/orders/{{ o.id }}"><strong>Order #{{ o.id }} — {{ o.purchaser_name }}</strong></a><div class="muted">{{ o.family_name or 'No family' }} · {{ o.ticket_count }} ticket(s) · {{ o.payment_status }}</div></div><span class="badge">{{ o.order_status }}</span></div><p>${{ "%.2f"|format(o.total_amount or 0) }}</p></div>{% else %}<p class="muted">No ticket orders yet.</p>{% endfor %}</section>
+</main></body></html>

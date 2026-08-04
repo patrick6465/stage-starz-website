@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ticket Order #{{ order.id }}</title><style>
+:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867;--danger:#ff6c7d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}
+header{padding:18px 4vw;display:flex;justify-content:space-between;gap:15px;border-bottom:1px solid var(--line)}
+.wrap{width:min(1300px,calc(100% - 28px));margin:24px auto 60px}.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:17px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.value{font-size:1.8rem;font-weight:950}.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.full{grid-column:1/-1}
+label{display:block;font-size:.8rem;font-weight:850;margin-bottom:5px}input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:#100a1d;color:#fff}
+button,.button{display:inline-block;padding:10px 13px;border:0;border-radius:9px;color:#fff;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));cursor:pointer}
+.item{display:block;padding:14px;border:1px solid var(--line);border-radius:14px;margin:10px 0}.row{display:flex;justify-content:space-between;gap:12px}.badge{padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.13);color:var(--teal);font-size:.72rem;font-weight:900}
+@media(max-width:850px){.stats,.grid,.fields{grid-template-columns:1fr}.full{grid-column:auto}}
+
+.ticket{background:#fff;color:#17121f;border-radius:16px;padding:22px;margin:15px 0;display:grid;grid-template-columns:1fr auto;gap:18px;border:2px dashed #9b4dcc}.ticket-code{font-size:1.2rem;font-weight:950;letter-spacing:.08em}.checked{color:#0a806f;font-weight:900}@media print{body{background:#fff}header,.no-print{display:none}.wrap{width:100%;margin:0}.card{border:0;background:#fff;color:#17121f;padding:0}}
+</style></head><body>
+<header><strong>🎟 Ticket Order #{{ order.id }}</strong><a href="/admin/ticketing/shows/{{ order.recital_show_id }}">← Seat Map</a></header>
+<main class="wrap"><section class="card"><h1>{{ order.production_name }}</h1><h2>{{ order.show_name }}</h2><p>{{ order.show_date }} · {{ order.start_time }} · {{ order.venue_name or '' }}</p><p>{{ order.venue_address or '' }}</p><p><strong>Purchaser:</strong> {{ order.purchaser_name }} · {{ order.purchaser_email }} · {{ order.purchaser_phone }}</p><p><strong>Order:</strong> {{ order.order_status }} · Payment {{ order.payment_status }} · ${{ "%.2f"|format(order.total_amount or 0) }}</p>
+<div class="no-print"><button onclick="window.print()">Print Tickets</button>{% if order.order_status!='Voided' %}<form method="post" action="/admin/ticketing/orders/{{ order.id }}/void" style="display:inline-block;margin-left:8px"><input name="void_reason" placeholder="Void reason" style="width:180px"><button>Void Order</button></form>{% endif %}</div></section>
+{% for t in tickets %}<section class="ticket"><div><h2>{{ order.production_name }}</h2><h3>{{ order.show_name }}</h3><p>{{ order.show_date }} · {{ order.start_time }}</p><p><strong>{{ t.section_name }} · Row {{ t.row_label }} · Seat {{ t.seat_number }}</strong></p><p>{{ t.seat_type }} · ${{ "%.2f"|format(t.price or 0) }}</p><div class="ticket-code">{{ t.ticket_code }}</div>{% if t.checked_in_at %}<p class="checked">Checked in {{ t.checked_in_at }}</p>{% endif %}</div><div class="no-print">{% if not t.checked_in_at and t.status=='Valid' %}<form method="post" action="/admin/ticketing/tickets/{{ t.id }}/check-in"><button>Check In</button></form>{% endif %}</div></section>{% endfor %}
+</main></body></html>
