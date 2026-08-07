@@ -1415,6 +1415,85 @@ def init_db() -> None:
         """
     )
 
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS class_registration_settings (
+            id {id_column},
+            class_id INTEGER NOT NULL UNIQUE,
+            public_enabled INTEGER NOT NULL DEFAULT 0,
+            approval_required INTEGER NOT NULL DEFAULT 0,
+            waitlist_enabled INTEGER NOT NULL DEFAULT 1,
+            registration_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+            costume_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
+            registration_opens_at TIMESTAMP,
+            registration_closes_at TIMESTAMP,
+            minimum_age INTEGER,
+            maximum_age INTEGER,
+            waiver_title TEXT NOT NULL DEFAULT 'Registration Agreement',
+            waiver_text TEXT NOT NULL DEFAULT '',
+            public_notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS registration_applications (
+            id {id_column},
+            class_id INTEGER NOT NULL,
+            family_id INTEGER,
+            student_id INTEGER,
+            source TEXT NOT NULL DEFAULT 'Public',
+            applicant_family_name TEXT NOT NULL DEFAULT '',
+            guardian_name TEXT NOT NULL DEFAULT '',
+            guardian_email TEXT NOT NULL DEFAULT '',
+            guardian_phone TEXT NOT NULL DEFAULT '',
+            student_first_name TEXT NOT NULL DEFAULT '',
+            student_last_name TEXT NOT NULL DEFAULT '',
+            student_birth_date TEXT NOT NULL DEFAULT '',
+            student_grade TEXT NOT NULL DEFAULT '',
+            student_school TEXT NOT NULL DEFAULT '',
+            student_medical_notes TEXT NOT NULL DEFAULT '',
+            emergency_contact_name TEXT NOT NULL DEFAULT '',
+            emergency_contact_phone TEXT NOT NULL DEFAULT '',
+            waiver_accepted INTEGER NOT NULL DEFAULT 0,
+            waiver_accepted_name TEXT NOT NULL DEFAULT '',
+            waiver_accepted_at TIMESTAMP,
+            status TEXT NOT NULL DEFAULT 'Pending',
+            waitlist_position INTEGER,
+            billing_charge_id INTEGER,
+            admin_notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL,
+            FOREIGN KEY(billing_charge_id) REFERENCES billing_charges(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS registration_waitlist_history (
+            id {id_column},
+            application_id INTEGER NOT NULL,
+            class_id INTEGER NOT NULL,
+            old_position INTEGER,
+            new_position INTEGER,
+            action TEXT NOT NULL,
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(application_id) REFERENCES registration_applications(id) ON DELETE CASCADE,
+            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         for column_name, column_definition in [

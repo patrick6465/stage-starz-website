@@ -1,0 +1,54 @@
+STAGE STARZ ONLINE REGISTRATION V1
+GITHUB WEBSITE UPLOAD ONLY PACKAGE
+
+This ZIP contains ONLY the files changed for Milestone 024.
+
+IMPORTANT:
+Do not drag this entire folder into the repository root if you want to preserve template paths.
+Upload files into the matching GitHub folders.
+
+ROOT FILES:
+- app.py
+- database.py
+
+UPLOAD TO templates/:
+- dashboard.html
+- all parent_*.html files
+- registration_catalog.html
+- registration_class.html
+- registration_confirmation.html
+- parent_registration.html
+- registration_admin.html
+- registration_class_settings.html
+
+RECOMMENDED GITHUB WEBSITE PROCESS:
+
+1. Switch to branch:
+   railway-deployment
+
+2. Repository root:
+   Add file -> Upload files
+   Upload ONLY:
+   - app.py
+   - database.py
+   Commit changes.
+
+3. Open the templates folder in GitHub.
+
+4. Inside templates:
+   Add file -> Upload files
+   Select every file from this package's templates folder.
+   This package contains fewer than 100 files.
+   Commit changes.
+
+5. Railway should redeploy automatically.
+
+6. Verify:
+   /health
+   /ready
+   Migration Center milestone 024
+   /admin/registration
+   /register
+
+The full backup package remains:
+stage-starz-online-registration-v1.zip

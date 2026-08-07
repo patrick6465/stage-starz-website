@@ -553,6 +553,34 @@ MIGRATION_REGISTRY = [
             "report_saved_views": ["name","report_key","filter_json","created_by","created_at"]
         },
     },
+    {
+        "key": "024_online_registration_waitlists",
+        "title": "Online Registration and Waitlist System",
+        "description": "Public and parent class registration, digital waivers, capacity enforcement, waitlists, approvals, billing fees, and promotion controls.",
+        "required_tables": [
+            "class_registration_settings",
+            "registration_applications",
+            "registration_waitlist_history"
+        ],
+        "required_columns": {
+            "class_registration_settings": [
+                "class_id","public_enabled","approval_required","waitlist_enabled",
+                "registration_fee","costume_fee","registration_opens_at",
+                "registration_closes_at","minimum_age","maximum_age",
+                "waiver_title","waiver_text","public_notes"
+            ],
+            "registration_applications": [
+                "class_id","family_id","student_id","source",
+                "guardian_name","guardian_email","student_first_name",
+                "student_last_name","student_birth_date","waiver_accepted",
+                "status","waitlist_position","billing_charge_id"
+            ],
+            "registration_waitlist_history": [
+                "application_id","class_id","old_position",
+                "new_position","action","notes","created_at"
+            ]
+        },
+    },
 
 ]
 
@@ -3253,6 +3281,813 @@ def report_csv_response(filename, headers, rows):
             "Cache-Control": "no-store",
         },
     )
+
+
+def registration_class_counts(connection, class_id):
+    row = connection.execute(
+        """
+        SELECT
+            c.capacity,
+            COUNT(CASE WHEN ce.status='Active' THEN 1 END) AS enrolled
+        FROM classes c
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.id=?
+        GROUP BY c.id,c.capacity
+        """,
+        (class_id,),
+    ).fetchone()
+    if not row:
+        return {"capacity":0,"enrolled":0,"available":0}
+    capacity = int(row["capacity"] or 0)
+    enrolled = int(row["enrolled"] or 0)
+    available = max(0, capacity-enrolled) if capacity>0 else 999999
+    return {"capacity":capacity,"enrolled":enrolled,"available":available}
+
+
+def registration_is_open(settings):
+    if not settings or not int(settings["public_enabled"] or 0):
+        return False
+    now = datetime.utcnow()
+
+    def parse_dt(value):
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            return value
+        try:
+            return datetime.fromisoformat(str(value).replace("Z","+00:00")).replace(tzinfo=None)
+        except ValueError:
+            return None
+
+    opens = parse_dt(settings["registration_opens_at"])
+    closes = parse_dt(settings["registration_closes_at"])
+    if opens and now < opens:
+        return False
+    if closes and now > closes:
+        return False
+    return True
+
+
+def next_waitlist_position(connection, class_id):
+    row = connection.execute(
+        """
+        SELECT COALESCE(MAX(waitlist_position),0) AS max_position
+        FROM registration_applications
+        WHERE class_id=? AND status='Waitlisted'
+        """,
+        (class_id,),
+    ).fetchone()
+    return int(row["max_position"] or 0)+1
+
+
+def rebalance_waitlist(connection, class_id):
+    rows = connection.execute(
+        """
+        SELECT id,waitlist_position
+        FROM registration_applications
+        WHERE class_id=? AND status='Waitlisted'
+        ORDER BY COALESCE(waitlist_position,999999),created_at,id
+        """,
+        (class_id,),
+    ).fetchall()
+    for index,row in enumerate(rows,1):
+        old = row["waitlist_position"]
+        if old != index:
+            connection.execute(
+                "UPDATE registration_applications SET waitlist_position=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                (index,row["id"]),
+            )
+            connection.execute(
+                """
+                INSERT INTO registration_waitlist_history (
+                    application_id,class_id,old_position,new_position,action,notes
+                ) VALUES (?,?,?,?, 'Rebalanced','Waitlist position normalized')
+                """,
+                (row["id"],class_id,old,index),
+            )
+
+
+def create_registration_fees(connection, family_id, student_id, class_id, application_id, settings):
+    total_fee = float(settings["registration_fee"] or 0) + float(settings["costume_fee"] or 0)
+    if total_fee <= 0:
+        return None
+
+    class_row = connection.execute("SELECT name FROM classes WHERE id=?",(class_id,)).fetchone()
+    description = f"Registration fees - {class_row['name'] if class_row else 'Class'}"
+    reference = f"Registration #{application_id}"
+
+    sql = """
+        INSERT INTO billing_charges (
+            family_id,student_id,charge_type,description,
+            amount,due_date,status,reference,created_by
+        ) VALUES (?,?, 'Other', ?, ?, '', 'Open', ?, NULL)
+    """
+    if connection.backend=="postgresql":
+        sql += " RETURNING id"
+
+    cursor = connection.execute(
+        sql,
+        (family_id,student_id,description,total_fee,reference),
+    )
+    return (
+        int(cursor.fetchone()["id"])
+        if connection.backend=="postgresql"
+        else int(cursor.lastrowid)
+    )
+
+
+def finalize_registration_application(connection, application_id, force_enroll=False):
+    app_row = connection.execute(
+        """
+        SELECT ra.*,crs.*
+        FROM registration_applications ra
+        JOIN class_registration_settings crs ON crs.class_id=ra.class_id
+        WHERE ra.id=?
+        """,
+        (application_id,),
+    ).fetchone()
+    if not app_row:
+        return {"ok":False,"message":"Registration application not found."}
+
+    class_id = int(app_row["class_id"])
+    counts = registration_class_counts(connection,class_id)
+    has_space = counts["available"]>0
+
+    if not has_space and not force_enroll:
+        if int(app_row["waitlist_enabled"] or 0):
+            position = next_waitlist_position(connection,class_id)
+            connection.execute(
+                """
+                UPDATE registration_applications SET
+                    status='Waitlisted',
+                    waitlist_position=?,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+                """,
+                (position,application_id),
+            )
+            connection.execute(
+                """
+                INSERT INTO registration_waitlist_history (
+                    application_id,class_id,old_position,new_position,action,notes
+                ) VALUES (?, ?, NULL, ?, 'Waitlisted','Class reached capacity')
+                """,
+                (application_id,class_id,position),
+            )
+            return {"ok":True,"status":"Waitlisted","position":position}
+        return {"ok":False,"message":"This class is full and waitlisting is disabled."}
+
+    family_id = app_row["family_id"]
+    student_id = app_row["student_id"]
+
+    if not family_id:
+        family_name = app_row["applicant_family_name"] or f"{app_row['student_last_name']} Family"
+        sql = """
+            INSERT INTO families (
+                family_name,primary_email,primary_phone,tags,notes
+            ) VALUES (?,?,?,'Online Registration','Created from online registration')
+        """
+        if connection.backend=="postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            (
+                family_name,
+                app_row["guardian_email"],
+                app_row["guardian_phone"],
+            ),
+        )
+        family_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend=="postgresql"
+            else int(cursor.lastrowid)
+        )
+
+    if not student_id:
+        sql = """
+            INSERT INTO students (
+                family_id,first_name,last_name,birth_date,
+                status,school,grade,medical_notes,
+                general_notes,tags
+            ) VALUES (?,?,?,?,'Active',?,?,?,?,'Online Registration')
+        """
+        if connection.backend=="postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            (
+                family_id,
+                app_row["student_first_name"],
+                app_row["student_last_name"],
+                app_row["student_birth_date"],
+                app_row["student_school"],
+                app_row["student_grade"],
+                app_row["student_medical_notes"],
+                f"Emergency contact: {app_row['emergency_contact_name']} {app_row['emergency_contact_phone']}".strip(),
+            ),
+        )
+        student_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend=="postgresql"
+            else int(cursor.lastrowid)
+        )
+
+    existing = connection.execute(
+        """
+        SELECT id,status
+        FROM class_enrollments
+        WHERE class_id=? AND student_id=?
+        """,
+        (class_id,student_id),
+    ).fetchone()
+
+    if existing:
+        connection.execute(
+            """
+            UPDATE class_enrollments SET
+                status='Active',
+                notes=?
+            WHERE id=?
+            """,
+            (f"Online registration application #{application_id}",existing["id"]),
+        )
+    else:
+        connection.execute(
+            """
+            INSERT INTO class_enrollments (
+                class_id,student_id,status,notes
+            ) VALUES (?,?,'Active',?)
+            """,
+            (class_id,student_id,f"Online registration application #{application_id}"),
+        )
+
+    billing_charge_id = app_row["billing_charge_id"]
+    if not billing_charge_id:
+        billing_charge_id = create_registration_fees(
+            connection,family_id,student_id,class_id,application_id,app_row
+        )
+
+    connection.execute(
+        """
+        UPDATE registration_applications SET
+            family_id=?,
+            student_id=?,
+            status='Enrolled',
+            waitlist_position=NULL,
+            billing_charge_id=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (family_id,student_id,billing_charge_id,application_id),
+    )
+
+    rebalance_waitlist(connection,class_id)
+    return {"ok":True,"status":"Enrolled","family_id":family_id,"student_id":student_id}
+
+
+@app.route("/register")
+def public_registration_catalog():
+    connection = get_db()
+    classes = connection.execute(
+        """
+        SELECT
+            c.id,c.name,c.category,c.level,c.day_of_week,
+            c.start_time,c.end_time,c.room,c.capacity,c.season,c.description,
+            t.first_name AS teacher_first_name,t.last_name AS teacher_last_name,
+            crs.*,
+            COUNT(CASE WHEN ce.status='Active' THEN 1 END) AS enrolled
+        FROM class_registration_settings crs
+        JOIN classes c ON c.id=crs.class_id
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.active=1 AND crs.public_enabled=1
+        GROUP BY
+            c.id,c.name,c.category,c.level,c.day_of_week,c.start_time,
+            c.end_time,c.room,c.capacity,c.season,c.description,
+            t.first_name,t.last_name,
+            crs.id,crs.class_id,crs.public_enabled,crs.approval_required,
+            crs.waitlist_enabled,crs.registration_fee,crs.costume_fee,
+            crs.registration_opens_at,crs.registration_closes_at,
+            crs.minimum_age,crs.maximum_age,crs.waiver_title,
+            crs.waiver_text,crs.public_notes,crs.created_at,crs.updated_at
+        ORDER BY c.season,c.day_of_week,c.start_time,c.name
+        """
+    ).fetchall()
+    connection.close()
+
+    prepared=[]
+    for row in classes:
+        item=dict(row)
+        capacity=int(item["capacity"] or 0)
+        enrolled=int(item["enrolled"] or 0)
+        item["available"]=max(0,capacity-enrolled) if capacity>0 else None
+        item["registration_open"]=registration_is_open(item)
+        prepared.append(item)
+
+    return render_template("registration_catalog.html",classes=prepared)
+
+
+@app.route("/register/classes/<int:class_id>", methods=["GET","POST"])
+def public_registration_class(class_id):
+    connection = get_db()
+    class_row = connection.execute(
+        """
+        SELECT c.*,crs.*,
+               t.first_name AS teacher_first_name,t.last_name AS teacher_last_name
+        FROM classes c
+        JOIN class_registration_settings crs ON crs.class_id=c.id
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        WHERE c.id=? AND c.active=1 AND crs.public_enabled=1
+        """,
+        (class_id,),
+    ).fetchone()
+
+    if not class_row:
+        connection.close()
+        return ("Registration class not found",404)
+
+    if request.method=="POST":
+        if not registration_is_open(class_row):
+            connection.close()
+            flash("Registration is not currently open for this class.","error")
+            return redirect(url_for("public_registration_class",class_id=class_id))
+
+        if request.form.get("waiver_accepted")!="on":
+            connection.close()
+            flash("The registration agreement must be accepted.","error")
+            return redirect(url_for("public_registration_class",class_id=class_id))
+
+        guardian_email=request.form.get("guardian_email","").strip().lower()
+        student_first=request.form.get("student_first_name","").strip()
+        student_last=request.form.get("student_last_name","").strip()
+        if not guardian_email or not student_first or not student_last:
+            connection.close()
+            flash("Guardian email and student name are required.","error")
+            return redirect(url_for("public_registration_class",class_id=class_id))
+
+        sql = """
+            INSERT INTO registration_applications (
+                class_id,source,applicant_family_name,
+                guardian_name,guardian_email,guardian_phone,
+                student_first_name,student_last_name,student_birth_date,
+                student_grade,student_school,student_medical_notes,
+                emergency_contact_name,emergency_contact_phone,
+                waiver_accepted,waiver_accepted_name,waiver_accepted_at,
+                status
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1,?,CURRENT_TIMESTAMP,'Pending')
+        """
+        if connection.backend=="postgresql":
+            sql += " RETURNING id"
+
+        cursor=connection.execute(
+            sql,
+            (
+                class_id,"Public",
+                request.form.get("family_name","").strip(),
+                request.form.get("guardian_name","").strip(),
+                guardian_email,
+                request.form.get("guardian_phone","").strip(),
+                student_first,student_last,
+                request.form.get("student_birth_date","").strip(),
+                request.form.get("student_grade","").strip(),
+                request.form.get("student_school","").strip(),
+                request.form.get("student_medical_notes","").strip(),
+                request.form.get("emergency_contact_name","").strip(),
+                request.form.get("emergency_contact_phone","").strip(),
+                request.form.get("waiver_accepted_name","").strip(),
+            ),
+        )
+        application_id=(
+            int(cursor.fetchone()["id"])
+            if connection.backend=="postgresql"
+            else int(cursor.lastrowid)
+        )
+
+        result={"status":"Pending"}
+        if not int(class_row["approval_required"] or 0):
+            result=finalize_registration_application(connection,application_id)
+
+        connection.commit()
+        connection.close()
+
+        event_id=create_workflow_event(
+            "online_registration_submitted",
+            "registration",
+            "Online class registration submitted",
+            f"Application #{application_id} · Class #{class_id} · {result.get('status','Pending')}",
+            "info",
+            str(application_id),
+        )
+        evaluate_workflow_rules(event_id)
+
+        return redirect(url_for("registration_confirmation",application_id=application_id))
+
+    counts=registration_class_counts(connection,class_id)
+    connection.close()
+    return render_template(
+        "registration_class.html",
+        class_row=dict(class_row),
+        counts=counts,
+        registration_open=registration_is_open(class_row),
+    )
+
+
+@app.route("/register/confirmation/<int:application_id>")
+def registration_confirmation(application_id):
+    connection=get_db()
+    row=connection.execute(
+        """
+        SELECT
+            ra.*,c.name AS class_name,c.day_of_week,c.start_time,c.room,c.season
+        FROM registration_applications ra
+        JOIN classes c ON c.id=ra.class_id
+        WHERE ra.id=?
+        """,
+        (application_id,),
+    ).fetchone()
+    connection.close()
+    if not row:
+        return ("Registration not found",404)
+    return render_template("registration_confirmation.html",application=dict(row))
+
+
+@app.route("/parent/registration")
+@parent_login_required
+def parent_registration():
+    connection=get_db()
+    account=current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    students=parent_family_students(connection,int(account["family_id"]))
+    classes=connection.execute(
+        """
+        SELECT
+            c.id,c.name,c.category,c.level,c.day_of_week,c.start_time,
+            c.end_time,c.room,c.capacity,c.season,
+            crs.*,
+            COUNT(CASE WHEN ce.status='Active' THEN 1 END) AS enrolled
+        FROM class_registration_settings crs
+        JOIN classes c ON c.id=crs.class_id
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.active=1 AND crs.public_enabled=1
+        GROUP BY
+            c.id,c.name,c.category,c.level,c.day_of_week,c.start_time,
+            c.end_time,c.room,c.capacity,c.season,
+            crs.id,crs.class_id,crs.public_enabled,crs.approval_required,
+            crs.waitlist_enabled,crs.registration_fee,crs.costume_fee,
+            crs.registration_opens_at,crs.registration_closes_at,
+            crs.minimum_age,crs.maximum_age,crs.waiver_title,
+            crs.waiver_text,crs.public_notes,crs.created_at,crs.updated_at
+        ORDER BY c.season,c.day_of_week,c.start_time,c.name
+        """
+    ).fetchall()
+    connection.close()
+
+    prepared=[]
+    for row in classes:
+        item=dict(row)
+        item["registration_open"]=registration_is_open(item)
+        cap=int(item["capacity"] or 0)
+        en=int(item["enrolled"] or 0)
+        item["available"]=max(0,cap-en) if cap>0 else None
+        prepared.append(item)
+
+    return render_template(
+        "parent_registration.html",
+        account=dict(account),
+        students=[dict(s) for s in students],
+        classes=prepared,
+    )
+
+
+@app.route("/parent/registration/submit", methods=["POST"])
+@parent_login_required
+def parent_registration_submit():
+    class_id=int(request.form.get("class_id","0") or 0)
+    student_id=int(request.form.get("student_id","0") or 0)
+
+    connection=get_db()
+    account=current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    student=connection.execute(
+        "SELECT * FROM students WHERE id=? AND family_id=?",
+        (student_id,account["family_id"]),
+    ).fetchone()
+    settings=connection.execute(
+        """
+        SELECT c.*,crs.*
+        FROM classes c
+        JOIN class_registration_settings crs ON crs.class_id=c.id
+        WHERE c.id=? AND c.active=1 AND crs.public_enabled=1
+        """,
+        (class_id,),
+    ).fetchone()
+
+    if not student or not settings:
+        connection.close()
+        flash("Registration selection was not valid.","error")
+        return redirect(url_for("parent_registration"))
+
+    if not registration_is_open(settings):
+        connection.close()
+        flash("Registration is not currently open for that class.","error")
+        return redirect(url_for("parent_registration"))
+
+    if request.form.get("waiver_accepted")!="on":
+        connection.close()
+        flash("The registration agreement must be accepted.","error")
+        return redirect(url_for("parent_registration"))
+
+    duplicate=connection.execute(
+        """
+        SELECT id
+        FROM class_enrollments
+        WHERE class_id=? AND student_id=? AND status='Active'
+        """,
+        (class_id,student_id),
+    ).fetchone()
+    if duplicate:
+        connection.close()
+        flash("That dancer is already enrolled in this class.","error")
+        return redirect(url_for("parent_registration"))
+
+    sql="""
+        INSERT INTO registration_applications (
+            class_id,family_id,student_id,source,
+            applicant_family_name,guardian_name,guardian_email,guardian_phone,
+            student_first_name,student_last_name,student_birth_date,
+            student_grade,student_school,student_medical_notes,
+            waiver_accepted,waiver_accepted_name,waiver_accepted_at,status
+        ) VALUES (?,?,?,'Parent Portal',?,?,?,?,?,?,?,?,?,?,1,?,CURRENT_TIMESTAMP,'Pending')
+    """
+    if connection.backend=="postgresql":
+        sql += " RETURNING id"
+
+    cursor=connection.execute(
+        sql,
+        (
+            class_id,account["family_id"],student_id,
+            account["family_name"],
+            account["display_name"] or account["family_name"],
+            account["primary_email"] or account["email"],
+            account["primary_phone"],
+            student["first_name"],student["last_name"],student["birth_date"],
+            student["grade"],student["school"],student["medical_notes"],
+            request.form.get("waiver_accepted_name","").strip(),
+        ),
+    )
+    application_id=(
+        int(cursor.fetchone()["id"])
+        if connection.backend=="postgresql"
+        else int(cursor.lastrowid)
+    )
+
+    result={"status":"Pending"}
+    if not int(settings["approval_required"] or 0):
+        result=finalize_registration_application(connection,application_id)
+
+    log_parent_activity(
+        connection,
+        int(account["family_id"]),
+        "Class registration submitted",
+        f"Application #{application_id} · Class #{class_id}",
+    )
+    connection.commit()
+    connection.close()
+
+    flash(f"Registration submitted: {result.get('status','Pending')}.","success")
+    return redirect(url_for("parent_registration"))
+
+
+@app.route("/admin/registration")
+@permission_required("classes")
+def registration_admin():
+    connection=get_db()
+    classes=connection.execute(
+        """
+        SELECT
+            c.id,c.name,c.day_of_week,c.start_time,c.capacity,c.season,c.active,
+            crs.public_enabled,crs.approval_required,crs.waitlist_enabled,
+            crs.registration_fee,crs.costume_fee,
+            COUNT(CASE WHEN ce.status='Active' THEN 1 END) AS enrolled,
+            SUM(CASE WHEN ra.status='Pending' THEN 1 ELSE 0 END) AS pending_count,
+            SUM(CASE WHEN ra.status='Waitlisted' THEN 1 ELSE 0 END) AS waitlist_count
+        FROM classes c
+        LEFT JOIN class_registration_settings crs ON crs.class_id=c.id
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        LEFT JOIN registration_applications ra ON ra.class_id=c.id
+        WHERE c.active=1
+        GROUP BY
+            c.id,c.name,c.day_of_week,c.start_time,c.capacity,c.season,c.active,
+            crs.public_enabled,crs.approval_required,crs.waitlist_enabled,
+            crs.registration_fee,crs.costume_fee
+        ORDER BY c.season,c.day_of_week,c.start_time,c.name
+        """
+    ).fetchall()
+
+    applications=connection.execute(
+        """
+        SELECT
+            ra.*,c.name AS class_name,c.season,
+            f.family_name,
+            s.first_name AS linked_first_name,s.last_name AS linked_last_name
+        FROM registration_applications ra
+        JOIN classes c ON c.id=ra.class_id
+        LEFT JOIN families f ON f.id=ra.family_id
+        LEFT JOIN students s ON s.id=ra.student_id
+        ORDER BY
+            CASE ra.status
+                WHEN 'Pending' THEN 1
+                WHEN 'Waitlisted' THEN 2
+                WHEN 'Enrolled' THEN 3
+                ELSE 4
+            END,
+            ra.created_at DESC
+        LIMIT 300
+        """
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "registration_admin.html",
+        classes=[dict(r) for r in classes],
+        applications=[dict(r) for r in applications],
+    )
+
+
+@app.route("/admin/registration/classes/<int:class_id>/settings", methods=["GET","POST"])
+@permission_required("classes")
+def registration_class_settings(class_id):
+    connection=get_db()
+    class_row=connection.execute("SELECT * FROM classes WHERE id=?",(class_id,)).fetchone()
+    if not class_row:
+        connection.close()
+        return ("Class not found",404)
+
+    if request.method=="POST":
+        connection.execute(
+            """
+            INSERT INTO class_registration_settings (
+                class_id,public_enabled,approval_required,waitlist_enabled,
+                registration_fee,costume_fee,registration_opens_at,
+                registration_closes_at,minimum_age,maximum_age,
+                waiver_title,waiver_text,public_notes
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(class_id) DO UPDATE SET
+                public_enabled=excluded.public_enabled,
+                approval_required=excluded.approval_required,
+                waitlist_enabled=excluded.waitlist_enabled,
+                registration_fee=excluded.registration_fee,
+                costume_fee=excluded.costume_fee,
+                registration_opens_at=excluded.registration_opens_at,
+                registration_closes_at=excluded.registration_closes_at,
+                minimum_age=excluded.minimum_age,
+                maximum_age=excluded.maximum_age,
+                waiver_title=excluded.waiver_title,
+                waiver_text=excluded.waiver_text,
+                public_notes=excluded.public_notes,
+                updated_at=CURRENT_TIMESTAMP
+            """,
+            (
+                class_id,
+                1 if request.form.get("public_enabled")=="on" else 0,
+                1 if request.form.get("approval_required")=="on" else 0,
+                1 if request.form.get("waitlist_enabled")=="on" else 0,
+                float(request.form.get("registration_fee","0") or 0),
+                float(request.form.get("costume_fee","0") or 0),
+                request.form.get("registration_opens_at","").strip() or None,
+                request.form.get("registration_closes_at","").strip() or None,
+                int(request.form["minimum_age"]) if request.form.get("minimum_age","").strip() else None,
+                int(request.form["maximum_age"]) if request.form.get("maximum_age","").strip() else None,
+                request.form.get("waiver_title","Registration Agreement").strip(),
+                request.form.get("waiver_text","").strip(),
+                request.form.get("public_notes","").strip(),
+            ),
+        )
+        connection.commit()
+        connection.close()
+        flash("Class registration settings saved.","success")
+        return redirect(url_for("registration_class_settings",class_id=class_id))
+
+    settings=connection.execute(
+        "SELECT * FROM class_registration_settings WHERE class_id=?",
+        (class_id,),
+    ).fetchone()
+    counts=registration_class_counts(connection,class_id)
+    connection.close()
+    return render_template(
+        "registration_class_settings.html",
+        class_row=dict(class_row),
+        settings=dict(settings) if settings else {},
+        counts=counts,
+    )
+
+
+@app.route("/admin/registration/applications/<int:application_id>/approve", methods=["POST"])
+@permission_required("classes")
+def approve_registration_application(application_id):
+    connection=get_db()
+    application=connection.execute(
+        "SELECT * FROM registration_applications WHERE id=?",
+        (application_id,),
+    ).fetchone()
+    if not application:
+        connection.close()
+        return ("Application not found",404)
+
+    result=finalize_registration_application(connection,application_id)
+    if result["ok"]:
+        connection.commit()
+        connection.close()
+        flash(f"Registration updated: {result['status']}.","success")
+    else:
+        connection.rollback()
+        connection.close()
+        flash(result["message"],"error")
+    return redirect(url_for("registration_admin"))
+
+
+@app.route("/admin/registration/applications/<int:application_id>/decline", methods=["POST"])
+@permission_required("classes")
+def decline_registration_application(application_id):
+    connection=get_db()
+    row=connection.execute(
+        "SELECT class_id,status,waitlist_position FROM registration_applications WHERE id=?",
+        (application_id,),
+    ).fetchone()
+    if not row:
+        connection.close()
+        return ("Application not found",404)
+
+    connection.execute(
+        """
+        UPDATE registration_applications SET
+            status='Declined',
+            waitlist_position=NULL,
+            admin_notes=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (request.form.get("admin_notes","").strip(),application_id),
+    )
+    if row["status"]=="Waitlisted":
+        rebalance_waitlist(connection,int(row["class_id"]))
+    connection.commit()
+    connection.close()
+    flash("Registration declined.","success")
+    return redirect(url_for("registration_admin"))
+
+
+@app.route("/admin/registration/classes/<int:class_id>/promote-waitlist", methods=["POST"])
+@permission_required("classes")
+def promote_registration_waitlist(class_id):
+    connection=get_db()
+    counts=registration_class_counts(connection,class_id)
+    available=counts["available"]
+
+    if available<=0:
+        connection.close()
+        flash("This class has no available spaces.","error")
+        return redirect(url_for("registration_admin"))
+
+    promoted=0
+    while available>0:
+        row=connection.execute(
+            """
+            SELECT id
+            FROM registration_applications
+            WHERE class_id=? AND status='Waitlisted'
+            ORDER BY waitlist_position,created_at,id
+            LIMIT 1
+            """,
+            (class_id,),
+        ).fetchone()
+        if not row:
+            break
+        result=finalize_registration_application(connection,int(row["id"]),force_enroll=True)
+        if not result["ok"]:
+            break
+        connection.execute(
+            """
+            INSERT INTO registration_waitlist_history (
+                application_id,class_id,old_position,new_position,action,notes
+            ) VALUES (?, ?, 1, NULL, 'Promoted','Promoted into an available class space')
+            """,
+            (row["id"],class_id),
+        )
+        promoted+=1
+        available-=1
+
+    rebalance_waitlist(connection,class_id)
+    connection.commit()
+    connection.close()
+    flash(f"Promoted {promoted} waitlisted registration(s).","success")
+    return redirect(url_for("registration_admin"))
 
 
 @app.route("/admin/reports")
