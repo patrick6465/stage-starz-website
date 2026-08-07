@@ -70,9 +70,9 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","ticketing","workflow","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","ticketing","notifications","workflow","orders","website","announcements","media","search","reports"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
-    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","ticketing","workflow","reports","media","search"}},
+    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","ticketing","notifications","workflow","reports","media","search"}},
 }
 
 def current_admin():
@@ -453,6 +453,35 @@ MIGRATION_REGISTRY = [
         "required_columns": {
             "ticket_delivery_settings": ["recital_show_id","mobile_tickets_enabled","checkin_enabled","allow_reentry","reentry_limit","door_notes","delivery_message"],
             "ticket_checkin_events": ["ticket_id","recital_show_id","action","method","staff_user_id","notes","created_at"],
+        },
+    },
+    {
+        "key": "020_email_notification_center",
+        "title": "Email and Notification Center",
+        "description": "Templates, campaigns, recipient groups, message queue, scheduling, and delivery history.",
+        "required_tables": [
+            "notification_templates",
+            "notification_campaigns",
+            "notification_recipients",
+            "notification_delivery_log"
+        ],
+        "required_columns": {
+            "notification_templates": [
+                "name","category","subject","body_text","active"
+            ],
+            "notification_campaigns": [
+                "name","template_id","category","subject","body_text",
+                "recipient_scope","scheduled_for","status"
+            ],
+            "notification_recipients": [
+                "campaign_id","family_id","student_id","recipient_name",
+                "recipient_email","source_type","source_reference",
+                "status","last_error"
+            ],
+            "notification_delivery_log": [
+                "campaign_id","recipient_id","channel","provider",
+                "provider_message_id","status","error_message","sent_at"
+            ],
         },
     },
 
@@ -1951,6 +1980,749 @@ def mobile_ticket_qr(token):
     qr=qrcode.QRCode(version=None,box_size=8,border=3);qr.add_data(f"STAGESTARZ:{token}");qr.make(fit=True)
     image=qr.make_image(image_factory=SvgPathImage);from io import BytesIO
     stream=BytesIO();image.save(stream);return Response(stream.getvalue(),mimetype="image/svg+xml",headers={"Cache-Control":"private, max-age=3600"})
+
+
+def notification_scope_recipients(connection, scope):
+    rows = []
+
+    if scope == "All Families":
+        data = connection.execute(
+            """
+            SELECT
+                id AS family_id,
+                family_name AS recipient_name,
+                primary_email AS recipient_email,
+                primary_phone AS recipient_phone
+            FROM families
+            WHERE COALESCE(primary_email,'')!=''
+            ORDER BY family_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Family",
+                "source_reference": str(row["family_id"]),
+            })
+
+    elif scope == "Active Students":
+        data = connection.execute(
+            """
+            SELECT
+                s.id AS student_id,
+                s.first_name,
+                s.last_name,
+                f.id AS family_id,
+                f.family_name,
+                f.primary_email,
+                f.primary_phone
+            FROM students s
+            LEFT JOIN families f ON f.id=s.family_id
+            WHERE COALESCE(s.active,1)=1
+              AND COALESCE(f.primary_email,'')!=''
+            ORDER BY s.last_name,s.first_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": row["student_id"],
+                "recipient_name": f"{row['first_name']} {row['last_name']}".strip(),
+                "recipient_email": row["primary_email"],
+                "recipient_phone": row["primary_phone"],
+                "source_type": "Student",
+                "source_reference": str(row["student_id"]),
+            })
+
+    elif scope == "Open Billing":
+        data = connection.execute(
+            """
+            SELECT DISTINCT
+                f.id AS family_id,
+                f.family_name AS recipient_name,
+                f.primary_email AS recipient_email,
+                f.primary_phone AS recipient_phone
+            FROM billing_charges bc
+            JOIN families f ON f.id=bc.family_id
+            WHERE bc.status='Open'
+              AND COALESCE(f.primary_email,'')!=''
+            ORDER BY f.family_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Billing",
+                "source_reference": str(row["family_id"]),
+            })
+
+    elif scope == "Ticket Purchasers":
+        data = connection.execute(
+            """
+            SELECT DISTINCT
+                tor.family_id,
+                tor.purchaser_name AS recipient_name,
+                tor.purchaser_email AS recipient_email,
+                tor.purchaser_phone AS recipient_phone,
+                tor.id AS order_id
+            FROM ticket_orders tor
+            WHERE COALESCE(tor.purchaser_email,'')!=''
+              AND tor.order_status!='Voided'
+            ORDER BY tor.purchaser_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Ticket Order",
+                "source_reference": str(row["order_id"]),
+            })
+
+    elif scope == "Competition Families":
+        data = connection.execute(
+            """
+            SELECT DISTINCT
+                f.id AS family_id,
+                f.family_name AS recipient_name,
+                f.primary_email AS recipient_email,
+                f.primary_phone AS recipient_phone
+            FROM competition_dancers cd
+            JOIN students s ON s.id=cd.student_id
+            JOIN families f ON f.id=s.family_id
+            WHERE COALESCE(f.primary_email,'')!=''
+            ORDER BY f.family_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Competition",
+                "source_reference": str(row["family_id"]),
+            })
+
+    elif scope == "Recital Families":
+        data = connection.execute(
+            """
+            SELECT DISTINCT
+                f.id AS family_id,
+                f.family_name AS recipient_name,
+                f.primary_email AS recipient_email,
+                f.primary_phone AS recipient_phone
+            FROM recital_cast rc
+            JOIN students s ON s.id=rc.student_id
+            JOIN families f ON f.id=s.family_id
+            WHERE COALESCE(f.primary_email,'')!=''
+            ORDER BY f.family_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Recital",
+                "source_reference": str(row["family_id"]),
+            })
+
+    return rows
+
+
+@app.route("/admin/notifications")
+@permission_required("notifications")
+def notification_center():
+    connection = get_db()
+
+    templates = connection.execute(
+        """
+        SELECT *
+        FROM notification_templates
+        ORDER BY active DESC,category,name
+        """
+    ).fetchall()
+
+    campaigns = connection.execute(
+        """
+        SELECT
+            nc.*,
+            nt.name AS template_name,
+            COUNT(nr.id) AS recipient_count,
+            SUM(CASE WHEN nr.status='Sent' THEN 1 ELSE 0 END) AS sent_count,
+            SUM(CASE WHEN nr.status='Failed' THEN 1 ELSE 0 END) AS failed_count
+        FROM notification_campaigns nc
+        LEFT JOIN notification_templates nt ON nt.id=nc.template_id
+        LEFT JOIN notification_recipients nr ON nr.campaign_id=nc.id
+        GROUP BY
+            nc.id,nc.name,nc.template_id,nc.category,
+            nc.subject,nc.body_text,nc.recipient_scope,
+            nc.scheduled_for,nc.status,nc.created_by,
+            nc.created_at,nc.updated_at,nt.name
+        ORDER BY nc.id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM notification_templates WHERE active=1) AS active_templates,
+            (SELECT COUNT(*) FROM notification_campaigns WHERE status='Draft') AS draft_campaigns,
+            (SELECT COUNT(*) FROM notification_recipients WHERE status='Queued') AS queued_recipients,
+            (SELECT COUNT(*) FROM notification_recipients WHERE status='Failed') AS failed_recipients
+        """
+    ).fetchone()
+
+    connection.close()
+
+    return render_template(
+        "notification_center.html",
+        templates=[dict(row) for row in templates],
+        campaigns=[dict(row) for row in campaigns],
+        summary=dict(summary),
+    )
+
+
+@app.route("/admin/notifications/templates/save", methods=["POST"])
+@permission_required("notifications")
+def save_notification_template():
+    template_id = request.form.get("id","").strip()
+    values = (
+        request.form.get("name","").strip(),
+        request.form.get("category","General").strip(),
+        request.form.get("subject","").strip(),
+        request.form.get("body_text","").strip(),
+        1 if request.form.get("active")=="on" else 0,
+    )
+
+    connection = get_db()
+
+    if template_id:
+        connection.execute(
+            """
+            UPDATE notification_templates SET
+                name=?,category=?,subject=?,body_text=?,active=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            values + (int(template_id),),
+        )
+        saved_id = int(template_id)
+    else:
+        sql = """
+            INSERT INTO notification_templates (
+                name,category,subject,body_text,
+                active,created_by
+            ) VALUES (?,?,?,?,?,?)
+        """
+        if connection.backend=="postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            values + (int(session.get("admin_user_id") or 0) or None,),
+        )
+        saved_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend=="postgresql"
+            else int(cursor.lastrowid)
+        )
+
+    connection.commit()
+    connection.close()
+    flash("Notification template saved.","success")
+    return redirect(url_for("notification_template",template_id=saved_id))
+
+
+@app.route("/admin/notifications/templates/<int:template_id>")
+@permission_required("notifications")
+def notification_template(template_id):
+    connection = get_db()
+    template = connection.execute(
+        "SELECT * FROM notification_templates WHERE id=?",
+        (template_id,),
+    ).fetchone()
+    connection.close()
+
+    if not template:
+        return ("Template not found",404)
+
+    return render_template(
+        "notification_template.html",
+        template=dict(template),
+    )
+
+
+@app.route("/admin/notifications/campaigns/create", methods=["POST"])
+@permission_required("notifications")
+def create_notification_campaign():
+    template_value = request.form.get("template_id","").strip()
+    template_id = int(template_value) if template_value else None
+    scope = request.form.get("recipient_scope","Manual").strip()
+
+    connection = get_db()
+    template = None
+    if template_id:
+        template = connection.execute(
+            "SELECT * FROM notification_templates WHERE id=?",
+            (template_id,),
+        ).fetchone()
+
+    subject = request.form.get("subject","").strip()
+    body_text = request.form.get("body_text","").strip()
+    category = request.form.get("category","General").strip()
+
+    if template:
+        if not subject:
+            subject = template["subject"]
+        if not body_text:
+            body_text = template["body_text"]
+        if category=="General":
+            category = template["category"]
+
+    sql = """
+        INSERT INTO notification_campaigns (
+            name,template_id,category,subject,body_text,
+            recipient_scope,scheduled_for,status,created_by
+        ) VALUES (?,?,?,?,?,?,?,'Draft',?)
+    """
+    if connection.backend=="postgresql":
+        sql += " RETURNING id"
+
+    cursor = connection.execute(
+        sql,
+        (
+            request.form.get("name","").strip(),
+            template_id,
+            category,
+            subject,
+            body_text,
+            scope,
+            request.form.get("scheduled_for","").strip() or None,
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    campaign_id = (
+        int(cursor.fetchone()["id"])
+        if connection.backend=="postgresql"
+        else int(cursor.lastrowid)
+    )
+
+    if scope!="Manual":
+        for recipient in notification_scope_recipients(connection,scope):
+            connection.execute(
+                """
+                INSERT INTO notification_recipients (
+                    campaign_id,family_id,student_id,
+                    recipient_name,recipient_email,recipient_phone,
+                    source_type,source_reference,status
+                ) VALUES (?,?,?,?,?,?,?,?,'Queued')
+                """,
+                (
+                    campaign_id,
+                    recipient["family_id"],
+                    recipient["student_id"],
+                    recipient["recipient_name"],
+                    recipient["recipient_email"],
+                    recipient["recipient_phone"],
+                    recipient["source_type"],
+                    recipient["source_reference"],
+                ),
+            )
+
+    connection.commit()
+    connection.close()
+
+    flash("Notification campaign created.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/campaigns/<int:campaign_id>")
+@permission_required("notifications")
+def notification_campaign(campaign_id):
+    connection = get_db()
+
+    campaign = connection.execute(
+        """
+        SELECT nc.*,nt.name AS template_name
+        FROM notification_campaigns nc
+        LEFT JOIN notification_templates nt ON nt.id=nc.template_id
+        WHERE nc.id=?
+        """,
+        (campaign_id,),
+    ).fetchone()
+
+    if not campaign:
+        connection.close()
+        return ("Campaign not found",404)
+
+    recipients = connection.execute(
+        """
+        SELECT *
+        FROM notification_recipients
+        WHERE campaign_id=?
+        ORDER BY recipient_name,recipient_email,id
+        """,
+        (campaign_id,),
+    ).fetchall()
+
+    log_rows = connection.execute(
+        """
+        SELECT
+            ndl.*,
+            nr.recipient_name,
+            nr.recipient_email
+        FROM notification_delivery_log ndl
+        JOIN notification_recipients nr ON nr.id=ndl.recipient_id
+        WHERE ndl.campaign_id=?
+        ORDER BY ndl.id DESC
+        LIMIT 200
+        """,
+        (campaign_id,),
+    ).fetchall()
+
+    families = connection.execute(
+        """
+        SELECT id,family_name,primary_email,primary_phone
+        FROM families
+        WHERE COALESCE(primary_email,'')!=''
+        ORDER BY family_name
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "notification_campaign.html",
+        campaign=dict(campaign),
+        recipients=[dict(row) for row in recipients],
+        delivery_log=[dict(row) for row in log_rows],
+        families=[dict(row) for row in families],
+    )
+
+
+@app.route("/admin/notifications/campaigns/<int:campaign_id>/update", methods=["POST"])
+@permission_required("notifications")
+def update_notification_campaign(campaign_id):
+    connection = get_db()
+    connection.execute(
+        """
+        UPDATE notification_campaigns SET
+            name=?,category=?,subject=?,body_text=?,
+            scheduled_for=?,updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (
+            request.form.get("name","").strip(),
+            request.form.get("category","General").strip(),
+            request.form.get("subject","").strip(),
+            request.form.get("body_text","").strip(),
+            request.form.get("scheduled_for","").strip() or None,
+            campaign_id,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Campaign updated.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/campaigns/<int:campaign_id>/recipients/add", methods=["POST"])
+@permission_required("notifications")
+def add_notification_recipient(campaign_id):
+    connection = get_db()
+
+    family_value = request.form.get("family_id","").strip()
+    family_id = int(family_value) if family_value else None
+
+    recipient_name = request.form.get("recipient_name","").strip()
+    recipient_email = request.form.get("recipient_email","").strip()
+    recipient_phone = request.form.get("recipient_phone","").strip()
+
+    if family_id and (not recipient_name or not recipient_email):
+        family = connection.execute(
+            """
+            SELECT family_name,primary_email,primary_phone
+            FROM families
+            WHERE id=?
+            """,
+            (family_id,),
+        ).fetchone()
+        if family:
+            recipient_name = recipient_name or family["family_name"]
+            recipient_email = recipient_email or family["primary_email"]
+            recipient_phone = recipient_phone or family["primary_phone"]
+
+    if not recipient_email:
+        connection.close()
+        flash("Recipient email is required.","error")
+        return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+    connection.execute(
+        """
+        INSERT INTO notification_recipients (
+            campaign_id,family_id,recipient_name,
+            recipient_email,recipient_phone,
+            source_type,source_reference,status
+        ) VALUES (?,?,?,?,?,'Manual','','Queued')
+        """,
+        (
+            campaign_id,
+            family_id,
+            recipient_name,
+            recipient_email,
+            recipient_phone,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Recipient added.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/recipients/<int:recipient_id>/remove", methods=["POST"])
+@permission_required("notifications")
+def remove_notification_recipient(recipient_id):
+    connection = get_db()
+    recipient = connection.execute(
+        "SELECT campaign_id FROM notification_recipients WHERE id=?",
+        (recipient_id,),
+    ).fetchone()
+
+    if not recipient:
+        connection.close()
+        return ("Recipient not found",404)
+
+    campaign_id = int(recipient["campaign_id"])
+    connection.execute(
+        "DELETE FROM notification_recipients WHERE id=?",
+        (recipient_id,),
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Recipient removed.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/campaigns/<int:campaign_id>/queue", methods=["POST"])
+@permission_required("notifications")
+def queue_notification_campaign(campaign_id):
+    connection = get_db()
+
+    campaign = connection.execute(
+        "SELECT * FROM notification_campaigns WHERE id=?",
+        (campaign_id,),
+    ).fetchone()
+
+    if not campaign:
+        connection.close()
+        return ("Campaign not found",404)
+
+    recipients = connection.execute(
+        """
+        SELECT *
+        FROM notification_recipients
+        WHERE campaign_id=?
+          AND COALESCE(recipient_email,'')!=''
+        """,
+        (campaign_id,),
+    ).fetchall()
+
+    if not recipients:
+        connection.close()
+        flash("Add at least one recipient before queueing the campaign.","error")
+        return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+    for recipient in recipients:
+        existing = connection.execute(
+            """
+            SELECT id
+            FROM notification_delivery_log
+            WHERE campaign_id=? AND recipient_id=?
+              AND status IN ('Queued','Sent')
+            """,
+            (campaign_id,recipient["id"]),
+        ).fetchone()
+
+        if not existing:
+            connection.execute(
+                """
+                INSERT INTO notification_delivery_log (
+                    campaign_id,recipient_id,channel,
+                    provider,status
+                ) VALUES (?,?,'Email','Internal Queue','Queued')
+                """,
+                (campaign_id,recipient["id"]),
+            )
+
+        connection.execute(
+            """
+            UPDATE notification_recipients SET
+                status='Queued',
+                last_error='',
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (recipient["id"],),
+        )
+
+    connection.execute(
+        """
+        UPDATE notification_campaigns SET
+            status='Queued',
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (campaign_id,),
+    )
+
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        "notification_campaign_queued",
+        "notifications",
+        "Notification campaign queued",
+        f"Campaign #{campaign_id} · {len(recipients)} recipient(s)",
+        "info",
+        str(campaign_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash("Campaign queued in the internal notification engine.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/delivery/<int:delivery_id>/mark-sent", methods=["POST"])
+@permission_required("notifications")
+def mark_notification_sent(delivery_id):
+    connection = get_db()
+
+    delivery = connection.execute(
+        """
+        SELECT campaign_id,recipient_id
+        FROM notification_delivery_log
+        WHERE id=?
+        """,
+        (delivery_id,),
+    ).fetchone()
+
+    if not delivery:
+        connection.close()
+        return ("Delivery record not found",404)
+
+    connection.execute(
+        """
+        UPDATE notification_delivery_log SET
+            status='Sent',
+            sent_at=CURRENT_TIMESTAMP,
+            error_message=''
+        WHERE id=?
+        """,
+        (delivery_id,),
+    )
+    connection.execute(
+        """
+        UPDATE notification_recipients SET
+            status='Sent',
+            last_error='',
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (delivery["recipient_id"],),
+    )
+
+    remaining = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM notification_recipients
+        WHERE campaign_id=? AND status!='Sent'
+        """,
+        (delivery["campaign_id"],),
+    ).fetchone()
+
+    if int(remaining["count"] or 0)==0:
+        connection.execute(
+            """
+            UPDATE notification_campaigns SET
+                status='Completed',
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (delivery["campaign_id"],),
+        )
+
+    connection.commit()
+    campaign_id = int(delivery["campaign_id"])
+    connection.close()
+
+    flash("Delivery marked sent.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/delivery/<int:delivery_id>/mark-failed", methods=["POST"])
+@permission_required("notifications")
+def mark_notification_failed(delivery_id):
+    connection = get_db()
+
+    delivery = connection.execute(
+        """
+        SELECT campaign_id,recipient_id
+        FROM notification_delivery_log
+        WHERE id=?
+        """,
+        (delivery_id,),
+    ).fetchone()
+
+    if not delivery:
+        connection.close()
+        return ("Delivery record not found",404)
+
+    error_message = request.form.get("error_message","").strip() or "Delivery failed"
+
+    connection.execute(
+        """
+        UPDATE notification_delivery_log SET
+            status='Failed',
+            error_message=?
+        WHERE id=?
+        """,
+        (error_message,delivery_id),
+    )
+    connection.execute(
+        """
+        UPDATE notification_recipients SET
+            status='Failed',
+            last_error=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (error_message,delivery["recipient_id"]),
+    )
+
+    connection.commit()
+    campaign_id = int(delivery["campaign_id"])
+    connection.close()
+
+    flash("Delivery marked failed.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
 
 
 @app.route("/admin/ticketing")

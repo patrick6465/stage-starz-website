@@ -1149,6 +1149,87 @@ def init_db() -> None:
         """
     )
 
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS notification_templates (
+            id {id_column},
+            name TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'General',
+            subject TEXT NOT NULL DEFAULT '',
+            body_text TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS notification_campaigns (
+            id {id_column},
+            name TEXT NOT NULL,
+            template_id INTEGER,
+            category TEXT NOT NULL DEFAULT 'General',
+            subject TEXT NOT NULL DEFAULT '',
+            body_text TEXT NOT NULL DEFAULT '',
+            recipient_scope TEXT NOT NULL DEFAULT 'Manual',
+            scheduled_for TIMESTAMP,
+            status TEXT NOT NULL DEFAULT 'Draft',
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(template_id) REFERENCES notification_templates(id) ON DELETE SET NULL,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS notification_recipients (
+            id {id_column},
+            campaign_id INTEGER NOT NULL,
+            family_id INTEGER,
+            student_id INTEGER,
+            recipient_name TEXT NOT NULL DEFAULT '',
+            recipient_email TEXT NOT NULL DEFAULT '',
+            recipient_phone TEXT NOT NULL DEFAULT '',
+            source_type TEXT NOT NULL DEFAULT 'Manual',
+            source_reference TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Queued',
+            last_error TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(campaign_id) REFERENCES notification_campaigns(id) ON DELETE CASCADE,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS notification_delivery_log (
+            id {id_column},
+            campaign_id INTEGER NOT NULL,
+            recipient_id INTEGER NOT NULL,
+            channel TEXT NOT NULL DEFAULT 'Email',
+            provider TEXT NOT NULL DEFAULT 'Internal Queue',
+            provider_message_id TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'Queued',
+            error_message TEXT NOT NULL DEFAULT '',
+            sent_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(campaign_id) REFERENCES notification_campaigns(id) ON DELETE CASCADE,
+            FOREIGN KEY(recipient_id) REFERENCES notification_recipients(id) ON DELETE CASCADE
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         for column_name, column_definition in [
