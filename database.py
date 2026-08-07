@@ -1386,6 +1386,35 @@ def init_db() -> None:
         """
     )
 
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS report_snapshots (
+            id {id_column},
+            report_key TEXT NOT NULL,
+            report_name TEXT NOT NULL,
+            snapshot_json TEXT NOT NULL DEFAULT '{{}}',
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS report_saved_views (
+            id {id_column},
+            name TEXT NOT NULL,
+            report_key TEXT NOT NULL,
+            filter_json TEXT NOT NULL DEFAULT '{{}}',
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         for column_name, column_definition in [

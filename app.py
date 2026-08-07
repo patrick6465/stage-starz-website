@@ -1,4 +1,7 @@
 from __future__ import annotations
+import csv
+import io
+import json
 
 import json
 import logging
@@ -539,6 +542,16 @@ MIGRATION_REGISTRY = [
             "staff_portal_documents": [
                 "teacher_id","title","category","description","document_url","active"
             ],
+        },
+    },
+    {
+        "key": "023_reporting_business_intelligence",
+        "title": "Reporting and Business Intelligence Center",
+        "description": "Executive KPIs, finance, enrollment, attendance, instructor, recital, costume, competition, ticketing, CSV exports, and report snapshots.",
+        "required_tables": ["report_snapshots","report_saved_views"],
+        "required_columns": {
+            "report_snapshots": ["report_key","report_name","snapshot_json","created_by","created_at"],
+            "report_saved_views": ["name","report_key","filter_json","created_by","created_at"]
         },
     },
 
@@ -3219,6 +3232,485 @@ def staff_profile():
         "staff_profile.html",
         account=dict(account),
     )
+
+
+def report_csv_response(filename, headers, rows):
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for row in rows:
+        writer.writerow(row)
+    response = make_response(output.getvalue())
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@app.route("/admin/reports")
+@permission_required("reports")
+def reporting_center():
+    connection = get_db()
+
+    families = connection.execute(
+        "SELECT COUNT(*) AS count FROM families"
+    ).fetchone()
+    students = connection.execute(
+        "SELECT COUNT(*) AS count FROM students WHERE status='Active'"
+    ).fetchone()
+    classes = connection.execute(
+        "SELECT COUNT(*) AS count FROM classes WHERE active=1"
+    ).fetchone()
+    enrollments = connection.execute(
+        "SELECT COUNT(*) AS count FROM class_enrollments WHERE status='Active'"
+    ).fetchone()
+
+    charges = connection.execute(
+        """
+        SELECT
+            COALESCE(SUM(CASE WHEN status!='Voided' THEN amount ELSE 0 END),0) AS total,
+            COALESCE(SUM(CASE WHEN status='Open' THEN amount ELSE 0 END),0) AS open_total,
+            COUNT(CASE WHEN status='Open' THEN 1 END) AS open_count
+        FROM billing_charges
+        """
+    ).fetchone()
+
+    payments = connection.execute(
+        """
+        SELECT COALESCE(SUM(amount),0) AS total
+        FROM billing_payments
+        WHERE status='Posted'
+        """
+    ).fetchone()
+
+    attendance = connection.execute(
+        """
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN status='Present' THEN 1 ELSE 0 END) AS present,
+            SUM(CASE WHEN status='Absent' THEN 1 ELSE 0 END) AS absent,
+            SUM(CASE WHEN status='Late' THEN 1 ELSE 0 END) AS late
+        FROM attendance_records
+        WHERE status!='Unmarked'
+        """
+    ).fetchone()
+
+    tickets = connection.execute(
+        """
+        SELECT
+            COUNT(CASE WHEN status='Valid' THEN 1 END) AS valid_tickets,
+            COALESCE(SUM(CASE WHEN status='Valid' THEN price ELSE 0 END),0) AS ticket_revenue,
+            COUNT(CASE WHEN status='Valid' AND checked_in_at IS NOT NULL THEN 1 END) AS checked_in
+        FROM tickets
+        """
+    ).fetchone()
+
+    monthly_revenue = connection.execute(
+        """
+        SELECT
+            SUBSTR(payment_date,1,7) AS month,
+            COALESCE(SUM(amount),0) AS amount
+        FROM billing_payments
+        WHERE status='Posted' AND COALESCE(payment_date,'')!=''
+        GROUP BY SUBSTR(payment_date,1,7)
+        ORDER BY month DESC
+        LIMIT 12
+        """
+    ).fetchall()
+
+    class_utilization = connection.execute(
+        """
+        SELECT
+            c.id,c.name,c.capacity,
+            COUNT(CASE WHEN ce.status='Active' THEN 1 END) AS enrolled,
+            CASE
+                WHEN c.capacity>0 THEN ROUND(
+                    COUNT(CASE WHEN ce.status='Active' THEN 1 END)*100.0/c.capacity,1
+                )
+                ELSE 0
+            END AS fill_pct
+        FROM classes c
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.active=1
+        GROUP BY c.id,c.name,c.capacity
+        ORDER BY fill_pct DESC,c.name
+        LIMIT 15
+        """
+    ).fetchall()
+
+    instructor_load = connection.execute(
+        """
+        SELECT
+            t.id,t.first_name,t.last_name,
+            COUNT(DISTINCT c.id) AS class_count,
+            COUNT(DISTINCT CASE WHEN ce.status='Active' THEN ce.student_id END) AS student_count
+        FROM teachers t
+        LEFT JOIN classes c ON c.teacher_id=t.id AND c.active=1
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE t.active=1
+        GROUP BY t.id,t.first_name,t.last_name
+        ORDER BY class_count DESC,student_count DESC,t.last_name,t.first_name
+        LIMIT 15
+        """
+    ).fetchall()
+
+    recent_snapshots = connection.execute(
+        """
+        SELECT rs.*,au.display_name AS created_by_name
+        FROM report_snapshots rs
+        LEFT JOIN admin_users au ON au.id=rs.created_by
+        ORDER BY rs.id DESC
+        LIMIT 10
+        """
+    ).fetchall()
+
+    connection.close()
+
+    total_att = int(attendance["total"] or 0)
+    present = int(attendance["present"] or 0)
+    attendance_pct = round((present/total_att)*100,1) if total_att else 0
+    capacity_total = sum(int(r["capacity"] or 0) for r in class_utilization)
+    enrollment_total = int(enrollments["count"] or 0)
+
+    return render_template(
+        "reporting_center.html",
+        kpi={
+            "families": int(families["count"] or 0),
+            "students": int(students["count"] or 0),
+            "classes": int(classes["count"] or 0),
+            "enrollments": enrollment_total,
+            "charges": float(charges["total"] or 0),
+            "open_balance": float(charges["open_total"] or 0),
+            "open_charge_count": int(charges["open_count"] or 0),
+            "payments": float(payments["total"] or 0),
+            "attendance_pct": attendance_pct,
+            "tickets": int(tickets["valid_tickets"] or 0),
+            "ticket_revenue": float(tickets["ticket_revenue"] or 0),
+            "checked_in": int(tickets["checked_in"] or 0),
+        },
+        monthly_revenue=[dict(r) for r in monthly_revenue],
+        class_utilization=[dict(r) for r in class_utilization],
+        instructor_load=[dict(r) for r in instructor_load],
+        recent_snapshots=[dict(r) for r in recent_snapshots],
+    )
+
+
+@app.route("/admin/reports/financial")
+@permission_required("reports")
+def report_financial():
+    connection = get_db()
+    family_rows = connection.execute(
+        """
+        SELECT
+            f.id,f.family_name,f.primary_email,
+            COALESCE(SUM(CASE WHEN bc.status!='Voided' THEN bc.amount ELSE 0 END),0) AS charges,
+            COALESCE((
+                SELECT SUM(bp.amount)
+                FROM billing_payments bp
+                WHERE bp.family_id=f.id AND bp.status='Posted'
+            ),0) AS payments,
+            COALESCE(SUM(CASE WHEN bc.status='Open' THEN bc.amount ELSE 0 END),0) AS open_balance,
+            COUNT(CASE WHEN bc.status='Open' THEN 1 END) AS open_charges
+        FROM families f
+        LEFT JOIN billing_charges bc ON bc.family_id=f.id
+        GROUP BY f.id,f.family_name,f.primary_email
+        ORDER BY open_balance DESC,f.family_name
+        """
+    ).fetchall()
+
+    methods = connection.execute(
+        """
+        SELECT payment_method,COUNT(*) AS count,COALESCE(SUM(amount),0) AS amount
+        FROM billing_payments
+        WHERE status='Posted'
+        GROUP BY payment_method
+        ORDER BY amount DESC
+        """
+    ).fetchall()
+    connection.close()
+    return render_template(
+        "report_financial.html",
+        families=[dict(r) for r in family_rows],
+        methods=[dict(r) for r in methods],
+    )
+
+
+@app.route("/admin/reports/enrollment")
+@permission_required("reports")
+def report_enrollment():
+    connection = get_db()
+    rows = connection.execute(
+        """
+        SELECT
+            c.id,c.name,c.category,c.level,c.day_of_week,c.start_time,c.room,
+            c.capacity,c.season,
+            t.first_name AS teacher_first_name,t.last_name AS teacher_last_name,
+            COUNT(CASE WHEN ce.status='Active' THEN 1 END) AS enrolled,
+            CASE WHEN c.capacity>0 THEN ROUND(
+                COUNT(CASE WHEN ce.status='Active' THEN 1 END)*100.0/c.capacity,1
+            ) ELSE 0 END AS fill_pct
+        FROM classes c
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.active=1
+        GROUP BY
+            c.id,c.name,c.category,c.level,c.day_of_week,c.start_time,c.room,
+            c.capacity,c.season,t.first_name,t.last_name
+        ORDER BY fill_pct DESC,c.name
+        """
+    ).fetchall()
+
+    status_rows = connection.execute(
+        """
+        SELECT status,COUNT(*) AS count
+        FROM students
+        GROUP BY status
+        ORDER BY count DESC
+        """
+    ).fetchall()
+    connection.close()
+    return render_template(
+        "report_enrollment.html",
+        classes=[dict(r) for r in rows],
+        statuses=[dict(r) for r in status_rows],
+    )
+
+
+@app.route("/admin/reports/attendance")
+@permission_required("reports")
+def report_attendance():
+    connection = get_db()
+    classes = connection.execute(
+        """
+        SELECT
+            c.id,c.name,
+            COUNT(ar.id) AS marked,
+            SUM(CASE WHEN ar.status='Present' THEN 1 ELSE 0 END) AS present,
+            SUM(CASE WHEN ar.status='Absent' THEN 1 ELSE 0 END) AS absent,
+            SUM(CASE WHEN ar.status='Late' THEN 1 ELSE 0 END) AS late,
+            CASE WHEN COUNT(ar.id)>0 THEN ROUND(
+                SUM(CASE WHEN ar.status='Present' THEN 1 ELSE 0 END)*100.0/COUNT(ar.id),1
+            ) ELSE 0 END AS present_pct
+        FROM classes c
+        LEFT JOIN class_sessions cs ON cs.class_id=c.id
+        LEFT JOIN attendance_records ar ON ar.session_id=cs.id AND ar.status!='Unmarked'
+        WHERE c.active=1
+        GROUP BY c.id,c.name
+        ORDER BY present_pct,c.name
+        """
+    ).fetchall()
+
+    students = connection.execute(
+        """
+        SELECT
+            s.id,s.first_name,s.last_name,
+            COUNT(ar.id) AS marked,
+            SUM(CASE WHEN ar.status='Absent' THEN 1 ELSE 0 END) AS absences,
+            SUM(CASE WHEN ar.status='Late' THEN 1 ELSE 0 END) AS late_count
+        FROM students s
+        LEFT JOIN attendance_records ar ON ar.student_id=s.id AND ar.status!='Unmarked'
+        WHERE s.status='Active'
+        GROUP BY s.id,s.first_name,s.last_name
+        HAVING COUNT(ar.id)>0
+        ORDER BY absences DESC,late_count DESC,s.last_name,s.first_name
+        LIMIT 100
+        """
+    ).fetchall()
+    connection.close()
+    return render_template(
+        "report_attendance_bi.html",
+        classes=[dict(r) for r in classes],
+        students=[dict(r) for r in students],
+    )
+
+
+@app.route("/admin/reports/operations")
+@permission_required("reports")
+def report_operations():
+    connection = get_db()
+    recitals = connection.execute(
+        """
+        SELECT
+            prod.name AS production_name,rs.name AS show_name,
+            rs.show_date,rs.start_time,
+            COUNT(DISTINCT rp.id) AS routines
+        FROM recital_shows rs
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        LEFT JOIN recital_performances rp ON rp.show_id=rs.id
+        GROUP BY prod.name,rs.id,rs.name,rs.show_date,rs.start_time
+        ORDER BY rs.show_date DESC
+        """
+    ).fetchall()
+
+    costumes = connection.execute(
+        """
+        SELECT
+            co.order_status,COUNT(*) AS costume_count,
+            COALESCE(SUM(co.unit_cost),0) AS unit_cost_total,
+            COALESCE(SUM(co.charge_amount),0) AS charge_total
+        FROM costumes co
+        WHERE co.active=1
+        GROUP BY co.order_status
+        ORDER BY costume_count DESC
+        """
+    ).fetchall()
+
+    competitions = connection.execute(
+        """
+        SELECT
+            comp.name,comp.start_date,comp.end_date,
+            COUNT(DISTINCT cr.id) AS routines,
+            COUNT(DISTINCT cd.student_id) AS dancers,
+            COUNT(DISTINCT ca.id) AS awards
+        FROM competitions comp
+        LEFT JOIN competition_routines cr ON cr.competition_id=comp.id
+        LEFT JOIN competition_dancers cd ON cd.routine_id=cr.id
+        LEFT JOIN competition_awards ca ON ca.routine_id=cr.id
+        GROUP BY comp.id,comp.name,comp.start_date,comp.end_date
+        ORDER BY comp.start_date DESC
+        """
+    ).fetchall()
+
+    ticketing = connection.execute(
+        """
+        SELECT
+            rp.name AS production_name,rs.name AS show_name,
+            rs.show_date,
+            COUNT(CASE WHEN tk.status='Valid' THEN 1 END) AS sold,
+            COALESCE(SUM(CASE WHEN tk.status='Valid' THEN tk.price ELSE 0 END),0) AS revenue,
+            COUNT(CASE WHEN tk.status='Valid' AND tk.checked_in_at IS NOT NULL THEN 1 END) AS checked_in
+        FROM recital_shows rs
+        JOIN recital_productions rp ON rp.id=rs.production_id
+        LEFT JOIN tickets tk ON tk.recital_show_id=rs.id
+        GROUP BY rp.name,rs.id,rs.name,rs.show_date
+        ORDER BY rs.show_date DESC
+        """
+    ).fetchall()
+    connection.close()
+    return render_template(
+        "report_operations.html",
+        recitals=[dict(r) for r in recitals],
+        costumes=[dict(r) for r in costumes],
+        competitions=[dict(r) for r in competitions],
+        ticketing=[dict(r) for r in ticketing],
+    )
+
+
+@app.route("/admin/reports/export/<report_key>.csv")
+@permission_required("reports")
+def report_export_csv(report_key):
+    connection = get_db()
+
+    if report_key=="families":
+        rows = connection.execute(
+            """
+            SELECT f.family_name,f.primary_email,f.primary_phone,
+                   COALESCE(SUM(CASE WHEN bc.status='Open' THEN bc.amount ELSE 0 END),0) AS open_balance
+            FROM families f
+            LEFT JOIN billing_charges bc ON bc.family_id=f.id
+            GROUP BY f.id,f.family_name,f.primary_email,f.primary_phone
+            ORDER BY f.family_name
+            """
+        ).fetchall()
+        connection.close()
+        return report_csv_response(
+            "family-balances.csv",
+            ["Family","Email","Phone","Open Balance"],
+            [[r["family_name"],r["primary_email"],r["primary_phone"],r["open_balance"]] for r in rows],
+        )
+
+    if report_key=="enrollment":
+        rows = connection.execute(
+            """
+            SELECT c.name,c.day_of_week,c.start_time,c.capacity,
+                   COUNT(CASE WHEN ce.status='Active' THEN 1 END) AS enrolled
+            FROM classes c
+            LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+            WHERE c.active=1
+            GROUP BY c.id,c.name,c.day_of_week,c.start_time,c.capacity
+            ORDER BY c.name
+            """
+        ).fetchall()
+        connection.close()
+        return report_csv_response(
+            "class-enrollment.csv",
+            ["Class","Day","Start Time","Capacity","Enrolled"],
+            [[r["name"],r["day_of_week"],r["start_time"],r["capacity"],r["enrolled"]] for r in rows],
+        )
+
+    if report_key=="attendance":
+        rows = connection.execute(
+            """
+            SELECT s.first_name,s.last_name,c.name,cs.session_date,
+                   ar.status,ar.minutes_late,ar.note
+            FROM attendance_records ar
+            JOIN students s ON s.id=ar.student_id
+            JOIN class_sessions cs ON cs.id=ar.session_id
+            JOIN classes c ON c.id=cs.class_id
+            ORDER BY cs.session_date DESC,s.last_name,s.first_name
+            """
+        ).fetchall()
+        connection.close()
+        return report_csv_response(
+            "attendance-history.csv",
+            ["First","Last","Class","Date","Status","Minutes Late","Note"],
+            [[r["first_name"],r["last_name"],r["name"],r["session_date"],r["status"],r["minutes_late"],r["note"]] for r in rows],
+        )
+
+    if report_key=="tickets":
+        rows = connection.execute(
+            """
+            SELECT rp.name AS production,rs.name AS show_name,rs.show_date,
+                   tor.purchaser_name,tk.ticket_code,tk.price,
+                   tk.status,tk.checked_in_at
+            FROM tickets tk
+            JOIN ticket_orders tor ON tor.id=tk.order_id
+            JOIN recital_shows rs ON rs.id=tk.recital_show_id
+            JOIN recital_productions rp ON rp.id=rs.production_id
+            ORDER BY rs.show_date DESC,tor.id,tk.id
+            """
+        ).fetchall()
+        connection.close()
+        return report_csv_response(
+            "ticket-sales.csv",
+            ["Production","Show","Date","Purchaser","Ticket Code","Price","Status","Checked In"],
+            [[r["production"],r["show_name"],r["show_date"],r["purchaser_name"],r["ticket_code"],r["price"],r["status"],r["checked_in_at"]] for r in rows],
+        )
+
+    connection.close()
+    return ("Unknown report export",404)
+
+
+@app.route("/admin/reports/snapshot", methods=["POST"])
+@permission_required("reports")
+def save_report_snapshot():
+    report_key = request.form.get("report_key","executive").strip()
+    report_name = request.form.get("report_name","Executive Snapshot").strip()
+    connection = get_db()
+
+    snapshot = {
+        "families": int(connection.execute("SELECT COUNT(*) AS count FROM families").fetchone()["count"] or 0),
+        "active_students": int(connection.execute("SELECT COUNT(*) AS count FROM students WHERE status='Active'").fetchone()["count"] or 0),
+        "active_enrollments": int(connection.execute("SELECT COUNT(*) AS count FROM class_enrollments WHERE status='Active'").fetchone()["count"] or 0),
+        "open_balance": float(connection.execute("SELECT COALESCE(SUM(amount),0) AS total FROM billing_charges WHERE status='Open'").fetchone()["total"] or 0),
+        "posted_payments": float(connection.execute("SELECT COALESCE(SUM(amount),0) AS total FROM billing_payments WHERE status='Posted'").fetchone()["total"] or 0),
+        "valid_tickets": int(connection.execute("SELECT COUNT(*) AS count FROM tickets WHERE status='Valid'").fetchone()["count"] or 0),
+    }
+
+    connection.execute(
+        """
+        INSERT INTO report_snapshots (
+            report_key,report_name,snapshot_json,created_by
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            report_key,report_name,json.dumps(snapshot),
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Executive report snapshot saved.","success")
+    return redirect(url_for("reporting_center"))
 
 
 @app.route("/admin/staff-portal")
