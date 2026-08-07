@@ -484,6 +484,33 @@ MIGRATION_REGISTRY = [
             ],
         },
     },
+    {
+        "key": "021_parent_portal",
+        "title": "Parent Portal",
+        "description": "Secure family login, student schedules, attendance, billing, costumes, recitals, tickets, notifications, documents, and profile self-service.",
+        "required_tables": [
+            "parent_portal_accounts",
+            "parent_portal_activity",
+            "parent_portal_message_reads",
+            "parent_portal_documents"
+        ],
+        "required_columns": {
+            "parent_portal_accounts": [
+                "family_id","email","password_hash","display_name",
+                "active","must_change_password","last_login_at"
+            ],
+            "parent_portal_activity": [
+                "account_id","family_id","action","details","created_at"
+            ],
+            "parent_portal_message_reads": [
+                "account_id","campaign_id","read_at"
+            ],
+            "parent_portal_documents": [
+                "family_id","title","category","description",
+                "document_url","active"
+            ],
+        },
+    },
 
 ]
 
@@ -2143,6 +2170,1084 @@ def notification_scope_recipients(connection, scope):
             })
 
     return rows
+
+
+def parent_login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("parent_account_id") or not session.get("parent_family_id"):
+            return redirect(url_for("parent_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def current_parent_account(connection):
+    account_id = session.get("parent_account_id")
+    family_id = session.get("parent_family_id")
+    if not account_id or not family_id:
+        return None
+    return connection.execute(
+        """
+        SELECT
+            ppa.*,
+            f.family_name,
+            f.primary_email,
+            f.primary_phone
+        FROM parent_portal_accounts ppa
+        JOIN families f ON f.id=ppa.family_id
+        WHERE ppa.id=? AND ppa.family_id=? AND ppa.active=1
+        """,
+        (account_id, family_id),
+    ).fetchone()
+
+
+def log_parent_activity(connection, family_id, action, details=""):
+    connection.execute(
+        """
+        INSERT INTO parent_portal_activity (
+            account_id,family_id,action,details
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            int(session.get("parent_account_id") or 0) or None,
+            family_id,
+            action,
+            details,
+        ),
+    )
+
+
+def parent_family_students(connection, family_id):
+    return connection.execute(
+        """
+        SELECT *
+        FROM students
+        WHERE family_id=?
+          AND status!='Archived'
+        ORDER BY last_name,first_name
+        """,
+        (family_id,),
+    ).fetchall()
+
+
+@app.route("/parent/login", methods=["GET","POST"])
+def parent_login():
+    if session.get("parent_account_id") and session.get("parent_family_id"):
+        return redirect(url_for("parent_dashboard"))
+
+    if request.method == "POST":
+        email = request.form.get("email","").strip().lower()
+        password = request.form.get("password","")
+
+        connection = get_db()
+        account = connection.execute(
+            """
+            SELECT *
+            FROM parent_portal_accounts
+            WHERE LOWER(email)=LOWER(?)
+            """,
+            (email,),
+        ).fetchone()
+
+        if not account or not int(account["active"] or 0) or not check_password_hash(account["password_hash"], password):
+            connection.close()
+            flash("The email or password was not recognized.","error")
+            return render_template("parent_login.html",email=email)
+
+        session["parent_account_id"] = int(account["id"])
+        session["parent_family_id"] = int(account["family_id"])
+        session["parent_display_name"] = account["display_name"] or ""
+
+        connection.execute(
+            """
+            UPDATE parent_portal_accounts SET
+                last_login_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (account["id"],),
+        )
+        log_parent_activity(
+            connection,
+            int(account["family_id"]),
+            "Parent login",
+            f"Account #{account['id']}",
+        )
+        connection.commit()
+        connection.close()
+
+        if int(account["must_change_password"] or 0):
+            return redirect(url_for("parent_profile",change_password="1"))
+
+        next_url = request.args.get("next","").strip()
+        if next_url.startswith("/parent/"):
+            return redirect(next_url)
+        return redirect(url_for("parent_dashboard"))
+
+    return render_template("parent_login.html",email="")
+
+
+@app.route("/parent/logout")
+def parent_logout():
+    family_id = session.get("parent_family_id")
+    if family_id:
+        connection = get_db()
+        log_parent_activity(connection,int(family_id),"Parent logout")
+        connection.commit()
+        connection.close()
+
+    for key in ["parent_account_id","parent_family_id","parent_display_name"]:
+        session.pop(key,None)
+
+    return redirect(url_for("parent_login"))
+
+
+@app.route("/parent")
+@parent_login_required
+def parent_dashboard():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        session.pop("parent_account_id",None)
+        session.pop("parent_family_id",None)
+        return redirect(url_for("parent_login"))
+
+    family_id = int(account["family_id"])
+    students = parent_family_students(connection,family_id)
+    billing = get_family_billing_summary(connection,family_id)
+
+    class_count = connection.execute(
+        """
+        SELECT COUNT(DISTINCT ce.class_id) AS count
+        FROM class_enrollments ce
+        JOIN students s ON s.id=ce.student_id
+        WHERE s.family_id=? AND ce.status='Active'
+        """,
+        (family_id,),
+    ).fetchone()
+
+    attendance = connection.execute(
+        """
+        SELECT
+            COUNT(ar.id) AS total,
+            SUM(CASE WHEN ar.status='Present' THEN 1 ELSE 0 END) AS present,
+            SUM(CASE WHEN ar.status='Absent' THEN 1 ELSE 0 END) AS absent,
+            SUM(CASE WHEN ar.status='Late' THEN 1 ELSE 0 END) AS late
+        FROM attendance_records ar
+        JOIN students s ON s.id=ar.student_id
+        WHERE s.family_id=?
+        """,
+        (family_id,),
+    ).fetchone()
+
+    ticket_summary = connection.execute(
+        """
+        SELECT
+            COUNT(DISTINCT tor.id) AS order_count,
+            COUNT(tk.id) AS ticket_count
+        FROM ticket_orders tor
+        LEFT JOIN tickets tk
+          ON tk.order_id=tor.id
+         AND tk.status='Valid'
+        WHERE tor.family_id=?
+           OR LOWER(COALESCE(tor.purchaser_email,''))=LOWER(?)
+        """,
+        (family_id,account["primary_email"] or account["email"]),
+    ).fetchone()
+
+    unread_messages = connection.execute(
+        """
+        SELECT COUNT(DISTINCT nc.id) AS count
+        FROM notification_campaigns nc
+        JOIN notification_recipients nr ON nr.campaign_id=nc.id
+        LEFT JOIN parent_portal_message_reads ppmr
+          ON ppmr.campaign_id=nc.id
+         AND ppmr.account_id=?
+        WHERE nr.family_id=?
+          AND nc.status IN ('Queued','Completed')
+          AND ppmr.id IS NULL
+        """,
+        (account["id"],family_id),
+    ).fetchone()
+
+    recent_activity = connection.execute(
+        """
+        SELECT *
+        FROM parent_portal_activity
+        WHERE family_id=?
+        ORDER BY id DESC
+        LIMIT 8
+        """,
+        (family_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "parent_dashboard.html",
+        account=dict(account),
+        students=[dict(row) for row in students],
+        billing=billing,
+        class_count=int(class_count["count"] or 0),
+        attendance=dict(attendance),
+        ticket_summary=dict(ticket_summary),
+        unread_messages=int(unread_messages["count"] or 0),
+        recent_activity=[dict(row) for row in recent_activity],
+    )
+
+
+@app.route("/parent/students")
+@parent_login_required
+def parent_students():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    students = parent_family_students(connection,int(account["family_id"]))
+    connection.close()
+
+    return render_template(
+        "parent_students.html",
+        account=dict(account),
+        students=[dict(row) for row in students],
+    )
+
+
+@app.route("/parent/students/<int:student_id>")
+@parent_login_required
+def parent_student_profile(student_id):
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    student = connection.execute(
+        """
+        SELECT *
+        FROM students
+        WHERE id=? AND family_id=?
+        """,
+        (student_id,account["family_id"]),
+    ).fetchone()
+
+    if not student:
+        connection.close()
+        return ("Student not found",404)
+
+    classes = connection.execute(
+        """
+        SELECT
+            c.id,c.name,c.category,c.level,
+            c.day_of_week,c.start_time,c.end_time,
+            c.room,c.season,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name
+        FROM class_enrollments ce
+        JOIN classes c ON c.id=ce.class_id
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        WHERE ce.student_id=?
+          AND ce.status='Active'
+        ORDER BY c.day_of_week,c.start_time,c.name
+        """,
+        (student_id,),
+    ).fetchall()
+
+    attendance = connection.execute(
+        """
+        SELECT
+            cs.session_date,
+            c.name AS class_name,
+            ar.status,ar.minutes_late,ar.note
+        FROM attendance_records ar
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        WHERE ar.student_id=?
+        ORDER BY cs.session_date DESC, c.name
+        LIMIT 50
+        """,
+        (student_id,),
+    ).fetchall()
+
+    costumes = connection.execute(
+        """
+        SELECT
+            sca.*,
+            co.name AS costume_name,
+            co.color,co.season,co.category,
+            co.order_status,co.expected_date,
+            c.name AS class_name
+        FROM student_costume_assignments sca
+        JOIN costumes co ON co.id=sca.costume_id
+        LEFT JOIN classes c ON c.id=sca.class_id
+        WHERE sca.student_id=?
+        ORDER BY co.season DESC,co.name
+        """,
+        (student_id,),
+    ).fetchall()
+
+    recitals = connection.execute(
+        """
+        SELECT DISTINCT
+            rp.title AS routine_title,
+            rp.performance_order,
+            rp.music_title,
+            rp.costume_notes,
+            rs.name AS show_name,
+            rs.show_date,
+            rs.start_time,
+            prod.name AS production_name,
+            c.name AS class_name
+        FROM class_enrollments ce
+        JOIN classes c ON c.id=ce.class_id
+        JOIN recital_performances rp ON rp.class_id=c.id
+        JOIN recital_shows rs ON rs.id=rp.show_id
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        WHERE ce.student_id=?
+          AND ce.status='Active'
+        ORDER BY rs.show_date,rp.performance_order,rp.title
+        """,
+        (student_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "parent_student_profile.html",
+        account=dict(account),
+        student=dict(student),
+        classes=[dict(row) for row in classes],
+        attendance=[dict(row) for row in attendance],
+        costumes=[dict(row) for row in costumes],
+        recitals=[dict(row) for row in recitals],
+    )
+
+
+@app.route("/parent/schedule")
+@parent_login_required
+def parent_schedule():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            s.id AS student_id,
+            s.first_name,s.last_name,s.preferred_name,
+            c.id AS class_id,c.name AS class_name,
+            c.category,c.level,c.day_of_week,
+            c.start_time,c.end_time,c.room,c.season,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name
+        FROM students s
+        JOIN class_enrollments ce ON ce.student_id=s.id
+        JOIN classes c ON c.id=ce.class_id
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        WHERE s.family_id=?
+          AND ce.status='Active'
+        ORDER BY
+          CASE c.day_of_week
+            WHEN 'Monday' THEN 1
+            WHEN 'Tuesday' THEN 2
+            WHEN 'Wednesday' THEN 3
+            WHEN 'Thursday' THEN 4
+            WHEN 'Friday' THEN 5
+            WHEN 'Saturday' THEN 6
+            WHEN 'Sunday' THEN 7
+            ELSE 8
+          END,
+          c.start_time,c.name
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_schedule.html",
+        account=dict(account),
+        schedule=[dict(row) for row in rows],
+    )
+
+
+@app.route("/parent/attendance")
+@parent_login_required
+def parent_attendance():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            s.first_name,s.last_name,s.preferred_name,
+            cs.session_date,
+            c.name AS class_name,
+            ar.status,ar.minutes_late,ar.note
+        FROM attendance_records ar
+        JOIN students s ON s.id=ar.student_id
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        WHERE s.family_id=?
+        ORDER BY cs.session_date DESC,s.last_name,s.first_name,c.name
+        LIMIT 300
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_attendance.html",
+        account=dict(account),
+        attendance=[dict(row) for row in rows],
+    )
+
+
+@app.route("/parent/billing")
+@parent_login_required
+def parent_billing():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    family_id = int(account["family_id"])
+    summary = get_family_billing_summary(connection,family_id)
+
+    charges = connection.execute(
+        """
+        SELECT
+            bc.*,
+            s.first_name,s.last_name
+        FROM billing_charges bc
+        LEFT JOIN students s ON s.id=bc.student_id
+        WHERE bc.family_id=?
+        ORDER BY bc.id DESC
+        LIMIT 200
+        """,
+        (family_id,),
+    ).fetchall()
+
+    payments = connection.execute(
+        """
+        SELECT *
+        FROM billing_payments
+        WHERE family_id=?
+        ORDER BY payment_date DESC,id DESC
+        LIMIT 200
+        """,
+        (family_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "parent_billing.html",
+        account=dict(account),
+        summary=summary,
+        charges=[dict(row) for row in charges],
+        payments=[dict(row) for row in payments],
+    )
+
+
+@app.route("/parent/costumes")
+@parent_login_required
+def parent_costumes():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            s.first_name,s.last_name,s.preferred_name,
+            sca.costume_size,sca.tights_size,sca.shoe_size,
+            sca.accessories,sca.assignment_status,
+            sca.alteration_status,sca.pickup_status,
+            co.name AS costume_name,co.color,
+            co.season,co.category,co.order_status,
+            co.expected_date,
+            c.name AS class_name
+        FROM student_costume_assignments sca
+        JOIN students s ON s.id=sca.student_id
+        JOIN costumes co ON co.id=sca.costume_id
+        LEFT JOIN classes c ON c.id=sca.class_id
+        WHERE s.family_id=?
+        ORDER BY s.last_name,s.first_name,co.season DESC,co.name
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_costumes.html",
+        account=dict(account),
+        costumes=[dict(row) for row in rows],
+    )
+
+
+@app.route("/parent/recitals")
+@parent_login_required
+def parent_recitals():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT DISTINCT
+            s.id AS student_id,
+            s.first_name,s.last_name,s.preferred_name,
+            rp.title AS routine_title,
+            rp.performance_order,
+            rp.music_title,rp.costume_notes,
+            rs.name AS show_name,
+            rs.show_date,rs.start_time,rs.doors_open_time,
+            prod.name AS production_name,
+            prod.venue,
+            c.name AS class_name
+        FROM students s
+        JOIN class_enrollments ce ON ce.student_id=s.id
+        JOIN classes c ON c.id=ce.class_id
+        JOIN recital_performances rp ON rp.class_id=c.id
+        JOIN recital_shows rs ON rs.id=rp.show_id
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        WHERE s.family_id=?
+          AND ce.status='Active'
+        ORDER BY rs.show_date,rp.performance_order,s.last_name,s.first_name
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    rehearsals = connection.execute(
+        """
+        SELECT DISTINCT
+            rr.title,rr.rehearsal_date,rr.start_time,
+            rr.end_time,rr.location,rr.notes,
+            rp.name AS production_name
+        FROM recital_rehearsals rr
+        JOIN recital_productions rp ON rp.id=rr.production_id
+        JOIN recital_shows rs ON rs.production_id=rp.id
+        JOIN recital_performances perf ON perf.show_id=rs.id
+        JOIN class_enrollments ce ON ce.class_id=perf.class_id
+        JOIN students s ON s.id=ce.student_id
+        WHERE s.family_id=?
+          AND ce.status='Active'
+        ORDER BY rr.rehearsal_date,rr.start_time
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_recitals.html",
+        account=dict(account),
+        recitals=[dict(row) for row in rows],
+        rehearsals=[dict(row) for row in rehearsals],
+    )
+
+
+@app.route("/parent/tickets")
+@parent_login_required
+def parent_tickets():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    orders = connection.execute(
+        """
+        SELECT
+            tor.*,
+            rs.name AS show_name,
+            rs.show_date,rs.start_time,
+            rp.name AS production_name,
+            tv.name AS venue_name,
+            COUNT(tk.id) AS ticket_count
+        FROM ticket_orders tor
+        JOIN recital_shows rs ON rs.id=tor.recital_show_id
+        JOIN recital_productions rp ON rp.id=rs.production_id
+        LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
+        LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+        LEFT JOIN tickets tk ON tk.order_id=tor.id AND tk.status='Valid'
+        WHERE tor.family_id=?
+           OR LOWER(COALESCE(tor.purchaser_email,''))=LOWER(?)
+        GROUP BY
+            tor.id,tor.recital_show_id,tor.family_id,
+            tor.purchaser_name,tor.purchaser_email,tor.purchaser_phone,
+            tor.order_status,tor.payment_status,tor.total_amount,
+            tor.notes,tor.created_by,tor.created_at,
+            tor.billing_charge_id,
+            rs.name,rs.show_date,rs.start_time,rp.name,tv.name
+        ORDER BY tor.id DESC
+        """,
+        (account["family_id"],account["primary_email"] or account["email"]),
+    ).fetchall()
+
+    tickets = connection.execute(
+        """
+        SELECT
+            tk.id,tk.order_id,tk.ticket_code,tk.status,tk.checked_in_at,
+            ts.row_label,ts.seat_number,ts.seat_type,
+            sec.name AS section_name
+        FROM tickets tk
+        JOIN ticket_orders tor ON tor.id=tk.order_id
+        JOIN ticket_seats ts ON ts.id=tk.seat_id
+        JOIN ticket_sections sec ON sec.id=ts.section_id
+        WHERE (
+            tor.family_id=?
+            OR LOWER(COALESCE(tor.purchaser_email,''))=LOWER(?)
+        )
+          AND tk.status='Valid'
+        ORDER BY tk.order_id DESC,sec.sort_order,ts.row_label,ts.seat_number
+        """,
+        (account["family_id"],account["primary_email"] or account["email"]),
+    ).fetchall()
+
+    connection.close()
+
+    grouped_tickets = {}
+    for ticket in tickets:
+        grouped_tickets.setdefault(int(ticket["order_id"]),[]).append(dict(ticket))
+
+    return render_template(
+        "parent_tickets.html",
+        account=dict(account),
+        orders=[dict(row) for row in orders],
+        grouped_tickets=grouped_tickets,
+    )
+
+
+@app.route("/parent/messages")
+@parent_login_required
+def parent_messages():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    messages = connection.execute(
+        """
+        SELECT DISTINCT
+            nc.id,nc.name,nc.category,nc.subject,nc.body_text,
+            nc.status,nc.created_at,
+            ppmr.read_at
+        FROM notification_campaigns nc
+        JOIN notification_recipients nr ON nr.campaign_id=nc.id
+        LEFT JOIN parent_portal_message_reads ppmr
+          ON ppmr.campaign_id=nc.id
+         AND ppmr.account_id=?
+        WHERE nr.family_id=?
+          AND nc.status IN ('Queued','Completed')
+        ORDER BY nc.id DESC
+        """,
+        (account["id"],account["family_id"]),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_messages.html",
+        account=dict(account),
+        messages=[dict(row) for row in messages],
+    )
+
+
+@app.route("/parent/messages/<int:campaign_id>")
+@parent_login_required
+def parent_message(campaign_id):
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    message = connection.execute(
+        """
+        SELECT DISTINCT nc.*
+        FROM notification_campaigns nc
+        JOIN notification_recipients nr ON nr.campaign_id=nc.id
+        WHERE nc.id=?
+          AND nr.family_id=?
+          AND nc.status IN ('Queued','Completed')
+        """,
+        (campaign_id,account["family_id"]),
+    ).fetchone()
+
+    if not message:
+        connection.close()
+        return ("Message not found",404)
+
+    connection.execute(
+        """
+        INSERT INTO parent_portal_message_reads (
+            account_id,campaign_id
+        ) VALUES (?,?)
+        ON CONFLICT(account_id,campaign_id) DO UPDATE SET
+            read_at=CURRENT_TIMESTAMP
+        """,
+        (account["id"],campaign_id),
+    )
+    log_parent_activity(
+        connection,
+        int(account["family_id"]),
+        "Message viewed",
+        message["subject"] or message["name"],
+    )
+    connection.commit()
+    connection.close()
+
+    return render_template(
+        "parent_message.html",
+        account=dict(account),
+        message=dict(message),
+    )
+
+
+@app.route("/parent/documents")
+@parent_login_required
+def parent_documents():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    documents = connection.execute(
+        """
+        SELECT *
+        FROM parent_portal_documents
+        WHERE active=1
+          AND (family_id IS NULL OR family_id=?)
+        ORDER BY category,title,id DESC
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_documents.html",
+        account=dict(account),
+        documents=[dict(row) for row in documents],
+    )
+
+
+@app.route("/parent/profile", methods=["GET","POST"])
+@parent_login_required
+def parent_profile():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    if request.method=="POST":
+        action = request.form.get("action","profile")
+
+        if action=="password":
+            current_password = request.form.get("current_password","")
+            new_password = request.form.get("new_password","")
+            confirm_password = request.form.get("confirm_password","")
+
+            if not check_password_hash(account["password_hash"],current_password):
+                connection.close()
+                flash("Current password is incorrect.","error")
+                return redirect(url_for("parent_profile"))
+
+            if len(new_password)<8:
+                connection.close()
+                flash("New password must be at least 8 characters.","error")
+                return redirect(url_for("parent_profile"))
+
+            if new_password!=confirm_password:
+                connection.close()
+                flash("New passwords do not match.","error")
+                return redirect(url_for("parent_profile"))
+
+            connection.execute(
+                """
+                UPDATE parent_portal_accounts SET
+                    password_hash=?,
+                    must_change_password=0,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+                """,
+                (generate_password_hash(new_password),account["id"]),
+            )
+            log_parent_activity(
+                connection,
+                int(account["family_id"]),
+                "Password changed",
+            )
+            connection.commit()
+            connection.close()
+            flash("Password updated.","success")
+            return redirect(url_for("parent_profile"))
+
+        primary_email = request.form.get("primary_email","").strip().lower()
+        primary_phone = request.form.get("primary_phone","").strip()
+        display_name = request.form.get("display_name","").strip()
+
+        connection.execute(
+            """
+            UPDATE families SET
+                primary_email=?,
+                primary_phone=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (primary_email,primary_phone,account["family_id"]),
+        )
+        connection.execute(
+            """
+            UPDATE parent_portal_accounts SET
+                email=?,
+                display_name=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (primary_email,display_name,account["id"]),
+        )
+        log_parent_activity(
+            connection,
+            int(account["family_id"]),
+            "Parent profile updated",
+            primary_email,
+        )
+        connection.commit()
+        connection.close()
+
+        session["parent_display_name"] = display_name
+        flash("Family contact information updated.","success")
+        return redirect(url_for("parent_profile"))
+
+    connection.close()
+    return render_template(
+        "parent_profile.html",
+        account=dict(account),
+    )
+
+
+@app.route("/admin/parent-portal")
+@login_required
+def parent_portal_admin():
+    connection = get_db()
+
+    accounts = connection.execute(
+        """
+        SELECT
+            ppa.*,
+            f.family_name,
+            f.primary_email,
+            f.primary_phone,
+            COUNT(DISTINCT s.id) AS student_count
+        FROM parent_portal_accounts ppa
+        JOIN families f ON f.id=ppa.family_id
+        LEFT JOIN students s ON s.family_id=f.id
+        GROUP BY
+            ppa.id,ppa.family_id,ppa.email,ppa.password_hash,
+            ppa.display_name,ppa.active,ppa.must_change_password,
+            ppa.last_login_at,ppa.created_at,ppa.updated_at,
+            f.family_name,f.primary_email,f.primary_phone
+        ORDER BY f.family_name
+        """
+    ).fetchall()
+
+    families = connection.execute(
+        """
+        SELECT
+            f.id,f.family_name,f.primary_email,f.primary_phone,
+            COUNT(s.id) AS student_count
+        FROM families f
+        LEFT JOIN students s ON s.family_id=f.id
+        LEFT JOIN parent_portal_accounts ppa ON ppa.family_id=f.id
+        WHERE ppa.id IS NULL
+        GROUP BY f.id,f.family_name,f.primary_email,f.primary_phone
+        ORDER BY f.family_name
+        """
+    ).fetchall()
+
+    documents = connection.execute(
+        """
+        SELECT
+            ppd.*,
+            f.family_name
+        FROM parent_portal_documents ppd
+        LEFT JOIN families f ON f.id=ppd.family_id
+        ORDER BY ppd.id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "parent_portal_admin.html",
+        accounts=[dict(row) for row in accounts],
+        families=[dict(row) for row in families],
+        documents=[dict(row) for row in documents],
+    )
+
+
+@app.route("/admin/parent-portal/accounts/create", methods=["POST"])
+@login_required
+def create_parent_portal_account():
+    family_id = int(request.form.get("family_id","0") or 0)
+    password = request.form.get("password","")
+    display_name = request.form.get("display_name","").strip()
+
+    if len(password)<8:
+        flash("Temporary password must be at least 8 characters.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    connection = get_db()
+    family = connection.execute(
+        "SELECT * FROM families WHERE id=?",
+        (family_id,),
+    ).fetchone()
+
+    if not family:
+        connection.close()
+        flash("Family not found.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    email = request.form.get("email","").strip().lower() or str(family["primary_email"] or "").strip().lower()
+    if not email:
+        connection.close()
+        flash("A family email is required.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO parent_portal_accounts (
+                family_id,email,password_hash,display_name,
+                active,must_change_password
+            ) VALUES (?,?,?,?,1,1)
+            """,
+            (
+                family_id,
+                email,
+                generate_password_hash(password),
+                display_name,
+            ),
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        connection.close()
+        flash("A parent portal account already exists for this family or email.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    connection.close()
+    flash("Parent portal account created. The parent will be required to change the temporary password.","success")
+    return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/parent-portal/accounts/<int:account_id>/update", methods=["POST"])
+@login_required
+def update_parent_portal_account(account_id):
+    connection = get_db()
+    account = connection.execute(
+        "SELECT * FROM parent_portal_accounts WHERE id=?",
+        (account_id,),
+    ).fetchone()
+
+    if not account:
+        connection.close()
+        return ("Parent account not found",404)
+
+    active = 1 if request.form.get("active")=="on" else 0
+    display_name = request.form.get("display_name","").strip()
+    connection.execute(
+        """
+        UPDATE parent_portal_accounts SET
+            active=?,
+            display_name=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (active,display_name,account_id),
+    )
+
+    new_password = request.form.get("new_password","")
+    if new_password:
+        if len(new_password)<8:
+            connection.close()
+            flash("New temporary password must be at least 8 characters.","error")
+            return redirect(url_for("parent_portal_admin"))
+
+        connection.execute(
+            """
+            UPDATE parent_portal_accounts SET
+                password_hash=?,
+                must_change_password=1,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (generate_password_hash(new_password),account_id),
+        )
+
+    connection.commit()
+    connection.close()
+    flash("Parent portal account updated.","success")
+    return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/parent-portal/documents/save", methods=["POST"])
+@login_required
+def save_parent_portal_document():
+    family_value = request.form.get("family_id","").strip()
+    family_id = int(family_value) if family_value else None
+
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO parent_portal_documents (
+            family_id,title,category,description,
+            document_url,active,created_by
+        ) VALUES (?,?,?,?,?,1,?)
+        """,
+        (
+            family_id,
+            request.form.get("title","").strip(),
+            request.form.get("category","General").strip(),
+            request.form.get("description","").strip(),
+            request.form.get("document_url","").strip(),
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Parent portal document added.","success")
+    return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/parent-portal/documents/<int:document_id>/delete", methods=["POST"])
+@login_required
+def delete_parent_portal_document(document_id):
+    connection = get_db()
+    connection.execute(
+        "DELETE FROM parent_portal_documents WHERE id=?",
+        (document_id,),
+    )
+    connection.commit()
+    connection.close()
+    flash("Parent portal document removed.","success")
+    return redirect(url_for("parent_portal_admin"))
 
 
 @app.route("/admin/notifications")

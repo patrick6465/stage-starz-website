@@ -1230,6 +1230,73 @@ def init_db() -> None:
         """
     )
 
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS parent_portal_accounts (
+            id {id_column},
+            family_id INTEGER NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            password_hash TEXT NOT NULL,
+            display_name TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1,
+            must_change_password INTEGER NOT NULL DEFAULT 0,
+            last_login_at TIMESTAMP,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS parent_portal_activity (
+            id {id_column},
+            account_id INTEGER,
+            family_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            details TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(account_id) REFERENCES parent_portal_accounts(id) ON DELETE SET NULL,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS parent_portal_message_reads (
+            id {id_column},
+            account_id INTEGER NOT NULL,
+            campaign_id INTEGER NOT NULL,
+            read_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(account_id,campaign_id),
+            FOREIGN KEY(account_id) REFERENCES parent_portal_accounts(id) ON DELETE CASCADE,
+            FOREIGN KEY(campaign_id) REFERENCES notification_campaigns(id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS parent_portal_documents (
+            id {id_column},
+            family_id INTEGER,
+            title TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'General',
+            description TEXT NOT NULL DEFAULT '',
+            document_url TEXT NOT NULL DEFAULT '',
+            active INTEGER NOT NULL DEFAULT 1,
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         for column_name, column_definition in [
