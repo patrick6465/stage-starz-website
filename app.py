@@ -3169,8 +3169,11 @@ def update_parent_portal_account(account_id):
         connection.close()
         return ("Parent account not found",404)
 
+    # This route intentionally NEVER reads or updates a password.
+    # Account status/profile changes and password resets are isolated.
     active = 1 if request.form.get("active")=="on" else 0
     display_name = request.form.get("display_name","").strip()
+
     connection.execute(
         """
         UPDATE parent_portal_accounts SET
@@ -3182,28 +3185,86 @@ def update_parent_portal_account(account_id):
         (active,display_name,account_id),
     )
 
-    new_password = request.form.get("new_password","")
-    if new_password:
-        if len(new_password)<8:
-            connection.close()
-            flash("New temporary password must be at least 8 characters.","error")
-            return redirect(url_for("parent_portal_admin"))
-
-        connection.execute(
-            """
-            UPDATE parent_portal_accounts SET
-                password_hash=?,
-                must_change_password=1,
-                updated_at=CURRENT_TIMESTAMP
-            WHERE id=?
-            """,
-            (generate_password_hash(new_password),account_id),
-        )
+    connection.execute(
+        """
+        INSERT INTO parent_portal_activity (
+            account_id,family_id,action,details
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            account_id,
+            account["family_id"],
+            "Admin account settings changed",
+            "Enabled" if active else "Disabled",
+        ),
+    )
 
     connection.commit()
     connection.close()
-    flash("Parent portal account updated.","success")
+
+    flash(
+        "Parent portal account enabled. Existing password was preserved."
+        if active
+        else "Parent portal account disabled. Existing password was preserved.",
+        "success",
+    )
     return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/parent-portal/accounts/<int:account_id>/reset-password", methods=["POST"])
+@login_required
+def reset_parent_portal_password(account_id):
+    new_password = request.form.get("new_password","")
+
+    if len(new_password)<8:
+        flash("New temporary password must be at least 8 characters.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    connection = get_db()
+    account = connection.execute(
+        "SELECT * FROM parent_portal_accounts WHERE id=?",
+        (account_id,),
+    ).fetchone()
+
+    if not account:
+        connection.close()
+        return ("Parent account not found",404)
+
+    connection.execute(
+        """
+        UPDATE parent_portal_accounts SET
+            password_hash=?,
+            must_change_password=1,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (generate_password_hash(new_password),account_id),
+    )
+
+    connection.execute(
+        """
+        INSERT INTO parent_portal_activity (
+            account_id,family_id,action,details
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            account_id,
+            account["family_id"],
+            "Admin temporary password reset",
+            "Parent must change password at next login",
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+    flash(
+        "Temporary password reset. The parent must change it at the next login.",
+        "success",
+    )
+    return redirect(url_for("parent_portal_admin"))
+
+
 
 
 @app.route("/admin/parent-portal/documents/save", methods=["POST"])
