@@ -511,6 +511,36 @@ MIGRATION_REGISTRY = [
             ],
         },
     },
+    {
+        "key": "022_staff_portal",
+        "title": "Staff Portal and Instructor Center",
+        "description": "Secure instructor login, assigned classes, rosters, attendance entry, student notes, recital, costume, competition, announcements, and documents.",
+        "required_tables": [
+            "staff_portal_accounts",
+            "staff_portal_activity",
+            "staff_student_notes",
+            "staff_portal_announcements",
+            "staff_portal_documents"
+        ],
+        "required_columns": {
+            "staff_portal_accounts": [
+                "teacher_id","email","password_hash","display_name",
+                "active","must_change_password","last_login_at"
+            ],
+            "staff_portal_activity": [
+                "account_id","teacher_id","action","details","created_at"
+            ],
+            "staff_student_notes": [
+                "teacher_id","student_id","class_id","note","visibility"
+            ],
+            "staff_portal_announcements": [
+                "title","message","audience","active","starts_at","expires_at"
+            ],
+            "staff_portal_documents": [
+                "teacher_id","title","category","description","document_url","active"
+            ],
+        },
+    },
 
 ]
 
@@ -2228,6 +2258,1238 @@ def parent_family_students(connection, family_id):
         """,
         (family_id,),
     ).fetchall()
+
+
+def staff_login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("staff_account_id") or not session.get("staff_teacher_id"):
+            return redirect(url_for("staff_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def current_staff_account(connection):
+    account_id = session.get("staff_account_id")
+    teacher_id = session.get("staff_teacher_id")
+    if not account_id or not teacher_id:
+        return None
+    return connection.execute(
+        """
+        SELECT
+            spa.*,
+            t.first_name,t.last_name,t.email AS teacher_email,
+            t.phone,t.bio,t.active AS teacher_active,
+            t.admin_user_id
+        FROM staff_portal_accounts spa
+        JOIN teachers t ON t.id=spa.teacher_id
+        WHERE spa.id=? AND spa.teacher_id=?
+          AND spa.active=1 AND t.active=1
+        """,
+        (account_id,teacher_id),
+    ).fetchone()
+
+
+def log_staff_activity(connection, teacher_id, action, details=""):
+    connection.execute(
+        """
+        INSERT INTO staff_portal_activity (
+            account_id,teacher_id,action,details
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            int(session.get("staff_account_id") or 0) or None,
+            teacher_id,
+            action,
+            details,
+        ),
+    )
+
+
+def staff_owns_class(connection, teacher_id, class_id):
+    return connection.execute(
+        """
+        SELECT id
+        FROM classes
+        WHERE id=? AND teacher_id=? AND active=1
+        """,
+        (class_id,teacher_id),
+    ).fetchone()
+
+
+def staff_owns_student(connection, teacher_id, student_id):
+    return connection.execute(
+        """
+        SELECT DISTINCT s.id
+        FROM students s
+        JOIN class_enrollments ce ON ce.student_id=s.id
+        JOIN classes c ON c.id=ce.class_id
+        WHERE s.id=? AND c.teacher_id=?
+          AND ce.status='Active' AND c.active=1
+        """,
+        (student_id,teacher_id),
+    ).fetchone()
+
+
+@app.route("/staff/login", methods=["GET","POST"])
+def staff_login():
+    if session.get("staff_account_id") and session.get("staff_teacher_id"):
+        return redirect(url_for("staff_dashboard"))
+
+    if request.method=="POST":
+        email = request.form.get("email","").strip().lower()
+        password = request.form.get("password","")
+
+        connection = get_db()
+        account = connection.execute(
+            """
+            SELECT spa.*,t.active AS teacher_active
+            FROM staff_portal_accounts spa
+            JOIN teachers t ON t.id=spa.teacher_id
+            WHERE LOWER(spa.email)=LOWER(?)
+            """,
+            (email,),
+        ).fetchone()
+
+        if (
+            not account
+            or not int(account["active"] or 0)
+            or not int(account["teacher_active"] or 0)
+            or not check_password_hash(account["password_hash"],password)
+        ):
+            connection.close()
+            flash("The email or password was not recognized.","error")
+            return render_template("staff_login.html",email=email)
+
+        session["staff_account_id"] = int(account["id"])
+        session["staff_teacher_id"] = int(account["teacher_id"])
+        session["staff_display_name"] = account["display_name"] or ""
+
+        connection.execute(
+            "UPDATE staff_portal_accounts SET last_login_at=CURRENT_TIMESTAMP WHERE id=?",
+            (account["id"],),
+        )
+        log_staff_activity(
+            connection,
+            int(account["teacher_id"]),
+            "Staff login",
+            f"Account #{account['id']}",
+        )
+        connection.commit()
+        connection.close()
+
+        if int(account["must_change_password"] or 0):
+            return redirect(url_for("staff_profile",change_password="1"))
+
+        next_url = request.args.get("next","").strip()
+        if next_url.startswith("/staff/"):
+            return redirect(next_url)
+        return redirect(url_for("staff_dashboard"))
+
+    return render_template("staff_login.html",email="")
+
+
+@app.route("/staff/logout")
+def staff_logout():
+    teacher_id = session.get("staff_teacher_id")
+    if teacher_id:
+        connection = get_db()
+        log_staff_activity(connection,int(teacher_id),"Staff logout")
+        connection.commit()
+        connection.close()
+
+    for key in ["staff_account_id","staff_teacher_id","staff_display_name"]:
+        session.pop(key,None)
+    return redirect(url_for("staff_login"))
+
+
+@app.route("/staff")
+@staff_login_required
+def staff_dashboard():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+
+    classes = connection.execute(
+        """
+        SELECT
+            c.*,
+            COUNT(DISTINCT CASE WHEN ce.status='Active' THEN ce.student_id END) AS roster_count
+        FROM classes c
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.teacher_id=? AND c.active=1
+        GROUP BY
+            c.id,c.name,c.category,c.level,c.teacher_id,c.room,
+            c.day_of_week,c.start_time,c.end_time,c.capacity,
+            c.active,c.season,c.description,c.created_at,c.updated_at
+        ORDER BY
+          CASE c.day_of_week
+            WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
+            WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6
+            WHEN 'Sunday' THEN 7 ELSE 8
+          END,
+          c.start_time,c.name
+        """,
+        (teacher_id,),
+    ).fetchall()
+
+    student_count = connection.execute(
+        """
+        SELECT COUNT(DISTINCT ce.student_id) AS count
+        FROM classes c
+        JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.teacher_id=? AND c.active=1 AND ce.status='Active'
+        """,
+        (teacher_id,),
+    ).fetchone()
+
+    attendance_count = connection.execute(
+        """
+        SELECT COUNT(ar.id) AS count
+        FROM attendance_records ar
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        WHERE c.teacher_id=?
+        """,
+        (teacher_id,),
+    ).fetchone()
+
+    announcements = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_announcements
+        WHERE active=1
+          AND (starts_at IS NULL OR starts_at<=CURRENT_TIMESTAMP)
+          AND (expires_at IS NULL OR expires_at>=CURRENT_TIMESTAMP)
+          AND audience IN ('All Staff','Instructors')
+        ORDER BY id DESC
+        LIMIT 10
+        """
+    ).fetchall()
+
+    recitals = connection.execute(
+        """
+        SELECT COUNT(DISTINCT rp.id) AS count
+        FROM recital_performances rp
+        JOIN classes c ON c.id=rp.class_id
+        WHERE c.teacher_id=?
+        """,
+        (teacher_id,),
+    ).fetchone()
+
+    recent_activity = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_activity
+        WHERE teacher_id=?
+        ORDER BY id DESC
+        LIMIT 8
+        """,
+        (teacher_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_dashboard.html",
+        account=dict(account),
+        classes=[dict(row) for row in classes],
+        student_count=int(student_count["count"] or 0),
+        attendance_count=int(attendance_count["count"] or 0),
+        recital_count=int(recitals["count"] or 0),
+        announcements=[dict(row) for row in announcements],
+        recent_activity=[dict(row) for row in recent_activity],
+    )
+
+
+@app.route("/staff/schedule")
+@staff_login_required
+def staff_schedule():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    classes = connection.execute(
+        """
+        SELECT
+            c.*,
+            COUNT(DISTINCT CASE WHEN ce.status='Active' THEN ce.student_id END) AS roster_count
+        FROM classes c
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.teacher_id=? AND c.active=1
+        GROUP BY
+            c.id,c.name,c.category,c.level,c.teacher_id,c.room,
+            c.day_of_week,c.start_time,c.end_time,c.capacity,
+            c.active,c.season,c.description,c.created_at,c.updated_at
+        ORDER BY
+          CASE c.day_of_week
+            WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
+            WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6
+            WHEN 'Sunday' THEN 7 ELSE 8
+          END,
+          c.start_time,c.name
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "staff_schedule.html",
+        account=dict(account),
+        classes=[dict(row) for row in classes],
+    )
+
+
+@app.route("/staff/classes/<int:class_id>")
+@staff_login_required
+def staff_class(class_id):
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    if not staff_owns_class(connection,int(account["teacher_id"]),class_id):
+        connection.close()
+        return ("Class not found",404)
+
+    class_row = connection.execute(
+        "SELECT * FROM classes WHERE id=?",
+        (class_id,),
+    ).fetchone()
+
+    roster = connection.execute(
+        """
+        SELECT
+            s.*,
+            ce.enrolled_at,ce.notes AS enrollment_notes
+        FROM class_enrollments ce
+        JOIN students s ON s.id=ce.student_id
+        WHERE ce.class_id=? AND ce.status='Active'
+        ORDER BY s.last_name,s.first_name
+        """,
+        (class_id,),
+    ).fetchall()
+
+    sessions = connection.execute(
+        """
+        SELECT
+            cs.*,
+            COUNT(ar.id) AS marked_count,
+            SUM(CASE WHEN ar.status='Present' THEN 1 ELSE 0 END) AS present_count,
+            SUM(CASE WHEN ar.status='Absent' THEN 1 ELSE 0 END) AS absent_count,
+            SUM(CASE WHEN ar.status='Late' THEN 1 ELSE 0 END) AS late_count
+        FROM class_sessions cs
+        LEFT JOIN attendance_records ar ON ar.session_id=cs.id
+        WHERE cs.class_id=?
+        GROUP BY
+            cs.id,cs.class_id,cs.session_date,cs.status,
+            cs.topic,cs.teacher_notes,cs.created_by,
+            cs.created_at,cs.updated_at
+        ORDER BY cs.session_date DESC
+        LIMIT 25
+        """,
+        (class_id,),
+    ).fetchall()
+
+    recital = connection.execute(
+        """
+        SELECT
+            rp.*,rs.name AS show_name,rs.show_date,rs.start_time,
+            prod.name AS production_name
+        FROM recital_performances rp
+        JOIN recital_shows rs ON rs.id=rp.show_id
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        WHERE rp.class_id=?
+        ORDER BY rs.show_date,rp.performance_order
+        """,
+        (class_id,),
+    ).fetchall()
+
+    costumes = connection.execute(
+        """
+        SELECT
+            cca.*,co.name AS costume_name,co.color,co.season,
+            co.order_status,co.expected_date
+        FROM costume_class_assignments cca
+        JOIN costumes co ON co.id=cca.costume_id
+        WHERE cca.class_id=?
+        ORDER BY co.season DESC,co.name
+        """,
+        (class_id,),
+    ).fetchall()
+
+    competitions = connection.execute(
+        """
+        SELECT
+            cr.*,comp.name AS competition_name,
+            comp.venue,comp.city,comp.state,
+            comp.start_date,comp.end_date
+        FROM competition_routines cr
+        JOIN competitions comp ON comp.id=cr.competition_id
+        WHERE cr.class_id=?
+        ORDER BY comp.start_date,cr.performance_date,cr.performance_time
+        """,
+        (class_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_class.html",
+        account=dict(account),
+        class_row=dict(class_row),
+        roster=[dict(row) for row in roster],
+        sessions=[dict(row) for row in sessions],
+        recital=[dict(row) for row in recital],
+        costumes=[dict(row) for row in costumes],
+        competitions=[dict(row) for row in competitions],
+    )
+
+
+@app.route("/staff/classes/<int:class_id>/attendance")
+@staff_login_required
+def staff_attendance(class_id):
+    session_date = request.args.get("date","").strip()
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+    if not staff_owns_class(connection,teacher_id,class_id):
+        connection.close()
+        return ("Class not found",404)
+
+    class_row = connection.execute(
+        "SELECT * FROM classes WHERE id=?",
+        (class_id,),
+    ).fetchone()
+
+    session_row = None
+    records = []
+    if session_date:
+        session_row = connection.execute(
+            """
+            SELECT *
+            FROM class_sessions
+            WHERE class_id=? AND session_date=?
+            """,
+            (class_id,session_date),
+        ).fetchone()
+
+    roster = connection.execute(
+        """
+        SELECT
+            s.id,s.first_name,s.last_name,s.preferred_name,
+            s.photo_url,
+            ar.status AS attendance_status,
+            ar.minutes_late,
+            ar.note AS attendance_note
+        FROM class_enrollments ce
+        JOIN students s ON s.id=ce.student_id
+        LEFT JOIN class_sessions cs
+          ON cs.class_id=ce.class_id
+         AND cs.session_date=?
+        LEFT JOIN attendance_records ar
+          ON ar.session_id=cs.id
+         AND ar.student_id=s.id
+        WHERE ce.class_id=? AND ce.status='Active'
+        ORDER BY s.last_name,s.first_name
+        """,
+        (session_date or "__none__",class_id),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_attendance.html",
+        account=dict(account),
+        class_row=dict(class_row),
+        session_date=session_date,
+        session_row=dict(session_row) if session_row else None,
+        roster=[dict(row) for row in roster],
+    )
+
+
+@app.route("/staff/classes/<int:class_id>/attendance/save", methods=["POST"])
+@staff_login_required
+def save_staff_attendance(class_id):
+    session_date = request.form.get("session_date","").strip()
+    if not session_date:
+        flash("Choose a class date.","error")
+        return redirect(url_for("staff_attendance",class_id=class_id))
+
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+    if not staff_owns_class(connection,teacher_id,class_id):
+        connection.close()
+        return ("Class not found",404)
+
+    existing_session = connection.execute(
+        """
+        SELECT id
+        FROM class_sessions
+        WHERE class_id=? AND session_date=?
+        """,
+        (class_id,session_date),
+    ).fetchone()
+
+    marked_by = int(account["admin_user_id"] or 0) or None
+
+    if existing_session:
+        session_id = int(existing_session["id"])
+        connection.execute(
+            """
+            UPDATE class_sessions SET
+                status=?,
+                topic=?,
+                teacher_notes=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (
+                request.form.get("session_status","Held").strip(),
+                request.form.get("topic","").strip(),
+                request.form.get("teacher_notes","").strip(),
+                session_id,
+            ),
+        )
+    else:
+        sql = """
+            INSERT INTO class_sessions (
+                class_id,session_date,status,topic,
+                teacher_notes,created_by
+            ) VALUES (?,?,?,?,?,?)
+        """
+        if connection.backend=="postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            (
+                class_id,session_date,
+                request.form.get("session_status","Held").strip(),
+                request.form.get("topic","").strip(),
+                request.form.get("teacher_notes","").strip(),
+                marked_by,
+            ),
+        )
+        session_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend=="postgresql"
+            else int(cursor.lastrowid)
+        )
+
+    roster = connection.execute(
+        """
+        SELECT student_id
+        FROM class_enrollments
+        WHERE class_id=? AND status='Active'
+        """,
+        (class_id,),
+    ).fetchall()
+
+    for row in roster:
+        student_id = int(row["student_id"])
+        status = request.form.get(f"status_{student_id}","Unmarked").strip()
+        minutes_late = max(0,int(request.form.get(f"late_{student_id}","0") or 0))
+        note = request.form.get(f"note_{student_id}","").strip()
+
+        connection.execute(
+            """
+            INSERT INTO attendance_records (
+                session_id,student_id,status,
+                minutes_late,note,marked_by
+            ) VALUES (?,?,?,?,?,?)
+            ON CONFLICT(session_id,student_id) DO UPDATE SET
+                status=excluded.status,
+                minutes_late=excluded.minutes_late,
+                note=excluded.note,
+                marked_by=excluded.marked_by,
+                marked_at=CURRENT_TIMESTAMP
+            """,
+            (
+                session_id,student_id,status,
+                minutes_late,note,marked_by,
+            ),
+        )
+
+    log_staff_activity(
+        connection,
+        teacher_id,
+        "Attendance saved",
+        f"Class #{class_id} · {session_date}",
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Attendance saved.","success")
+    return redirect(
+        url_for(
+            "staff_attendance",
+            class_id=class_id,
+            date=session_date,
+        )
+    )
+
+
+@app.route("/staff/students/<int:student_id>")
+@staff_login_required
+def staff_student(student_id):
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+    if not staff_owns_student(connection,teacher_id,student_id):
+        connection.close()
+        return ("Student not found",404)
+
+    student = connection.execute(
+        """
+        SELECT
+            s.*,
+            f.family_name,f.primary_email,f.primary_phone
+        FROM students s
+        LEFT JOIN families f ON f.id=s.family_id
+        WHERE s.id=?
+        """,
+        (student_id,),
+    ).fetchone()
+
+    classes = connection.execute(
+        """
+        SELECT c.*
+        FROM class_enrollments ce
+        JOIN classes c ON c.id=ce.class_id
+        WHERE ce.student_id=? AND ce.status='Active'
+          AND c.teacher_id=?
+        ORDER BY c.day_of_week,c.start_time,c.name
+        """,
+        (student_id,teacher_id),
+    ).fetchall()
+
+    notes = connection.execute(
+        """
+        SELECT
+            ssn.*,c.name AS class_name
+        FROM staff_student_notes ssn
+        LEFT JOIN classes c ON c.id=ssn.class_id
+        WHERE ssn.student_id=? AND ssn.teacher_id=?
+        ORDER BY ssn.id DESC
+        """,
+        (student_id,teacher_id),
+    ).fetchall()
+
+    attendance = connection.execute(
+        """
+        SELECT
+            cs.session_date,c.name AS class_name,
+            ar.status,ar.minutes_late,ar.note
+        FROM attendance_records ar
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        WHERE ar.student_id=? AND c.teacher_id=?
+        ORDER BY cs.session_date DESC
+        LIMIT 50
+        """,
+        (student_id,teacher_id),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_student.html",
+        account=dict(account),
+        student=dict(student),
+        classes=[dict(row) for row in classes],
+        notes=[dict(row) for row in notes],
+        attendance=[dict(row) for row in attendance],
+    )
+
+
+@app.route("/staff/students/<int:student_id>/notes/add", methods=["POST"])
+@staff_login_required
+def add_staff_student_note(student_id):
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+    if not staff_owns_student(connection,teacher_id,student_id):
+        connection.close()
+        return ("Student not found",404)
+
+    class_value = request.form.get("class_id","").strip()
+    class_id = int(class_value) if class_value else None
+    if class_id and not staff_owns_class(connection,teacher_id,class_id):
+        connection.close()
+        return ("Class not found",404)
+
+    note = request.form.get("note","").strip()
+    if not note:
+        connection.close()
+        flash("Enter a student note.","error")
+        return redirect(url_for("staff_student",student_id=student_id))
+
+    connection.execute(
+        """
+        INSERT INTO staff_student_notes (
+            teacher_id,student_id,class_id,note,visibility
+        ) VALUES (?,?,?,?,?)
+        """,
+        (
+            teacher_id,student_id,class_id,note,
+            request.form.get("visibility","Staff").strip(),
+        ),
+    )
+    log_staff_activity(
+        connection,
+        teacher_id,
+        "Student note added",
+        f"Student #{student_id}",
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Student note added.","success")
+    return redirect(url_for("staff_student",student_id=student_id))
+
+
+@app.route("/staff/recitals")
+@staff_login_required
+def staff_recitals():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            rp.*,c.name AS class_name,
+            rs.name AS show_name,rs.show_date,rs.start_time,
+            prod.name AS production_name
+        FROM recital_performances rp
+        JOIN classes c ON c.id=rp.class_id
+        JOIN recital_shows rs ON rs.id=rp.show_id
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        WHERE c.teacher_id=?
+        ORDER BY rs.show_date,rp.performance_order,rp.title
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_recitals.html",
+        account=dict(account),
+        recitals=[dict(row) for row in rows],
+    )
+
+
+@app.route("/staff/costumes")
+@staff_login_required
+def staff_costumes():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            co.name AS costume_name,co.color,co.season,
+            co.order_status,co.expected_date,
+            c.name AS class_name,
+            s.first_name,s.last_name,s.preferred_name,
+            sca.costume_size,sca.tights_size,sca.shoe_size,
+            sca.accessories,sca.assignment_status,
+            sca.alteration_status,sca.pickup_status
+        FROM student_costume_assignments sca
+        JOIN students s ON s.id=sca.student_id
+        JOIN costumes co ON co.id=sca.costume_id
+        JOIN classes c ON c.id=sca.class_id
+        WHERE c.teacher_id=?
+        ORDER BY c.name,s.last_name,s.first_name,co.name
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_costumes.html",
+        account=dict(account),
+        costumes=[dict(row) for row in rows],
+    )
+
+
+@app.route("/staff/competitions")
+@staff_login_required
+def staff_competitions():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    routines = connection.execute(
+        """
+        SELECT
+            cr.*,
+            c.name AS class_name,
+            comp.name AS competition_name,
+            comp.venue,comp.city,comp.state,
+            comp.start_date,comp.end_date,
+            co.name AS costume_name
+        FROM competition_routines cr
+        JOIN classes c ON c.id=cr.class_id
+        JOIN competitions comp ON comp.id=cr.competition_id
+        LEFT JOIN costumes co ON co.id=cr.costume_id
+        WHERE c.teacher_id=?
+        ORDER BY comp.start_date,cr.performance_date,cr.performance_time
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_competitions.html",
+        account=dict(account),
+        routines=[dict(row) for row in routines],
+    )
+
+
+@app.route("/staff/announcements")
+@staff_login_required
+def staff_announcements():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_announcements
+        WHERE active=1
+          AND (starts_at IS NULL OR starts_at<=CURRENT_TIMESTAMP)
+          AND (expires_at IS NULL OR expires_at>=CURRENT_TIMESTAMP)
+          AND audience IN ('All Staff','Instructors')
+        ORDER BY id DESC
+        """
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_announcements.html",
+        account=dict(account),
+        announcements=[dict(row) for row in rows],
+    )
+
+
+@app.route("/staff/documents")
+@staff_login_required
+def staff_documents():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_documents
+        WHERE active=1
+          AND (teacher_id IS NULL OR teacher_id=?)
+        ORDER BY category,title,id DESC
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_documents.html",
+        account=dict(account),
+        documents=[dict(row) for row in rows],
+    )
+
+
+@app.route("/staff/profile", methods=["GET","POST"])
+@staff_login_required
+def staff_profile():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    if request.method=="POST":
+        action = request.form.get("action","profile")
+
+        if action=="password":
+            current_password = request.form.get("current_password","")
+            new_password = request.form.get("new_password","")
+            confirm_password = request.form.get("confirm_password","")
+
+            if not check_password_hash(account["password_hash"],current_password):
+                connection.close()
+                flash("Current password is incorrect.","error")
+                return redirect(url_for("staff_profile"))
+
+            if len(new_password)<8:
+                connection.close()
+                flash("New password must be at least 8 characters.","error")
+                return redirect(url_for("staff_profile"))
+
+            if new_password!=confirm_password:
+                connection.close()
+                flash("New passwords do not match.","error")
+                return redirect(url_for("staff_profile"))
+
+            connection.execute(
+                """
+                UPDATE staff_portal_accounts SET
+                    password_hash=?,
+                    must_change_password=0,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+                """,
+                (generate_password_hash(new_password),account["id"]),
+            )
+            log_staff_activity(
+                connection,
+                int(account["teacher_id"]),
+                "Password changed",
+            )
+            connection.commit()
+            connection.close()
+            flash("Password updated.","success")
+            return redirect(url_for("staff_profile"))
+
+        display_name = request.form.get("display_name","").strip()
+        phone = request.form.get("phone","").strip()
+
+        connection.execute(
+            "UPDATE teachers SET phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (phone,account["teacher_id"]),
+        )
+        connection.execute(
+            """
+            UPDATE staff_portal_accounts SET
+                display_name=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (display_name,account["id"]),
+        )
+        log_staff_activity(
+            connection,
+            int(account["teacher_id"]),
+            "Staff profile updated",
+        )
+        connection.commit()
+        connection.close()
+        session["staff_display_name"] = display_name
+        flash("Staff profile updated.","success")
+        return redirect(url_for("staff_profile"))
+
+    connection.close()
+    return render_template(
+        "staff_profile.html",
+        account=dict(account),
+    )
+
+
+@app.route("/admin/staff-portal")
+@login_required
+def staff_portal_admin():
+    connection = get_db()
+
+    accounts = connection.execute(
+        """
+        SELECT
+            spa.*,
+            t.first_name,t.last_name,
+            t.email AS teacher_email,t.phone,
+            COUNT(DISTINCT c.id) AS class_count
+        FROM staff_portal_accounts spa
+        JOIN teachers t ON t.id=spa.teacher_id
+        LEFT JOIN classes c ON c.teacher_id=t.id AND c.active=1
+        GROUP BY
+            spa.id,spa.teacher_id,spa.email,spa.password_hash,
+            spa.display_name,spa.active,spa.must_change_password,
+            spa.last_login_at,spa.created_at,spa.updated_at,
+            t.first_name,t.last_name,t.email,t.phone
+        ORDER BY t.last_name,t.first_name
+        """
+    ).fetchall()
+
+    teachers = connection.execute(
+        """
+        SELECT
+            t.id,t.first_name,t.last_name,t.email,t.phone,
+            COUNT(DISTINCT c.id) AS class_count
+        FROM teachers t
+        LEFT JOIN classes c ON c.teacher_id=t.id AND c.active=1
+        LEFT JOIN staff_portal_accounts spa ON spa.teacher_id=t.id
+        WHERE t.active=1 AND spa.id IS NULL
+        GROUP BY t.id,t.first_name,t.last_name,t.email,t.phone
+        ORDER BY t.last_name,t.first_name
+        """
+    ).fetchall()
+
+    announcements = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_announcements
+        ORDER BY id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    documents = connection.execute(
+        """
+        SELECT
+            spd.*,
+            t.first_name,t.last_name
+        FROM staff_portal_documents spd
+        LEFT JOIN teachers t ON t.id=spd.teacher_id
+        ORDER BY spd.id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_portal_admin.html",
+        accounts=[dict(row) for row in accounts],
+        teachers=[dict(row) for row in teachers],
+        announcements=[dict(row) for row in announcements],
+        documents=[dict(row) for row in documents],
+    )
+
+
+@app.route("/admin/staff-portal/accounts/create", methods=["POST"])
+@login_required
+def create_staff_portal_account():
+    teacher_id = int(request.form.get("teacher_id","0") or 0)
+    password = request.form.get("password","")
+
+    if len(password)<8:
+        flash("Temporary password must be at least 8 characters.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    connection = get_db()
+    teacher = connection.execute(
+        "SELECT * FROM teachers WHERE id=? AND active=1",
+        (teacher_id,),
+    ).fetchone()
+
+    if not teacher:
+        connection.close()
+        flash("Teacher not found.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    email = request.form.get("email","").strip().lower() or str(teacher["email"] or "").strip().lower()
+    if not email:
+        connection.close()
+        flash("An instructor email is required.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO staff_portal_accounts (
+                teacher_id,email,password_hash,display_name,
+                active,must_change_password
+            ) VALUES (?,?,?,?,1,1)
+            """,
+            (
+                teacher_id,
+                email,
+                generate_password_hash(password),
+                request.form.get("display_name","").strip(),
+            ),
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        connection.close()
+        flash("A staff portal account already exists for this teacher or email.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    connection.close()
+    flash("Staff portal account created.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/accounts/<int:account_id>/update", methods=["POST"])
+@login_required
+def update_staff_portal_account(account_id):
+    connection = get_db()
+    account = connection.execute(
+        "SELECT * FROM staff_portal_accounts WHERE id=?",
+        (account_id,),
+    ).fetchone()
+    if not account:
+        connection.close()
+        return ("Staff account not found",404)
+
+    connection.execute(
+        """
+        UPDATE staff_portal_accounts SET
+            active=?,display_name=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (
+            1 if request.form.get("active")=="on" else 0,
+            request.form.get("display_name","").strip(),
+            account_id,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff account status saved. Password was preserved.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/accounts/<int:account_id>/reset-password", methods=["POST"])
+@login_required
+def reset_staff_portal_password(account_id):
+    new_password = request.form.get("new_password","")
+    if len(new_password)<8:
+        flash("Temporary password must be at least 8 characters.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    connection = get_db()
+    account = connection.execute(
+        "SELECT * FROM staff_portal_accounts WHERE id=?",
+        (account_id,),
+    ).fetchone()
+    if not account:
+        connection.close()
+        return ("Staff account not found",404)
+
+    connection.execute(
+        """
+        UPDATE staff_portal_accounts SET
+            password_hash=?,
+            must_change_password=1,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (generate_password_hash(new_password),account_id),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff temporary password reset.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/announcements/save", methods=["POST"])
+@login_required
+def save_staff_announcement():
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO staff_portal_announcements (
+            title,message,audience,active,
+            starts_at,expires_at,created_by
+        ) VALUES (?,?,?,1,?,?,?)
+        """,
+        (
+            request.form.get("title","").strip(),
+            request.form.get("message","").strip(),
+            request.form.get("audience","All Staff").strip(),
+            request.form.get("starts_at","").strip() or None,
+            request.form.get("expires_at","").strip() or None,
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff announcement added.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/announcements/<int:announcement_id>/delete", methods=["POST"])
+@login_required
+def delete_staff_announcement(announcement_id):
+    connection = get_db()
+    connection.execute(
+        "DELETE FROM staff_portal_announcements WHERE id=?",
+        (announcement_id,),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff announcement removed.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/documents/save", methods=["POST"])
+@login_required
+def save_staff_document():
+    teacher_value = request.form.get("teacher_id","").strip()
+    teacher_id = int(teacher_value) if teacher_value else None
+
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO staff_portal_documents (
+            teacher_id,title,category,description,
+            document_url,active,created_by
+        ) VALUES (?,?,?,?,?,1,?)
+        """,
+        (
+            teacher_id,
+            request.form.get("title","").strip(),
+            request.form.get("category","General").strip(),
+            request.form.get("description","").strip(),
+            request.form.get("document_url","").strip(),
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff document added.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/documents/<int:document_id>/delete", methods=["POST"])
+@login_required
+def delete_staff_document(document_id):
+    connection = get_db()
+    connection.execute(
+        "DELETE FROM staff_portal_documents WHERE id=?",
+        (document_id,),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff document removed.","success")
+    return redirect(url_for("staff_portal_admin"))
 
 
 @app.route("/parent/login", methods=["GET","POST"])
