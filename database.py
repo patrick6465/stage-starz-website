@@ -1114,6 +1114,41 @@ def init_db() -> None:
         )
     """)
 
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_delivery_settings (
+            id {id_column},
+            recital_show_id INTEGER NOT NULL UNIQUE,
+            mobile_tickets_enabled INTEGER NOT NULL DEFAULT 1,
+            checkin_enabled INTEGER NOT NULL DEFAULT 1,
+            allow_reentry INTEGER NOT NULL DEFAULT 0,
+            reentry_limit INTEGER NOT NULL DEFAULT 1,
+            door_notes TEXT NOT NULL DEFAULT '',
+            delivery_message TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS ticket_checkin_events (
+            id {id_column},
+            ticket_id INTEGER NOT NULL,
+            recital_show_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            method TEXT NOT NULL DEFAULT 'Manual',
+            staff_user_id INTEGER,
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(staff_user_id) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
     # Upgrade older customer tables created by earlier CRM versions.
     if connection.backend == "postgresql":
         for column_name, column_definition in [

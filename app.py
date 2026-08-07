@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from flask import (
     Flask,
+    Response,
     flash,
     jsonify,
     redirect,
@@ -39,6 +40,8 @@ from config import (
     USE_POSTGRES,
 )
 from database import get_db, init_db
+import qrcode
+from qrcode.image.svg import SvgPathImage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -440,6 +443,16 @@ MIGRATION_REGISTRY = [
             "public_ticket_settings": ["recital_show_id","public_slug","public_enabled","sales_open_at","sales_close_at","max_tickets_per_order","hold_minutes"],
             "ticket_checkout_sessions": ["checkout_token","recital_show_id","status","expires_at","converted_order_id"],
             "ticket_checkout_seats": ["checkout_session_id","recital_show_id","seat_id"],
+        },
+    },
+    {
+        "key": "019_digital_ticket_delivery_checkin",
+        "title": "Digital Ticket Delivery and Door Check-In",
+        "description": "QR mobile tickets, camera-assisted door check-in, duplicate warnings, lookup, re-entry, and attendance tracking.",
+        "required_tables": ["ticket_delivery_settings","ticket_checkin_events"],
+        "required_columns": {
+            "ticket_delivery_settings": ["recital_show_id","mobile_tickets_enabled","checkin_enabled","allow_reentry","reentry_limit","door_notes","delivery_message"],
+            "ticket_checkin_events": ["ticket_id","recital_show_id","action","method","staff_user_id","notes","created_at"],
         },
     },
 
@@ -1790,6 +1803,156 @@ def public_ticket_order(order_id):
     tickets=c.execute("""SELECT tk.*,ts.row_label,ts.seat_number,ts.seat_type,sec.name AS section_name FROM tickets tk JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id WHERE tk.order_id=? ORDER BY sec.sort_order,sec.name,ts.row_label,ts.seat_number""",(order_id,)).fetchall();c.close();return render_template("public_ticket_order.html",order=dict(order),tickets=[dict(r) for r in tickets])
 
 
+def digital_ticket_token(ticket_id, ticket_code):
+    return f"{int(ticket_id)}-{ticket_code}"
+
+
+def ticket_from_digital_token(connection, token):
+    if "-" not in token:
+        return None
+    ticket_id_text, ticket_code = token.split("-", 1)
+    if not ticket_id_text.isdigit():
+        return None
+    return connection.execute(
+        """SELECT tk.*,tor.purchaser_name,tor.purchaser_email,tor.purchaser_phone,
+                  rs.name AS show_name,rs.show_date,rs.start_time,rp.name AS production_name,
+                  tv.name AS venue_name,tv.address AS venue_address,
+                  ts.row_label,ts.seat_number,ts.seat_label,ts.seat_type,sec.name AS section_name,
+                  COALESCE(tds.mobile_tickets_enabled,1) AS mobile_tickets_enabled,
+                  COALESCE(tds.checkin_enabled,1) AS checkin_enabled,
+                  COALESCE(tds.allow_reentry,0) AS allow_reentry,
+                  COALESCE(tds.reentry_limit,1) AS reentry_limit,
+                  COALESCE(tds.delivery_message,'') AS delivery_message
+           FROM tickets tk JOIN ticket_orders tor ON tor.id=tk.order_id
+           JOIN recital_shows rs ON rs.id=tk.recital_show_id
+           JOIN recital_productions rp ON rp.id=rs.production_id
+           JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id
+           LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
+           LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+           LEFT JOIN ticket_delivery_settings tds ON tds.recital_show_id=rs.id
+           WHERE tk.id=? AND tk.ticket_code=?""",
+        (int(ticket_id_text), ticket_code),
+    ).fetchone()
+
+
+def perform_door_checkin(connection, ticket, method="Manual", notes=""):
+    if ticket["status"] != "Valid":
+        return False, "This ticket is not valid."
+    if not int(ticket["checkin_enabled"] or 0):
+        return False, "Door check-in is disabled for this performance."
+    count = connection.execute(
+        "SELECT COUNT(*) AS count FROM ticket_checkin_events WHERE ticket_id=? AND action='Check In'",
+        (ticket["id"],),
+    ).fetchone()["count"]
+    count = int(count or 0)
+    if ticket["checked_in_at"] and not int(ticket["allow_reentry"] or 0):
+        return False, "DUPLICATE ENTRY: this ticket was already checked in."
+    if ticket["checked_in_at"] and count >= int(ticket["reentry_limit"] or 1) + 1:
+        return False, "This ticket has reached its re-entry limit."
+    connection.execute(
+        "UPDATE tickets SET checked_in_at=CURRENT_TIMESTAMP,checked_in_by=? WHERE id=?",
+        (int(session.get("admin_user_id") or 0) or None,ticket["id"]),
+    )
+    connection.execute(
+        """INSERT INTO ticket_checkin_events(ticket_id,recital_show_id,action,method,staff_user_id,notes)
+           VALUES (?,?,'Check In',?,?,?)""",
+        (ticket["id"],ticket["recital_show_id"],method,int(session.get("admin_user_id") or 0) or None,notes),
+    )
+    return True, "Ticket checked in."
+
+
+@app.route("/admin/ticketing/shows/<int:show_id>/delivery-settings",methods=["POST"])
+@permission_required("ticketing")
+def save_ticket_delivery_settings(show_id):
+    c=get_db()
+    c.execute("""INSERT INTO ticket_delivery_settings(recital_show_id,mobile_tickets_enabled,checkin_enabled,allow_reentry,reentry_limit,door_notes,delivery_message)
+      VALUES(?,?,?,?,?,?,?) ON CONFLICT(recital_show_id) DO UPDATE SET mobile_tickets_enabled=excluded.mobile_tickets_enabled,
+      checkin_enabled=excluded.checkin_enabled,allow_reentry=excluded.allow_reentry,reentry_limit=excluded.reentry_limit,
+      door_notes=excluded.door_notes,delivery_message=excluded.delivery_message,updated_at=CURRENT_TIMESTAMP""",
+      (show_id,1 if request.form.get("mobile_tickets_enabled")=="on" else 0,1 if request.form.get("checkin_enabled")=="on" else 0,
+       1 if request.form.get("allow_reentry")=="on" else 0,max(1,min(int(request.form.get("reentry_limit","1") or 1),10)),
+       request.form.get("door_notes","").strip(),request.form.get("delivery_message","").strip()))
+    c.commit();c.close();flash("Digital ticket settings saved.","success");return redirect(url_for("ticket_show",show_id=show_id))
+
+
+@app.route("/admin/ticketing/shows/<int:show_id>/checkin")
+@permission_required("ticketing")
+def ticket_checkin_center(show_id):
+    q=request.args.get("q","").strip();c=get_db()
+    show=c.execute("""SELECT rs.id,rs.name,rs.show_date,rs.start_time,rp.name AS production_name,tv.name AS venue_name,
+      COALESCE(tds.checkin_enabled,1) AS checkin_enabled,COALESCE(tds.allow_reentry,0) AS allow_reentry,
+      COALESCE(tds.reentry_limit,1) AS reentry_limit,COALESCE(tds.door_notes,'') AS door_notes
+      FROM recital_shows rs JOIN recital_productions rp ON rp.id=rs.production_id
+      LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+      LEFT JOIN ticket_delivery_settings tds ON tds.recital_show_id=rs.id WHERE rs.id=?""",(show_id,)).fetchone()
+    if not show:c.close();return ("Show not found",404)
+    summary=c.execute("""SELECT COUNT(*) AS valid_tickets,
+      SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_in,
+      SUM(CASE WHEN checked_in_at IS NULL THEN 1 ELSE 0 END) AS not_arrived
+      FROM tickets WHERE recital_show_id=? AND status='Valid'""",(show_id,)).fetchone()
+    where="";params=[show_id]
+    if q:
+        where=" AND (tk.ticket_code LIKE ? OR tor.purchaser_name LIKE ? OR tor.purchaser_email LIKE ? OR tor.purchaser_phone LIKE ? OR CAST(tor.id AS TEXT) LIKE ?)"
+        like=f"%{q}%";params += [like]*5
+    tickets=c.execute("""SELECT tk.id,tk.ticket_code,tk.checked_in_at,tor.id AS order_id,tor.purchaser_name,tor.purchaser_email,tor.purchaser_phone,
+      ts.row_label,ts.seat_number,ts.seat_type,sec.name AS section_name,
+      (SELECT COUNT(*) FROM ticket_checkin_events e WHERE e.ticket_id=tk.id AND e.action='Check In') AS checkin_count
+      FROM tickets tk JOIN ticket_orders tor ON tor.id=tk.order_id JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id
+      WHERE tk.recital_show_id=? AND tk.status='Valid'"""+where+" ORDER BY tk.checked_in_at IS NOT NULL,tor.purchaser_name,sec.sort_order,ts.row_label,ts.seat_number LIMIT 150",tuple(params)).fetchall()
+    c.close();return render_template("ticket_checkin_center.html",show=dict(show),summary=dict(summary),tickets=[dict(r) for r in tickets],query=q)
+
+
+@app.route("/admin/ticketing/tickets/<int:ticket_id>/door-checkin",methods=["POST"])
+@permission_required("ticketing")
+def door_checkin_ticket(ticket_id):
+    c=get_db();ticket=c.execute("""SELECT tk.*,COALESCE(tds.checkin_enabled,1) AS checkin_enabled,COALESCE(tds.allow_reentry,0) AS allow_reentry,
+      COALESCE(tds.reentry_limit,1) AS reentry_limit FROM tickets tk LEFT JOIN ticket_delivery_settings tds ON tds.recital_show_id=tk.recital_show_id WHERE tk.id=?""",(ticket_id,)).fetchone()
+    if not ticket:c.close();return ("Ticket not found",404)
+    ok,msg=perform_door_checkin(c,ticket,request.form.get("method","Manual"),request.form.get("notes","").strip())
+    if ok:c.commit()
+    c.close();flash(msg,"success" if ok else "error");return redirect(url_for("ticket_checkin_center",show_id=ticket["recital_show_id"]))
+
+
+@app.route("/admin/ticketing/tickets/<int:ticket_id>/undo-checkin",methods=["POST"])
+@permission_required("ticketing")
+def undo_door_checkin(ticket_id):
+    c=get_db();ticket=c.execute("SELECT recital_show_id FROM tickets WHERE id=?",(ticket_id,)).fetchone()
+    if not ticket:c.close();return ("Ticket not found",404)
+    c.execute("UPDATE tickets SET checked_in_at=NULL,checked_in_by=NULL WHERE id=?",(ticket_id,))
+    c.execute("INSERT INTO ticket_checkin_events(ticket_id,recital_show_id,action,method,staff_user_id,notes) VALUES (?,?,'Undo','Manual',?,?)",
+      (ticket_id,ticket["recital_show_id"],int(session.get("admin_user_id") or 0) or None,request.form.get("notes","").strip()))
+    c.commit();c.close();flash("Check-in undone.","success");return redirect(url_for("ticket_checkin_center",show_id=ticket["recital_show_id"]))
+
+
+@app.route("/admin/ticketing/scan/<token>",methods=["POST"])
+@permission_required("ticketing")
+def scan_digital_ticket(token):
+    c=get_db();ticket=ticket_from_digital_token(c,token)
+    if not ticket:c.close();return jsonify({"ok":False,"message":"Ticket not found."}),404
+    ok,msg=perform_door_checkin(c,ticket,"Camera QR")
+    if ok:c.commit()
+    fresh=c.execute("SELECT checked_in_at FROM tickets WHERE id=?",(ticket["id"],)).fetchone();c.close()
+    return jsonify({"ok":ok,"message":msg,"show_id":ticket["recital_show_id"],"purchaser":ticket["purchaser_name"],"section":ticket["section_name"],"row":ticket["row_label"],"seat":ticket["seat_number"],"checked_in_at":fresh["checked_in_at"] if fresh else None}),200 if ok else 409
+
+
+@app.route("/ticket/<token>")
+def mobile_ticket(token):
+    c=get_db();ticket=ticket_from_digital_token(c,token)
+    if not ticket:c.close();return ("Ticket not found",404)
+    c.close()
+    if not int(ticket["mobile_tickets_enabled"] or 0):return ("Mobile tickets are disabled for this performance.",403)
+    return render_template("mobile_ticket.html",ticket=dict(ticket),token=token)
+
+
+@app.route("/ticket/<token>/qr.svg")
+def mobile_ticket_qr(token):
+    c=get_db();ticket=ticket_from_digital_token(c,token);c.close()
+    if not ticket:return ("Ticket not found",404)
+    qr=qrcode.QRCode(version=None,box_size=8,border=3);qr.add_data(f"STAGESTARZ:{token}");qr.make(fit=True)
+    image=qr.make_image(image_factory=SvgPathImage);from io import BytesIO
+    stream=BytesIO();image.save(stream);return Response(stream.getvalue(),mimetype="image/svg+xml",headers={"Cache-Control":"private, max-age=3600"})
+
+
 @app.route("/admin/ticketing")
 @permission_required("ticketing")
 def ticketing_center():
@@ -3031,6 +3194,7 @@ def ticket_show(show_id: int):
         """,
         (show_id,),
     ).fetchall()
+    delivery_settings=connection.execute("SELECT * FROM ticket_delivery_settings WHERE recital_show_id=?",(show_id,)).fetchone()
     public_settings=connection.execute("SELECT * FROM public_ticket_settings WHERE recital_show_id=?",(show_id,)).fetchone()
     connection.close()
 
@@ -3051,6 +3215,7 @@ def ticket_show(show_id: int):
         show_canvas=dict(show_canvas) if show_canvas else {"canvas_width":1400,"canvas_height":1100,"background_label":""},
         show_objects=[dict(row) for row in show_objects],
         public_settings=dict(public_settings) if public_settings else {},
+        delivery_settings=dict(delivery_settings) if delivery_settings else {},
     )
 
 

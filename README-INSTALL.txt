@@ -1,29 +1,36 @@
-STAGE STARZ PUBLIC RESERVED TICKET SALES PORTAL V1
+STAGE STARZ DIGITAL TICKET DELIVERY & DOOR CHECK-IN V1
 
 REPLACE:
 - app.py
 - database.py
-- templates/dashboard.html
+- requirements.txt
 - templates/ticket_show.html
+- templates/public_ticket_order.html
+- templates/ticket_order.html
 
 ADD:
-- templates/public_ticket_portal.html
-- templates/public_ticket_show.html
-- templates/public_ticket_checkout.html
-- templates/public_ticket_order.html
+- templates/ticket_checkin_center.html
+- templates/mobile_ticket.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py database.py templates/dashboard.html templates/ticket_show.html templates/public_ticket_portal.html templates/public_ticket_show.html templates/public_ticket_checkout.html templates/public_ticket_order.html
-git commit -m "Add public reserved ticket sales portal"
+git add app.py database.py requirements.txt templates/ticket_show.html templates/public_ticket_order.html templates/ticket_order.html templates/ticket_checkin_center.html templates/mobile_ticket.html
+git commit -m "Add digital QR tickets and door checkin"
 git push origin railway-deployment
 
-VERIFY:
-1. Railway Active.
-2. /health and /ready pass.
-3. Migration Center shows 018_public_ticket_sales.
-4. Open an admin ticket show and enable Public Ticket Sales.
-5. Open /tickets.
-6. Select seats and complete a Pay at Studio order.
-7. Test Family Billing with a family account.
-8. Confirm temporary seat locks and printable ticket codes.
+FEATURES:
+- Real QR image on every mobile ticket
+- Mobile-friendly ticket page
+- Door Check-In Center per show
+- Camera QR scanning when browser BarcodeDetector is available
+- Manual lookup fallback by purchaser, email, phone, order number, or ticket code
+- Duplicate-entry warnings
+- Optional re-entry with configurable limit
+- Undo check-in
+- Expected / checked-in / not-arrived dashboard
+- Check-in event history table
+- Mail-app delivery link from public ticket confirmation
+- Migration milestone 019
+
+NOTE:
+Automated transactional email requires an email provider/SMTP integration. V1 provides mobile ticket links and a prefilled mail-app delivery action.
