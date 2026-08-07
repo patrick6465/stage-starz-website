@@ -3,7 +3,6 @@ import csv
 import io
 import json
 
-import json
 import logging
 import uuid
 from datetime import date, datetime, timedelta
@@ -3235,15 +3234,25 @@ def staff_profile():
 
 
 def report_csv_response(filename, headers, rows):
-    output = io.StringIO()
-    writer = csv.writer(output)
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, lineterminator="\r\n")
     writer.writerow(headers)
     for row in rows:
         writer.writerow(row)
-    response = make_response(output.getvalue())
-    response.headers["Content-Type"] = "text/csv; charset=utf-8"
-    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-    return response
+
+    # UTF-8 BOM improves compatibility when CSV files are opened
+    # directly in Microsoft Excel.
+    csv_text = "\ufeff" + output.getvalue()
+
+    return Response(
+        csv_text,
+        status=200,
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.route("/admin/reports")
