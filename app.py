@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from flask import (
     Flask,
+    Response,
     flash,
     jsonify,
     redirect,
@@ -40,6 +41,9 @@ from config import (
 )
 from database import get_db, init_db
 
+import qrcode
+from qrcode.image.svg import SvgPathImage
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -67,9 +71,9 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","production","ticketing","workflow","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","production","ticketing","notifications","workflow","orders","website","announcements","media","search","reports"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
-    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","ticketing","workflow","reports","media","search"}},
+    "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","ticketing","notifications","workflow","reports","media","search"}},
 }
 
 def current_admin():
@@ -456,6 +460,103 @@ MIGRATION_REGISTRY = [
         },
     },
 
+
+{
+        "key": "020_digital_ticket_delivery_checkin",
+        "title": "Digital Ticket Delivery and Door Check-In",
+        "description": "QR mobile tickets, camera-assisted door check-in, duplicate warnings, lookup, re-entry, and attendance tracking.",
+        "required_tables": ["ticket_delivery_settings","ticket_checkin_events"],
+        "required_columns": {
+            "ticket_delivery_settings": ["recital_show_id","mobile_tickets_enabled","checkin_enabled","allow_reentry","reentry_limit","door_notes","delivery_message"],
+            "ticket_checkin_events": ["ticket_id","recital_show_id","action","method","staff_user_id","notes","created_at"],
+        },
+    },
+{
+        "key": "021_email_notification_center",
+        "title": "Email and Notification Center",
+        "description": "Templates, campaigns, recipient groups, message queue, scheduling, and delivery history.",
+        "required_tables": [
+            "notification_templates",
+            "notification_campaigns",
+            "notification_recipients",
+            "notification_delivery_log"
+        ],
+        "required_columns": {
+            "notification_templates": [
+                "name","category","subject","body_text","active"
+            ],
+            "notification_campaigns": [
+                "name","template_id","category","subject","body_text",
+                "recipient_scope","scheduled_for","status"
+            ],
+            "notification_recipients": [
+                "campaign_id","family_id","student_id","recipient_name",
+                "recipient_email","source_type","source_reference",
+                "status","last_error"
+            ],
+            "notification_delivery_log": [
+                "campaign_id","recipient_id","channel","provider",
+                "provider_message_id","status","error_message","sent_at"
+            ],
+        },
+    },
+{
+        "key": "022_parent_portal",
+        "title": "Parent Portal",
+        "description": "Secure family login, student schedules, attendance, billing, costumes, recitals, tickets, notifications, documents, and profile self-service.",
+        "required_tables": [
+            "parent_portal_accounts",
+            "parent_portal_activity",
+            "parent_portal_message_reads",
+            "parent_portal_documents"
+        ],
+        "required_columns": {
+            "parent_portal_accounts": [
+                "family_id","email","password_hash","display_name",
+                "active","must_change_password","last_login_at"
+            ],
+            "parent_portal_activity": [
+                "account_id","family_id","action","details","created_at"
+            ],
+            "parent_portal_message_reads": [
+                "account_id","campaign_id","read_at"
+            ],
+            "parent_portal_documents": [
+                "family_id","title","category","description",
+                "document_url","active"
+            ],
+        },
+    },
+{
+        "key": "023_staff_portal",
+        "title": "Staff Portal and Instructor Center",
+        "description": "Secure instructor login, assigned classes, rosters, attendance entry, student notes, recital, costume, competition, announcements, and documents.",
+        "required_tables": [
+            "staff_portal_accounts",
+            "staff_portal_activity",
+            "staff_student_notes",
+            "staff_portal_announcements",
+            "staff_portal_documents"
+        ],
+        "required_columns": {
+            "staff_portal_accounts": [
+                "teacher_id","email","password_hash","display_name",
+                "active","must_change_password","last_login_at"
+            ],
+            "staff_portal_activity": [
+                "account_id","teacher_id","action","details","created_at"
+            ],
+            "staff_student_notes": [
+                "teacher_id","student_id","class_id","note","visibility"
+            ],
+            "staff_portal_announcements": [
+                "title","message","audience","active","starts_at","expires_at"
+            ],
+            "staff_portal_documents": [
+                "teacher_id","title","category","description","document_url","active"
+            ],
+        },
+    }
 ]
 
 
@@ -7303,6 +7404,3269 @@ def save_settings():
     log_activity("Store settings updated", "Pricing, payment, or contact settings changed")
     return redirect(url_for("store_manager"))
 
+
+
+# ---- Restored portal, notification, and digital-ticket modules ----
+def digital_ticket_token(ticket_id, ticket_code):
+    return f"{int(ticket_id)}-{ticket_code}"
+
+
+def ticket_from_digital_token(connection, token):
+    if "-" not in token:
+        return None
+    ticket_id_text, ticket_code = token.split("-", 1)
+    if not ticket_id_text.isdigit():
+        return None
+    return connection.execute(
+        """SELECT tk.*,tor.purchaser_name,tor.purchaser_email,tor.purchaser_phone,
+                  rs.name AS show_name,rs.show_date,rs.start_time,rp.name AS production_name,
+                  tv.name AS venue_name,tv.address AS venue_address,
+                  ts.row_label,ts.seat_number,ts.seat_label,ts.seat_type,sec.name AS section_name,
+                  COALESCE(tds.mobile_tickets_enabled,1) AS mobile_tickets_enabled,
+                  COALESCE(tds.checkin_enabled,1) AS checkin_enabled,
+                  COALESCE(tds.allow_reentry,0) AS allow_reentry,
+                  COALESCE(tds.reentry_limit,1) AS reentry_limit,
+                  COALESCE(tds.delivery_message,'') AS delivery_message
+           FROM tickets tk JOIN ticket_orders tor ON tor.id=tk.order_id
+           JOIN recital_shows rs ON rs.id=tk.recital_show_id
+           JOIN recital_productions rp ON rp.id=rs.production_id
+           JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id
+           LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
+           LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+           LEFT JOIN ticket_delivery_settings tds ON tds.recital_show_id=rs.id
+           WHERE tk.id=? AND tk.ticket_code=?""",
+        (int(ticket_id_text), ticket_code),
+    ).fetchone()
+
+
+def perform_door_checkin(connection, ticket, method="Manual", notes=""):
+    if ticket["status"] != "Valid":
+        return False, "This ticket is not valid."
+    if not int(ticket["checkin_enabled"] or 0):
+        return False, "Door check-in is disabled for this performance."
+    count = connection.execute(
+        "SELECT COUNT(*) AS count FROM ticket_checkin_events WHERE ticket_id=? AND action='Check In'",
+        (ticket["id"],),
+    ).fetchone()["count"]
+    count = int(count or 0)
+    if ticket["checked_in_at"] and not int(ticket["allow_reentry"] or 0):
+        return False, "DUPLICATE ENTRY: this ticket was already checked in."
+    if ticket["checked_in_at"] and count >= int(ticket["reentry_limit"] or 1) + 1:
+        return False, "This ticket has reached its re-entry limit."
+    connection.execute(
+        "UPDATE tickets SET checked_in_at=CURRENT_TIMESTAMP,checked_in_by=? WHERE id=?",
+        (int(session.get("admin_user_id") or 0) or None,ticket["id"]),
+    )
+    connection.execute(
+        """INSERT INTO ticket_checkin_events(ticket_id,recital_show_id,action,method,staff_user_id,notes)
+           VALUES (?,?,'Check In',?,?,?)""",
+        (ticket["id"],ticket["recital_show_id"],method,int(session.get("admin_user_id") or 0) or None,notes),
+    )
+    return True, "Ticket checked in."
+
+
+@app.route("/admin/ticketing/shows/<int:show_id>/delivery-settings",methods=["POST"])
+@permission_required("ticketing")
+def save_ticket_delivery_settings(show_id):
+    c=get_db()
+    c.execute("""INSERT INTO ticket_delivery_settings(recital_show_id,mobile_tickets_enabled,checkin_enabled,allow_reentry,reentry_limit,door_notes,delivery_message)
+      VALUES(?,?,?,?,?,?,?) ON CONFLICT(recital_show_id) DO UPDATE SET mobile_tickets_enabled=excluded.mobile_tickets_enabled,
+      checkin_enabled=excluded.checkin_enabled,allow_reentry=excluded.allow_reentry,reentry_limit=excluded.reentry_limit,
+      door_notes=excluded.door_notes,delivery_message=excluded.delivery_message,updated_at=CURRENT_TIMESTAMP""",
+      (show_id,1 if request.form.get("mobile_tickets_enabled")=="on" else 0,1 if request.form.get("checkin_enabled")=="on" else 0,
+       1 if request.form.get("allow_reentry")=="on" else 0,max(1,min(int(request.form.get("reentry_limit","1") or 1),10)),
+       request.form.get("door_notes","").strip(),request.form.get("delivery_message","").strip()))
+    c.commit();c.close();flash("Digital ticket settings saved.","success");return redirect(url_for("ticket_show",show_id=show_id))
+
+
+@app.route("/admin/ticketing/shows/<int:show_id>/checkin")
+@permission_required("ticketing")
+def ticket_checkin_center(show_id):
+    q=request.args.get("q","").strip();c=get_db()
+    show=c.execute("""SELECT rs.id,rs.name,rs.show_date,rs.start_time,rp.name AS production_name,tv.name AS venue_name,
+      COALESCE(tds.checkin_enabled,1) AS checkin_enabled,COALESCE(tds.allow_reentry,0) AS allow_reentry,
+      COALESCE(tds.reentry_limit,1) AS reentry_limit,COALESCE(tds.door_notes,'') AS door_notes
+      FROM recital_shows rs JOIN recital_productions rp ON rp.id=rs.production_id
+      LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+      LEFT JOIN ticket_delivery_settings tds ON tds.recital_show_id=rs.id WHERE rs.id=?""",(show_id,)).fetchone()
+    if not show:c.close();return ("Show not found",404)
+    summary=c.execute("""SELECT COUNT(*) AS valid_tickets,
+      SUM(CASE WHEN checked_in_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_in,
+      SUM(CASE WHEN checked_in_at IS NULL THEN 1 ELSE 0 END) AS not_arrived
+      FROM tickets WHERE recital_show_id=? AND status='Valid'""",(show_id,)).fetchone()
+    where="";params=[show_id]
+    if q:
+        where=" AND (tk.ticket_code LIKE ? OR tor.purchaser_name LIKE ? OR tor.purchaser_email LIKE ? OR tor.purchaser_phone LIKE ? OR CAST(tor.id AS TEXT) LIKE ?)"
+        like=f"%{q}%";params += [like]*5
+    tickets=c.execute("""SELECT tk.id,tk.ticket_code,tk.checked_in_at,tor.id AS order_id,tor.purchaser_name,tor.purchaser_email,tor.purchaser_phone,
+      ts.row_label,ts.seat_number,ts.seat_type,sec.name AS section_name,
+      (SELECT COUNT(*) FROM ticket_checkin_events e WHERE e.ticket_id=tk.id AND e.action='Check In') AS checkin_count
+      FROM tickets tk JOIN ticket_orders tor ON tor.id=tk.order_id JOIN ticket_seats ts ON ts.id=tk.seat_id JOIN ticket_sections sec ON sec.id=ts.section_id
+      WHERE tk.recital_show_id=? AND tk.status='Valid'"""+where+" ORDER BY tk.checked_in_at IS NOT NULL,tor.purchaser_name,sec.sort_order,ts.row_label,ts.seat_number LIMIT 150",tuple(params)).fetchall()
+    c.close();return render_template("ticket_checkin_center.html",show=dict(show),summary=dict(summary),tickets=[dict(r) for r in tickets],query=q)
+
+
+@app.route("/admin/ticketing/tickets/<int:ticket_id>/door-checkin",methods=["POST"])
+@permission_required("ticketing")
+def door_checkin_ticket(ticket_id):
+    c=get_db();ticket=c.execute("""SELECT tk.*,COALESCE(tds.checkin_enabled,1) AS checkin_enabled,COALESCE(tds.allow_reentry,0) AS allow_reentry,
+      COALESCE(tds.reentry_limit,1) AS reentry_limit FROM tickets tk LEFT JOIN ticket_delivery_settings tds ON tds.recital_show_id=tk.recital_show_id WHERE tk.id=?""",(ticket_id,)).fetchone()
+    if not ticket:c.close();return ("Ticket not found",404)
+    ok,msg=perform_door_checkin(c,ticket,request.form.get("method","Manual"),request.form.get("notes","").strip())
+    if ok:c.commit()
+    c.close();flash(msg,"success" if ok else "error");return redirect(url_for("ticket_checkin_center",show_id=ticket["recital_show_id"]))
+
+
+@app.route("/admin/ticketing/tickets/<int:ticket_id>/undo-checkin",methods=["POST"])
+@permission_required("ticketing")
+def undo_door_checkin(ticket_id):
+    c=get_db();ticket=c.execute("SELECT recital_show_id FROM tickets WHERE id=?",(ticket_id,)).fetchone()
+    if not ticket:c.close();return ("Ticket not found",404)
+    c.execute("UPDATE tickets SET checked_in_at=NULL,checked_in_by=NULL WHERE id=?",(ticket_id,))
+    c.execute("INSERT INTO ticket_checkin_events(ticket_id,recital_show_id,action,method,staff_user_id,notes) VALUES (?,?,'Undo','Manual',?,?)",
+      (ticket_id,ticket["recital_show_id"],int(session.get("admin_user_id") or 0) or None,request.form.get("notes","").strip()))
+    c.commit();c.close();flash("Check-in undone.","success");return redirect(url_for("ticket_checkin_center",show_id=ticket["recital_show_id"]))
+
+
+@app.route("/admin/ticketing/scan/<token>",methods=["POST"])
+@permission_required("ticketing")
+def scan_digital_ticket(token):
+    c=get_db();ticket=ticket_from_digital_token(c,token)
+    if not ticket:c.close();return jsonify({"ok":False,"message":"Ticket not found."}),404
+    ok,msg=perform_door_checkin(c,ticket,"Camera QR")
+    if ok:c.commit()
+    fresh=c.execute("SELECT checked_in_at FROM tickets WHERE id=?",(ticket["id"],)).fetchone();c.close()
+    return jsonify({"ok":ok,"message":msg,"show_id":ticket["recital_show_id"],"purchaser":ticket["purchaser_name"],"section":ticket["section_name"],"row":ticket["row_label"],"seat":ticket["seat_number"],"checked_in_at":fresh["checked_in_at"] if fresh else None}),200 if ok else 409
+
+
+@app.route("/ticket/<token>")
+def mobile_ticket(token):
+    c=get_db();ticket=ticket_from_digital_token(c,token)
+    if not ticket:c.close();return ("Ticket not found",404)
+    c.close()
+    if not int(ticket["mobile_tickets_enabled"] or 0):return ("Mobile tickets are disabled for this performance.",403)
+    return render_template("mobile_ticket.html",ticket=dict(ticket),token=token)
+
+
+@app.route("/ticket/<token>/qr.svg")
+def mobile_ticket_qr(token):
+    c=get_db();ticket=ticket_from_digital_token(c,token);c.close()
+    if not ticket:return ("Ticket not found",404)
+    qr=qrcode.QRCode(version=None,box_size=8,border=3);qr.add_data(f"STAGESTARZ:{token}");qr.make(fit=True)
+    image=qr.make_image(image_factory=SvgPathImage);from io import BytesIO
+    stream=BytesIO();image.save(stream);return Response(stream.getvalue(),mimetype="image/svg+xml",headers={"Cache-Control":"private, max-age=3600"})
+
+
+def notification_scope_recipients(connection, scope):
+    rows = []
+
+    if scope == "All Families":
+        data = connection.execute(
+            """
+            SELECT
+                id AS family_id,
+                family_name AS recipient_name,
+                primary_email AS recipient_email,
+                primary_phone AS recipient_phone
+            FROM families
+            WHERE COALESCE(primary_email,'')!=''
+            ORDER BY family_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Family",
+                "source_reference": str(row["family_id"]),
+            })
+
+    elif scope == "Active Students":
+        data = connection.execute(
+            """
+            SELECT
+                s.id AS student_id,
+                s.first_name,
+                s.last_name,
+                f.id AS family_id,
+                f.family_name,
+                f.primary_email,
+                f.primary_phone
+            FROM students s
+            LEFT JOIN families f ON f.id=s.family_id
+            WHERE COALESCE(s.active,1)=1
+              AND COALESCE(f.primary_email,'')!=''
+            ORDER BY s.last_name,s.first_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": row["student_id"],
+                "recipient_name": f"{row['first_name']} {row['last_name']}".strip(),
+                "recipient_email": row["primary_email"],
+                "recipient_phone": row["primary_phone"],
+                "source_type": "Student",
+                "source_reference": str(row["student_id"]),
+            })
+
+    elif scope == "Open Billing":
+        data = connection.execute(
+            """
+            SELECT DISTINCT
+                f.id AS family_id,
+                f.family_name AS recipient_name,
+                f.primary_email AS recipient_email,
+                f.primary_phone AS recipient_phone
+            FROM billing_charges bc
+            JOIN families f ON f.id=bc.family_id
+            WHERE bc.status='Open'
+              AND COALESCE(f.primary_email,'')!=''
+            ORDER BY f.family_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Billing",
+                "source_reference": str(row["family_id"]),
+            })
+
+    elif scope == "Ticket Purchasers":
+        data = connection.execute(
+            """
+            SELECT DISTINCT
+                tor.family_id,
+                tor.purchaser_name AS recipient_name,
+                tor.purchaser_email AS recipient_email,
+                tor.purchaser_phone AS recipient_phone,
+                tor.id AS order_id
+            FROM ticket_orders tor
+            WHERE COALESCE(tor.purchaser_email,'')!=''
+              AND tor.order_status!='Voided'
+            ORDER BY tor.purchaser_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Ticket Order",
+                "source_reference": str(row["order_id"]),
+            })
+
+    elif scope == "Competition Families":
+        data = connection.execute(
+            """
+            SELECT DISTINCT
+                f.id AS family_id,
+                f.family_name AS recipient_name,
+                f.primary_email AS recipient_email,
+                f.primary_phone AS recipient_phone
+            FROM competition_dancers cd
+            JOIN students s ON s.id=cd.student_id
+            JOIN families f ON f.id=s.family_id
+            WHERE COALESCE(f.primary_email,'')!=''
+            ORDER BY f.family_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Competition",
+                "source_reference": str(row["family_id"]),
+            })
+
+    elif scope == "Recital Families":
+        data = connection.execute(
+            """
+            SELECT DISTINCT
+                f.id AS family_id,
+                f.family_name AS recipient_name,
+                f.primary_email AS recipient_email,
+                f.primary_phone AS recipient_phone
+            FROM recital_cast rc
+            JOIN students s ON s.id=rc.student_id
+            JOIN families f ON f.id=s.family_id
+            WHERE COALESCE(f.primary_email,'')!=''
+            ORDER BY f.family_name
+            """
+        ).fetchall()
+        for row in data:
+            rows.append({
+                "family_id": row["family_id"],
+                "student_id": None,
+                "recipient_name": row["recipient_name"],
+                "recipient_email": row["recipient_email"],
+                "recipient_phone": row["recipient_phone"],
+                "source_type": "Recital",
+                "source_reference": str(row["family_id"]),
+            })
+
+    return rows
+
+
+def parent_login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("parent_account_id") or not session.get("parent_family_id"):
+            return redirect(url_for("parent_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def current_parent_account(connection):
+    account_id = session.get("parent_account_id")
+    family_id = session.get("parent_family_id")
+    if not account_id or not family_id:
+        return None
+    return connection.execute(
+        """
+        SELECT
+            ppa.*,
+            f.family_name,
+            f.primary_email,
+            f.primary_phone
+        FROM parent_portal_accounts ppa
+        JOIN families f ON f.id=ppa.family_id
+        WHERE ppa.id=? AND ppa.family_id=? AND ppa.active=1
+        """,
+        (account_id, family_id),
+    ).fetchone()
+
+
+def log_parent_activity(connection, family_id, action, details=""):
+    connection.execute(
+        """
+        INSERT INTO parent_portal_activity (
+            account_id,family_id,action,details
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            int(session.get("parent_account_id") or 0) or None,
+            family_id,
+            action,
+            details,
+        ),
+    )
+
+
+def parent_family_students(connection, family_id):
+    return connection.execute(
+        """
+        SELECT *
+        FROM students
+        WHERE family_id=?
+          AND status!='Archived'
+        ORDER BY last_name,first_name
+        """,
+        (family_id,),
+    ).fetchall()
+
+
+def staff_login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("staff_account_id") or not session.get("staff_teacher_id"):
+            return redirect(url_for("staff_login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+
+
+def current_staff_account(connection):
+    account_id = session.get("staff_account_id")
+    teacher_id = session.get("staff_teacher_id")
+    if not account_id or not teacher_id:
+        return None
+    return connection.execute(
+        """
+        SELECT
+            spa.*,
+            t.first_name,t.last_name,t.email AS teacher_email,
+            t.phone,t.bio,t.active AS teacher_active,
+            t.admin_user_id
+        FROM staff_portal_accounts spa
+        JOIN teachers t ON t.id=spa.teacher_id
+        WHERE spa.id=? AND spa.teacher_id=?
+          AND spa.active=1 AND t.active=1
+        """,
+        (account_id,teacher_id),
+    ).fetchone()
+
+
+def log_staff_activity(connection, teacher_id, action, details=""):
+    connection.execute(
+        """
+        INSERT INTO staff_portal_activity (
+            account_id,teacher_id,action,details
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            int(session.get("staff_account_id") or 0) or None,
+            teacher_id,
+            action,
+            details,
+        ),
+    )
+
+
+def staff_owns_class(connection, teacher_id, class_id):
+    return connection.execute(
+        """
+        SELECT id
+        FROM classes
+        WHERE id=? AND teacher_id=? AND active=1
+        """,
+        (class_id,teacher_id),
+    ).fetchone()
+
+
+def staff_owns_student(connection, teacher_id, student_id):
+    return connection.execute(
+        """
+        SELECT DISTINCT s.id
+        FROM students s
+        JOIN class_enrollments ce ON ce.student_id=s.id
+        JOIN classes c ON c.id=ce.class_id
+        WHERE s.id=? AND c.teacher_id=?
+          AND ce.status='Active' AND c.active=1
+        """,
+        (student_id,teacher_id),
+    ).fetchone()
+
+
+@app.route("/staff/login", methods=["GET","POST"])
+def staff_login():
+    if session.get("staff_account_id") and session.get("staff_teacher_id"):
+        return redirect(url_for("staff_dashboard"))
+
+    if request.method=="POST":
+        email = request.form.get("email","").strip().lower()
+        password = request.form.get("password","")
+
+        connection = get_db()
+        account = connection.execute(
+            """
+            SELECT spa.*,t.active AS teacher_active
+            FROM staff_portal_accounts spa
+            JOIN teachers t ON t.id=spa.teacher_id
+            WHERE LOWER(spa.email)=LOWER(?)
+            """,
+            (email,),
+        ).fetchone()
+
+        if (
+            not account
+            or not int(account["active"] or 0)
+            or not int(account["teacher_active"] or 0)
+            or not check_password_hash(account["password_hash"],password)
+        ):
+            connection.close()
+            flash("The email or password was not recognized.","error")
+            return render_template("staff_login.html",email=email)
+
+        session["staff_account_id"] = int(account["id"])
+        session["staff_teacher_id"] = int(account["teacher_id"])
+        session["staff_display_name"] = account["display_name"] or ""
+
+        connection.execute(
+            "UPDATE staff_portal_accounts SET last_login_at=CURRENT_TIMESTAMP WHERE id=?",
+            (account["id"],),
+        )
+        log_staff_activity(
+            connection,
+            int(account["teacher_id"]),
+            "Staff login",
+            f"Account #{account['id']}",
+        )
+        connection.commit()
+        connection.close()
+
+        if int(account["must_change_password"] or 0):
+            return redirect(url_for("staff_profile",change_password="1"))
+
+        next_url = request.args.get("next","").strip()
+        if next_url.startswith("/staff/"):
+            return redirect(next_url)
+        return redirect(url_for("staff_dashboard"))
+
+    return render_template("staff_login.html",email="")
+
+
+@app.route("/staff/logout")
+def staff_logout():
+    teacher_id = session.get("staff_teacher_id")
+    if teacher_id:
+        connection = get_db()
+        log_staff_activity(connection,int(teacher_id),"Staff logout")
+        connection.commit()
+        connection.close()
+
+    for key in ["staff_account_id","staff_teacher_id","staff_display_name"]:
+        session.pop(key,None)
+    return redirect(url_for("staff_login"))
+
+
+@app.route("/staff")
+@staff_login_required
+def staff_dashboard():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+
+    classes = connection.execute(
+        """
+        SELECT
+            c.*,
+            COUNT(DISTINCT CASE WHEN ce.status='Active' THEN ce.student_id END) AS roster_count
+        FROM classes c
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.teacher_id=? AND c.active=1
+        GROUP BY
+            c.id,c.name,c.category,c.level,c.teacher_id,c.room,
+            c.day_of_week,c.start_time,c.end_time,c.capacity,
+            c.active,c.season,c.description,c.created_at,c.updated_at
+        ORDER BY
+          CASE c.day_of_week
+            WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
+            WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6
+            WHEN 'Sunday' THEN 7 ELSE 8
+          END,
+          c.start_time,c.name
+        """,
+        (teacher_id,),
+    ).fetchall()
+
+    student_count = connection.execute(
+        """
+        SELECT COUNT(DISTINCT ce.student_id) AS count
+        FROM classes c
+        JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.teacher_id=? AND c.active=1 AND ce.status='Active'
+        """,
+        (teacher_id,),
+    ).fetchone()
+
+    attendance_count = connection.execute(
+        """
+        SELECT COUNT(ar.id) AS count
+        FROM attendance_records ar
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        WHERE c.teacher_id=?
+        """,
+        (teacher_id,),
+    ).fetchone()
+
+    announcements = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_announcements
+        WHERE active=1
+          AND (starts_at IS NULL OR starts_at<=CURRENT_TIMESTAMP)
+          AND (expires_at IS NULL OR expires_at>=CURRENT_TIMESTAMP)
+          AND audience IN ('All Staff','Instructors')
+        ORDER BY id DESC
+        LIMIT 10
+        """
+    ).fetchall()
+
+    recitals = connection.execute(
+        """
+        SELECT COUNT(DISTINCT rp.id) AS count
+        FROM recital_performances rp
+        JOIN classes c ON c.id=rp.class_id
+        WHERE c.teacher_id=?
+        """,
+        (teacher_id,),
+    ).fetchone()
+
+    recent_activity = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_activity
+        WHERE teacher_id=?
+        ORDER BY id DESC
+        LIMIT 8
+        """,
+        (teacher_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_dashboard.html",
+        account=dict(account),
+        classes=[dict(row) for row in classes],
+        student_count=int(student_count["count"] or 0),
+        attendance_count=int(attendance_count["count"] or 0),
+        recital_count=int(recitals["count"] or 0),
+        announcements=[dict(row) for row in announcements],
+        recent_activity=[dict(row) for row in recent_activity],
+    )
+
+
+@app.route("/staff/schedule")
+@staff_login_required
+def staff_schedule():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    classes = connection.execute(
+        """
+        SELECT
+            c.*,
+            COUNT(DISTINCT CASE WHEN ce.status='Active' THEN ce.student_id END) AS roster_count
+        FROM classes c
+        LEFT JOIN class_enrollments ce ON ce.class_id=c.id
+        WHERE c.teacher_id=? AND c.active=1
+        GROUP BY
+            c.id,c.name,c.category,c.level,c.teacher_id,c.room,
+            c.day_of_week,c.start_time,c.end_time,c.capacity,
+            c.active,c.season,c.description,c.created_at,c.updated_at
+        ORDER BY
+          CASE c.day_of_week
+            WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3
+            WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6
+            WHEN 'Sunday' THEN 7 ELSE 8
+          END,
+          c.start_time,c.name
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+    connection.close()
+
+    return render_template(
+        "staff_schedule.html",
+        account=dict(account),
+        classes=[dict(row) for row in classes],
+    )
+
+
+@app.route("/staff/classes/<int:class_id>")
+@staff_login_required
+def staff_class(class_id):
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    if not staff_owns_class(connection,int(account["teacher_id"]),class_id):
+        connection.close()
+        return ("Class not found",404)
+
+    class_row = connection.execute(
+        "SELECT * FROM classes WHERE id=?",
+        (class_id,),
+    ).fetchone()
+
+    roster = connection.execute(
+        """
+        SELECT
+            s.*,
+            ce.enrolled_at,ce.notes AS enrollment_notes
+        FROM class_enrollments ce
+        JOIN students s ON s.id=ce.student_id
+        WHERE ce.class_id=? AND ce.status='Active'
+        ORDER BY s.last_name,s.first_name
+        """,
+        (class_id,),
+    ).fetchall()
+
+    sessions = connection.execute(
+        """
+        SELECT
+            cs.*,
+            COUNT(ar.id) AS marked_count,
+            SUM(CASE WHEN ar.status='Present' THEN 1 ELSE 0 END) AS present_count,
+            SUM(CASE WHEN ar.status='Absent' THEN 1 ELSE 0 END) AS absent_count,
+            SUM(CASE WHEN ar.status='Late' THEN 1 ELSE 0 END) AS late_count
+        FROM class_sessions cs
+        LEFT JOIN attendance_records ar ON ar.session_id=cs.id
+        WHERE cs.class_id=?
+        GROUP BY
+            cs.id,cs.class_id,cs.session_date,cs.status,
+            cs.topic,cs.teacher_notes,cs.created_by,
+            cs.created_at,cs.updated_at
+        ORDER BY cs.session_date DESC
+        LIMIT 25
+        """,
+        (class_id,),
+    ).fetchall()
+
+    recital = connection.execute(
+        """
+        SELECT
+            rp.*,rs.name AS show_name,rs.show_date,rs.start_time,
+            prod.name AS production_name
+        FROM recital_performances rp
+        JOIN recital_shows rs ON rs.id=rp.show_id
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        WHERE rp.class_id=?
+        ORDER BY rs.show_date,rp.performance_order
+        """,
+        (class_id,),
+    ).fetchall()
+
+    costumes = connection.execute(
+        """
+        SELECT
+            cca.*,co.name AS costume_name,co.color,co.season,
+            co.order_status,co.expected_date
+        FROM costume_class_assignments cca
+        JOIN costumes co ON co.id=cca.costume_id
+        WHERE cca.class_id=?
+        ORDER BY co.season DESC,co.name
+        """,
+        (class_id,),
+    ).fetchall()
+
+    competitions = connection.execute(
+        """
+        SELECT
+            cr.*,comp.name AS competition_name,
+            comp.venue,comp.city,comp.state,
+            comp.start_date,comp.end_date
+        FROM competition_routines cr
+        JOIN competitions comp ON comp.id=cr.competition_id
+        WHERE cr.class_id=?
+        ORDER BY comp.start_date,cr.performance_date,cr.performance_time
+        """,
+        (class_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_class.html",
+        account=dict(account),
+        class_row=dict(class_row),
+        roster=[dict(row) for row in roster],
+        sessions=[dict(row) for row in sessions],
+        recital=[dict(row) for row in recital],
+        costumes=[dict(row) for row in costumes],
+        competitions=[dict(row) for row in competitions],
+    )
+
+
+@app.route("/staff/classes/<int:class_id>/attendance")
+@staff_login_required
+def staff_attendance(class_id):
+    session_date = request.args.get("date","").strip()
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+    if not staff_owns_class(connection,teacher_id,class_id):
+        connection.close()
+        return ("Class not found",404)
+
+    class_row = connection.execute(
+        "SELECT * FROM classes WHERE id=?",
+        (class_id,),
+    ).fetchone()
+
+    session_row = None
+    records = []
+    if session_date:
+        session_row = connection.execute(
+            """
+            SELECT *
+            FROM class_sessions
+            WHERE class_id=? AND session_date=?
+            """,
+            (class_id,session_date),
+        ).fetchone()
+
+    roster = connection.execute(
+        """
+        SELECT
+            s.id,s.first_name,s.last_name,s.preferred_name,
+            s.photo_url,
+            ar.status AS attendance_status,
+            ar.minutes_late,
+            ar.note AS attendance_note
+        FROM class_enrollments ce
+        JOIN students s ON s.id=ce.student_id
+        LEFT JOIN class_sessions cs
+          ON cs.class_id=ce.class_id
+         AND cs.session_date=?
+        LEFT JOIN attendance_records ar
+          ON ar.session_id=cs.id
+         AND ar.student_id=s.id
+        WHERE ce.class_id=? AND ce.status='Active'
+        ORDER BY s.last_name,s.first_name
+        """,
+        (session_date or "__none__",class_id),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_attendance.html",
+        account=dict(account),
+        class_row=dict(class_row),
+        session_date=session_date,
+        session_row=dict(session_row) if session_row else None,
+        roster=[dict(row) for row in roster],
+    )
+
+
+@app.route("/staff/classes/<int:class_id>/attendance/save", methods=["POST"])
+@staff_login_required
+def save_staff_attendance(class_id):
+    session_date = request.form.get("session_date","").strip()
+    if not session_date:
+        flash("Choose a class date.","error")
+        return redirect(url_for("staff_attendance",class_id=class_id))
+
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+    if not staff_owns_class(connection,teacher_id,class_id):
+        connection.close()
+        return ("Class not found",404)
+
+    existing_session = connection.execute(
+        """
+        SELECT id
+        FROM class_sessions
+        WHERE class_id=? AND session_date=?
+        """,
+        (class_id,session_date),
+    ).fetchone()
+
+    marked_by = int(account["admin_user_id"] or 0) or None
+
+    if existing_session:
+        session_id = int(existing_session["id"])
+        connection.execute(
+            """
+            UPDATE class_sessions SET
+                status=?,
+                topic=?,
+                teacher_notes=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (
+                request.form.get("session_status","Held").strip(),
+                request.form.get("topic","").strip(),
+                request.form.get("teacher_notes","").strip(),
+                session_id,
+            ),
+        )
+    else:
+        sql = """
+            INSERT INTO class_sessions (
+                class_id,session_date,status,topic,
+                teacher_notes,created_by
+            ) VALUES (?,?,?,?,?,?)
+        """
+        if connection.backend=="postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            (
+                class_id,session_date,
+                request.form.get("session_status","Held").strip(),
+                request.form.get("topic","").strip(),
+                request.form.get("teacher_notes","").strip(),
+                marked_by,
+            ),
+        )
+        session_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend=="postgresql"
+            else int(cursor.lastrowid)
+        )
+
+    roster = connection.execute(
+        """
+        SELECT student_id
+        FROM class_enrollments
+        WHERE class_id=? AND status='Active'
+        """,
+        (class_id,),
+    ).fetchall()
+
+    for row in roster:
+        student_id = int(row["student_id"])
+        status = request.form.get(f"status_{student_id}","Unmarked").strip()
+        minutes_late = max(0,int(request.form.get(f"late_{student_id}","0") or 0))
+        note = request.form.get(f"note_{student_id}","").strip()
+
+        connection.execute(
+            """
+            INSERT INTO attendance_records (
+                session_id,student_id,status,
+                minutes_late,note,marked_by
+            ) VALUES (?,?,?,?,?,?)
+            ON CONFLICT(session_id,student_id) DO UPDATE SET
+                status=excluded.status,
+                minutes_late=excluded.minutes_late,
+                note=excluded.note,
+                marked_by=excluded.marked_by,
+                marked_at=CURRENT_TIMESTAMP
+            """,
+            (
+                session_id,student_id,status,
+                minutes_late,note,marked_by,
+            ),
+        )
+
+    log_staff_activity(
+        connection,
+        teacher_id,
+        "Attendance saved",
+        f"Class #{class_id} · {session_date}",
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Attendance saved.","success")
+    return redirect(
+        url_for(
+            "staff_attendance",
+            class_id=class_id,
+            date=session_date,
+        )
+    )
+
+
+@app.route("/staff/students/<int:student_id>")
+@staff_login_required
+def staff_student(student_id):
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+    if not staff_owns_student(connection,teacher_id,student_id):
+        connection.close()
+        return ("Student not found",404)
+
+    student = connection.execute(
+        """
+        SELECT
+            s.*,
+            f.family_name,f.primary_email,f.primary_phone
+        FROM students s
+        LEFT JOIN families f ON f.id=s.family_id
+        WHERE s.id=?
+        """,
+        (student_id,),
+    ).fetchone()
+
+    classes = connection.execute(
+        """
+        SELECT c.*
+        FROM class_enrollments ce
+        JOIN classes c ON c.id=ce.class_id
+        WHERE ce.student_id=? AND ce.status='Active'
+          AND c.teacher_id=?
+        ORDER BY c.day_of_week,c.start_time,c.name
+        """,
+        (student_id,teacher_id),
+    ).fetchall()
+
+    notes = connection.execute(
+        """
+        SELECT
+            ssn.*,c.name AS class_name
+        FROM staff_student_notes ssn
+        LEFT JOIN classes c ON c.id=ssn.class_id
+        WHERE ssn.student_id=? AND ssn.teacher_id=?
+        ORDER BY ssn.id DESC
+        """,
+        (student_id,teacher_id),
+    ).fetchall()
+
+    attendance = connection.execute(
+        """
+        SELECT
+            cs.session_date,c.name AS class_name,
+            ar.status,ar.minutes_late,ar.note
+        FROM attendance_records ar
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        WHERE ar.student_id=? AND c.teacher_id=?
+        ORDER BY cs.session_date DESC
+        LIMIT 50
+        """,
+        (student_id,teacher_id),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_student.html",
+        account=dict(account),
+        student=dict(student),
+        classes=[dict(row) for row in classes],
+        notes=[dict(row) for row in notes],
+        attendance=[dict(row) for row in attendance],
+    )
+
+
+@app.route("/staff/students/<int:student_id>/notes/add", methods=["POST"])
+@staff_login_required
+def add_staff_student_note(student_id):
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    teacher_id = int(account["teacher_id"])
+    if not staff_owns_student(connection,teacher_id,student_id):
+        connection.close()
+        return ("Student not found",404)
+
+    class_value = request.form.get("class_id","").strip()
+    class_id = int(class_value) if class_value else None
+    if class_id and not staff_owns_class(connection,teacher_id,class_id):
+        connection.close()
+        return ("Class not found",404)
+
+    note = request.form.get("note","").strip()
+    if not note:
+        connection.close()
+        flash("Enter a student note.","error")
+        return redirect(url_for("staff_student",student_id=student_id))
+
+    connection.execute(
+        """
+        INSERT INTO staff_student_notes (
+            teacher_id,student_id,class_id,note,visibility
+        ) VALUES (?,?,?,?,?)
+        """,
+        (
+            teacher_id,student_id,class_id,note,
+            request.form.get("visibility","Staff").strip(),
+        ),
+    )
+    log_staff_activity(
+        connection,
+        teacher_id,
+        "Student note added",
+        f"Student #{student_id}",
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Student note added.","success")
+    return redirect(url_for("staff_student",student_id=student_id))
+
+
+@app.route("/staff/recitals")
+@staff_login_required
+def staff_recitals():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            rp.*,c.name AS class_name,
+            rs.name AS show_name,rs.show_date,rs.start_time,
+            prod.name AS production_name
+        FROM recital_performances rp
+        JOIN classes c ON c.id=rp.class_id
+        JOIN recital_shows rs ON rs.id=rp.show_id
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        WHERE c.teacher_id=?
+        ORDER BY rs.show_date,rp.performance_order,rp.title
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_recitals.html",
+        account=dict(account),
+        recitals=[dict(row) for row in rows],
+    )
+
+
+@app.route("/staff/costumes")
+@staff_login_required
+def staff_costumes():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            co.name AS costume_name,co.color,co.season,
+            co.order_status,co.expected_date,
+            c.name AS class_name,
+            s.first_name,s.last_name,s.preferred_name,
+            sca.costume_size,sca.tights_size,sca.shoe_size,
+            sca.accessories,sca.assignment_status,
+            sca.alteration_status,sca.pickup_status
+        FROM student_costume_assignments sca
+        JOIN students s ON s.id=sca.student_id
+        JOIN costumes co ON co.id=sca.costume_id
+        JOIN classes c ON c.id=sca.class_id
+        WHERE c.teacher_id=?
+        ORDER BY c.name,s.last_name,s.first_name,co.name
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_costumes.html",
+        account=dict(account),
+        costumes=[dict(row) for row in rows],
+    )
+
+
+@app.route("/staff/competitions")
+@staff_login_required
+def staff_competitions():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    routines = connection.execute(
+        """
+        SELECT
+            cr.*,
+            c.name AS class_name,
+            comp.name AS competition_name,
+            comp.venue,comp.city,comp.state,
+            comp.start_date,comp.end_date,
+            co.name AS costume_name
+        FROM competition_routines cr
+        JOIN classes c ON c.id=cr.class_id
+        JOIN competitions comp ON comp.id=cr.competition_id
+        LEFT JOIN costumes co ON co.id=cr.costume_id
+        WHERE c.teacher_id=?
+        ORDER BY comp.start_date,cr.performance_date,cr.performance_time
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_competitions.html",
+        account=dict(account),
+        routines=[dict(row) for row in routines],
+    )
+
+
+@app.route("/staff/announcements")
+@staff_login_required
+def staff_announcements():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_announcements
+        WHERE active=1
+          AND (starts_at IS NULL OR starts_at<=CURRENT_TIMESTAMP)
+          AND (expires_at IS NULL OR expires_at>=CURRENT_TIMESTAMP)
+          AND audience IN ('All Staff','Instructors')
+        ORDER BY id DESC
+        """
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_announcements.html",
+        account=dict(account),
+        announcements=[dict(row) for row in rows],
+    )
+
+
+@app.route("/staff/documents")
+@staff_login_required
+def staff_documents():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_documents
+        WHERE active=1
+          AND (teacher_id IS NULL OR teacher_id=?)
+        ORDER BY category,title,id DESC
+        """,
+        (account["teacher_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "staff_documents.html",
+        account=dict(account),
+        documents=[dict(row) for row in rows],
+    )
+
+
+@app.route("/staff/profile", methods=["GET","POST"])
+@staff_login_required
+def staff_profile():
+    connection = get_db()
+    account = current_staff_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("staff_logout"))
+
+    if request.method=="POST":
+        action = request.form.get("action","profile")
+
+        if action=="password":
+            current_password = request.form.get("current_password","")
+            new_password = request.form.get("new_password","")
+            confirm_password = request.form.get("confirm_password","")
+
+            if not check_password_hash(account["password_hash"],current_password):
+                connection.close()
+                flash("Current password is incorrect.","error")
+                return redirect(url_for("staff_profile"))
+
+            if len(new_password)<8:
+                connection.close()
+                flash("New password must be at least 8 characters.","error")
+                return redirect(url_for("staff_profile"))
+
+            if new_password!=confirm_password:
+                connection.close()
+                flash("New passwords do not match.","error")
+                return redirect(url_for("staff_profile"))
+
+            connection.execute(
+                """
+                UPDATE staff_portal_accounts SET
+                    password_hash=?,
+                    must_change_password=0,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+                """,
+                (generate_password_hash(new_password),account["id"]),
+            )
+            log_staff_activity(
+                connection,
+                int(account["teacher_id"]),
+                "Password changed",
+            )
+            connection.commit()
+            connection.close()
+            flash("Password updated.","success")
+            return redirect(url_for("staff_profile"))
+
+        display_name = request.form.get("display_name","").strip()
+        phone = request.form.get("phone","").strip()
+
+        connection.execute(
+            "UPDATE teachers SET phone=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (phone,account["teacher_id"]),
+        )
+        connection.execute(
+            """
+            UPDATE staff_portal_accounts SET
+                display_name=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (display_name,account["id"]),
+        )
+        log_staff_activity(
+            connection,
+            int(account["teacher_id"]),
+            "Staff profile updated",
+        )
+        connection.commit()
+        connection.close()
+        session["staff_display_name"] = display_name
+        flash("Staff profile updated.","success")
+        return redirect(url_for("staff_profile"))
+
+    connection.close()
+    return render_template(
+        "staff_profile.html",
+        account=dict(account),
+    )
+
+
+@app.route("/admin/staff-portal")
+@login_required
+def staff_portal_admin():
+    connection = get_db()
+
+    accounts = connection.execute(
+        """
+        SELECT
+            spa.*,
+            t.first_name,t.last_name,
+            t.email AS teacher_email,t.phone,
+            COUNT(DISTINCT c.id) AS class_count
+        FROM staff_portal_accounts spa
+        JOIN teachers t ON t.id=spa.teacher_id
+        LEFT JOIN classes c ON c.teacher_id=t.id AND c.active=1
+        GROUP BY
+            spa.id,spa.teacher_id,spa.email,spa.password_hash,
+            spa.display_name,spa.active,spa.must_change_password,
+            spa.last_login_at,spa.created_at,spa.updated_at,
+            t.first_name,t.last_name,t.email,t.phone
+        ORDER BY t.last_name,t.first_name
+        """
+    ).fetchall()
+
+    teachers = connection.execute(
+        """
+        SELECT
+            t.id,t.first_name,t.last_name,t.email,t.phone,
+            COUNT(DISTINCT c.id) AS class_count
+        FROM teachers t
+        LEFT JOIN classes c ON c.teacher_id=t.id AND c.active=1
+        LEFT JOIN staff_portal_accounts spa ON spa.teacher_id=t.id
+        WHERE t.active=1 AND spa.id IS NULL
+        GROUP BY t.id,t.first_name,t.last_name,t.email,t.phone
+        ORDER BY t.last_name,t.first_name
+        """
+    ).fetchall()
+
+    announcements = connection.execute(
+        """
+        SELECT *
+        FROM staff_portal_announcements
+        ORDER BY id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    documents = connection.execute(
+        """
+        SELECT
+            spd.*,
+            t.first_name,t.last_name
+        FROM staff_portal_documents spd
+        LEFT JOIN teachers t ON t.id=spd.teacher_id
+        ORDER BY spd.id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "staff_portal_admin.html",
+        accounts=[dict(row) for row in accounts],
+        teachers=[dict(row) for row in teachers],
+        announcements=[dict(row) for row in announcements],
+        documents=[dict(row) for row in documents],
+    )
+
+
+@app.route("/admin/staff-portal/accounts/create", methods=["POST"])
+@login_required
+def create_staff_portal_account():
+    teacher_id = int(request.form.get("teacher_id","0") or 0)
+    password = request.form.get("password","")
+
+    if len(password)<8:
+        flash("Temporary password must be at least 8 characters.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    connection = get_db()
+    teacher = connection.execute(
+        "SELECT * FROM teachers WHERE id=? AND active=1",
+        (teacher_id,),
+    ).fetchone()
+
+    if not teacher:
+        connection.close()
+        flash("Teacher not found.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    email = request.form.get("email","").strip().lower() or str(teacher["email"] or "").strip().lower()
+    if not email:
+        connection.close()
+        flash("An instructor email is required.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO staff_portal_accounts (
+                teacher_id,email,password_hash,display_name,
+                active,must_change_password
+            ) VALUES (?,?,?,?,1,1)
+            """,
+            (
+                teacher_id,
+                email,
+                generate_password_hash(password),
+                request.form.get("display_name","").strip(),
+            ),
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        connection.close()
+        flash("A staff portal account already exists for this teacher or email.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    connection.close()
+    flash("Staff portal account created.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/accounts/<int:account_id>/update", methods=["POST"])
+@login_required
+def update_staff_portal_account(account_id):
+    connection = get_db()
+    account = connection.execute(
+        "SELECT * FROM staff_portal_accounts WHERE id=?",
+        (account_id,),
+    ).fetchone()
+    if not account:
+        connection.close()
+        return ("Staff account not found",404)
+
+    connection.execute(
+        """
+        UPDATE staff_portal_accounts SET
+            active=?,display_name=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (
+            1 if request.form.get("active")=="on" else 0,
+            request.form.get("display_name","").strip(),
+            account_id,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff account status saved. Password was preserved.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/accounts/<int:account_id>/reset-password", methods=["POST"])
+@login_required
+def reset_staff_portal_password(account_id):
+    new_password = request.form.get("new_password","")
+    if len(new_password)<8:
+        flash("Temporary password must be at least 8 characters.","error")
+        return redirect(url_for("staff_portal_admin"))
+
+    connection = get_db()
+    account = connection.execute(
+        "SELECT * FROM staff_portal_accounts WHERE id=?",
+        (account_id,),
+    ).fetchone()
+    if not account:
+        connection.close()
+        return ("Staff account not found",404)
+
+    connection.execute(
+        """
+        UPDATE staff_portal_accounts SET
+            password_hash=?,
+            must_change_password=1,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (generate_password_hash(new_password),account_id),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff temporary password reset.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/announcements/save", methods=["POST"])
+@login_required
+def save_staff_announcement():
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO staff_portal_announcements (
+            title,message,audience,active,
+            starts_at,expires_at,created_by
+        ) VALUES (?,?,?,1,?,?,?)
+        """,
+        (
+            request.form.get("title","").strip(),
+            request.form.get("message","").strip(),
+            request.form.get("audience","All Staff").strip(),
+            request.form.get("starts_at","").strip() or None,
+            request.form.get("expires_at","").strip() or None,
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff announcement added.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/announcements/<int:announcement_id>/delete", methods=["POST"])
+@login_required
+def delete_staff_announcement(announcement_id):
+    connection = get_db()
+    connection.execute(
+        "DELETE FROM staff_portal_announcements WHERE id=?",
+        (announcement_id,),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff announcement removed.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/documents/save", methods=["POST"])
+@login_required
+def save_staff_document():
+    teacher_value = request.form.get("teacher_id","").strip()
+    teacher_id = int(teacher_value) if teacher_value else None
+
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO staff_portal_documents (
+            teacher_id,title,category,description,
+            document_url,active,created_by
+        ) VALUES (?,?,?,?,?,1,?)
+        """,
+        (
+            teacher_id,
+            request.form.get("title","").strip(),
+            request.form.get("category","General").strip(),
+            request.form.get("description","").strip(),
+            request.form.get("document_url","").strip(),
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff document added.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/admin/staff-portal/documents/<int:document_id>/delete", methods=["POST"])
+@login_required
+def delete_staff_document(document_id):
+    connection = get_db()
+    connection.execute(
+        "DELETE FROM staff_portal_documents WHERE id=?",
+        (document_id,),
+    )
+    connection.commit()
+    connection.close()
+    flash("Staff document removed.","success")
+    return redirect(url_for("staff_portal_admin"))
+
+
+@app.route("/parent/login", methods=["GET","POST"])
+def parent_login():
+    if session.get("parent_account_id") and session.get("parent_family_id"):
+        return redirect(url_for("parent_dashboard"))
+
+    if request.method == "POST":
+        email = request.form.get("email","").strip().lower()
+        password = request.form.get("password","")
+
+        connection = get_db()
+        account = connection.execute(
+            """
+            SELECT *
+            FROM parent_portal_accounts
+            WHERE LOWER(email)=LOWER(?)
+            """,
+            (email,),
+        ).fetchone()
+
+        if not account or not int(account["active"] or 0) or not check_password_hash(account["password_hash"], password):
+            connection.close()
+            flash("The email or password was not recognized.","error")
+            return render_template("parent_login.html",email=email)
+
+        session["parent_account_id"] = int(account["id"])
+        session["parent_family_id"] = int(account["family_id"])
+        session["parent_display_name"] = account["display_name"] or ""
+
+        connection.execute(
+            """
+            UPDATE parent_portal_accounts SET
+                last_login_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (account["id"],),
+        )
+        log_parent_activity(
+            connection,
+            int(account["family_id"]),
+            "Parent login",
+            f"Account #{account['id']}",
+        )
+        connection.commit()
+        connection.close()
+
+        if int(account["must_change_password"] or 0):
+            return redirect(url_for("parent_profile",change_password="1"))
+
+        next_url = request.args.get("next","").strip()
+        if next_url.startswith("/parent/"):
+            return redirect(next_url)
+        return redirect(url_for("parent_dashboard"))
+
+    return render_template("parent_login.html",email="")
+
+
+@app.route("/parent/logout")
+def parent_logout():
+    family_id = session.get("parent_family_id")
+    if family_id:
+        connection = get_db()
+        log_parent_activity(connection,int(family_id),"Parent logout")
+        connection.commit()
+        connection.close()
+
+    for key in ["parent_account_id","parent_family_id","parent_display_name"]:
+        session.pop(key,None)
+
+    return redirect(url_for("parent_login"))
+
+
+@app.route("/parent")
+@parent_login_required
+def parent_dashboard():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        session.pop("parent_account_id",None)
+        session.pop("parent_family_id",None)
+        return redirect(url_for("parent_login"))
+
+    family_id = int(account["family_id"])
+    students = parent_family_students(connection,family_id)
+    billing = get_family_billing_summary(connection,family_id)
+
+    class_count = connection.execute(
+        """
+        SELECT COUNT(DISTINCT ce.class_id) AS count
+        FROM class_enrollments ce
+        JOIN students s ON s.id=ce.student_id
+        WHERE s.family_id=? AND ce.status='Active'
+        """,
+        (family_id,),
+    ).fetchone()
+
+    attendance = connection.execute(
+        """
+        SELECT
+            COUNT(ar.id) AS total,
+            SUM(CASE WHEN ar.status='Present' THEN 1 ELSE 0 END) AS present,
+            SUM(CASE WHEN ar.status='Absent' THEN 1 ELSE 0 END) AS absent,
+            SUM(CASE WHEN ar.status='Late' THEN 1 ELSE 0 END) AS late
+        FROM attendance_records ar
+        JOIN students s ON s.id=ar.student_id
+        WHERE s.family_id=?
+        """,
+        (family_id,),
+    ).fetchone()
+
+    ticket_summary = connection.execute(
+        """
+        SELECT
+            COUNT(DISTINCT tor.id) AS order_count,
+            COUNT(tk.id) AS ticket_count
+        FROM ticket_orders tor
+        LEFT JOIN tickets tk
+          ON tk.order_id=tor.id
+         AND tk.status='Valid'
+        WHERE tor.family_id=?
+           OR LOWER(COALESCE(tor.purchaser_email,''))=LOWER(?)
+        """,
+        (family_id,account["primary_email"] or account["email"]),
+    ).fetchone()
+
+    unread_messages = connection.execute(
+        """
+        SELECT COUNT(DISTINCT nc.id) AS count
+        FROM notification_campaigns nc
+        JOIN notification_recipients nr ON nr.campaign_id=nc.id
+        LEFT JOIN parent_portal_message_reads ppmr
+          ON ppmr.campaign_id=nc.id
+         AND ppmr.account_id=?
+        WHERE nr.family_id=?
+          AND nc.status IN ('Queued','Completed')
+          AND ppmr.id IS NULL
+        """,
+        (account["id"],family_id),
+    ).fetchone()
+
+    recent_activity = connection.execute(
+        """
+        SELECT *
+        FROM parent_portal_activity
+        WHERE family_id=?
+        ORDER BY id DESC
+        LIMIT 8
+        """,
+        (family_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "parent_dashboard.html",
+        account=dict(account),
+        students=[dict(row) for row in students],
+        billing=billing,
+        class_count=int(class_count["count"] or 0),
+        attendance=dict(attendance),
+        ticket_summary=dict(ticket_summary),
+        unread_messages=int(unread_messages["count"] or 0),
+        recent_activity=[dict(row) for row in recent_activity],
+    )
+
+
+@app.route("/parent/students")
+@parent_login_required
+def parent_students():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    students = parent_family_students(connection,int(account["family_id"]))
+    connection.close()
+
+    return render_template(
+        "parent_students.html",
+        account=dict(account),
+        students=[dict(row) for row in students],
+    )
+
+
+@app.route("/parent/students/<int:student_id>")
+@parent_login_required
+def parent_student_profile(student_id):
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    student = connection.execute(
+        """
+        SELECT *
+        FROM students
+        WHERE id=? AND family_id=?
+        """,
+        (student_id,account["family_id"]),
+    ).fetchone()
+
+    if not student:
+        connection.close()
+        return ("Student not found",404)
+
+    classes = connection.execute(
+        """
+        SELECT
+            c.id,c.name,c.category,c.level,
+            c.day_of_week,c.start_time,c.end_time,
+            c.room,c.season,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name
+        FROM class_enrollments ce
+        JOIN classes c ON c.id=ce.class_id
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        WHERE ce.student_id=?
+          AND ce.status='Active'
+        ORDER BY c.day_of_week,c.start_time,c.name
+        """,
+        (student_id,),
+    ).fetchall()
+
+    attendance = connection.execute(
+        """
+        SELECT
+            cs.session_date,
+            c.name AS class_name,
+            ar.status,ar.minutes_late,ar.note
+        FROM attendance_records ar
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        WHERE ar.student_id=?
+        ORDER BY cs.session_date DESC, c.name
+        LIMIT 50
+        """,
+        (student_id,),
+    ).fetchall()
+
+    costumes = connection.execute(
+        """
+        SELECT
+            sca.*,
+            co.name AS costume_name,
+            co.color,co.season,co.category,
+            co.order_status,co.expected_date,
+            c.name AS class_name
+        FROM student_costume_assignments sca
+        JOIN costumes co ON co.id=sca.costume_id
+        LEFT JOIN classes c ON c.id=sca.class_id
+        WHERE sca.student_id=?
+        ORDER BY co.season DESC,co.name
+        """,
+        (student_id,),
+    ).fetchall()
+
+    recitals = connection.execute(
+        """
+        SELECT DISTINCT
+            rp.title AS routine_title,
+            rp.performance_order,
+            rp.music_title,
+            rp.costume_notes,
+            rs.name AS show_name,
+            rs.show_date,
+            rs.start_time,
+            prod.name AS production_name,
+            c.name AS class_name
+        FROM class_enrollments ce
+        JOIN classes c ON c.id=ce.class_id
+        JOIN recital_performances rp ON rp.class_id=c.id
+        JOIN recital_shows rs ON rs.id=rp.show_id
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        WHERE ce.student_id=?
+          AND ce.status='Active'
+        ORDER BY rs.show_date,rp.performance_order,rp.title
+        """,
+        (student_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "parent_student_profile.html",
+        account=dict(account),
+        student=dict(student),
+        classes=[dict(row) for row in classes],
+        attendance=[dict(row) for row in attendance],
+        costumes=[dict(row) for row in costumes],
+        recitals=[dict(row) for row in recitals],
+    )
+
+
+@app.route("/parent/schedule")
+@parent_login_required
+def parent_schedule():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            s.id AS student_id,
+            s.first_name,s.last_name,s.preferred_name,
+            c.id AS class_id,c.name AS class_name,
+            c.category,c.level,c.day_of_week,
+            c.start_time,c.end_time,c.room,c.season,
+            t.first_name AS teacher_first_name,
+            t.last_name AS teacher_last_name
+        FROM students s
+        JOIN class_enrollments ce ON ce.student_id=s.id
+        JOIN classes c ON c.id=ce.class_id
+        LEFT JOIN teachers t ON t.id=c.teacher_id
+        WHERE s.family_id=?
+          AND ce.status='Active'
+        ORDER BY
+          CASE c.day_of_week
+            WHEN 'Monday' THEN 1
+            WHEN 'Tuesday' THEN 2
+            WHEN 'Wednesday' THEN 3
+            WHEN 'Thursday' THEN 4
+            WHEN 'Friday' THEN 5
+            WHEN 'Saturday' THEN 6
+            WHEN 'Sunday' THEN 7
+            ELSE 8
+          END,
+          c.start_time,c.name
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_schedule.html",
+        account=dict(account),
+        schedule=[dict(row) for row in rows],
+    )
+
+
+@app.route("/parent/attendance")
+@parent_login_required
+def parent_attendance():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            s.first_name,s.last_name,s.preferred_name,
+            cs.session_date,
+            c.name AS class_name,
+            ar.status,ar.minutes_late,ar.note
+        FROM attendance_records ar
+        JOIN students s ON s.id=ar.student_id
+        JOIN class_sessions cs ON cs.id=ar.session_id
+        JOIN classes c ON c.id=cs.class_id
+        WHERE s.family_id=?
+        ORDER BY cs.session_date DESC,s.last_name,s.first_name,c.name
+        LIMIT 300
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_attendance.html",
+        account=dict(account),
+        attendance=[dict(row) for row in rows],
+    )
+
+
+@app.route("/parent/billing")
+@parent_login_required
+def parent_billing():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    family_id = int(account["family_id"])
+    summary = get_family_billing_summary(connection,family_id)
+
+    charges = connection.execute(
+        """
+        SELECT
+            bc.*,
+            s.first_name,s.last_name
+        FROM billing_charges bc
+        LEFT JOIN students s ON s.id=bc.student_id
+        WHERE bc.family_id=?
+        ORDER BY bc.id DESC
+        LIMIT 200
+        """,
+        (family_id,),
+    ).fetchall()
+
+    payments = connection.execute(
+        """
+        SELECT *
+        FROM billing_payments
+        WHERE family_id=?
+        ORDER BY payment_date DESC,id DESC
+        LIMIT 200
+        """,
+        (family_id,),
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "parent_billing.html",
+        account=dict(account),
+        summary=summary,
+        charges=[dict(row) for row in charges],
+        payments=[dict(row) for row in payments],
+    )
+
+
+@app.route("/parent/costumes")
+@parent_login_required
+def parent_costumes():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT
+            s.first_name,s.last_name,s.preferred_name,
+            sca.costume_size,sca.tights_size,sca.shoe_size,
+            sca.accessories,sca.assignment_status,
+            sca.alteration_status,sca.pickup_status,
+            co.name AS costume_name,co.color,
+            co.season,co.category,co.order_status,
+            co.expected_date,
+            c.name AS class_name
+        FROM student_costume_assignments sca
+        JOIN students s ON s.id=sca.student_id
+        JOIN costumes co ON co.id=sca.costume_id
+        LEFT JOIN classes c ON c.id=sca.class_id
+        WHERE s.family_id=?
+        ORDER BY s.last_name,s.first_name,co.season DESC,co.name
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_costumes.html",
+        account=dict(account),
+        costumes=[dict(row) for row in rows],
+    )
+
+
+@app.route("/parent/recitals")
+@parent_login_required
+def parent_recitals():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    rows = connection.execute(
+        """
+        SELECT DISTINCT
+            s.id AS student_id,
+            s.first_name,s.last_name,s.preferred_name,
+            rp.title AS routine_title,
+            rp.performance_order,
+            rp.music_title,rp.costume_notes,
+            rs.name AS show_name,
+            rs.show_date,rs.start_time,rs.doors_open_time,
+            prod.name AS production_name,
+            prod.venue,
+            c.name AS class_name
+        FROM students s
+        JOIN class_enrollments ce ON ce.student_id=s.id
+        JOIN classes c ON c.id=ce.class_id
+        JOIN recital_performances rp ON rp.class_id=c.id
+        JOIN recital_shows rs ON rs.id=rp.show_id
+        JOIN recital_productions prod ON prod.id=rs.production_id
+        WHERE s.family_id=?
+          AND ce.status='Active'
+        ORDER BY rs.show_date,rp.performance_order,s.last_name,s.first_name
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    rehearsals = connection.execute(
+        """
+        SELECT DISTINCT
+            rr.title,rr.rehearsal_date,rr.start_time,
+            rr.end_time,rr.location,rr.notes,
+            rp.name AS production_name
+        FROM recital_rehearsals rr
+        JOIN recital_productions rp ON rp.id=rr.production_id
+        JOIN recital_shows rs ON rs.production_id=rp.id
+        JOIN recital_performances perf ON perf.show_id=rs.id
+        JOIN class_enrollments ce ON ce.class_id=perf.class_id
+        JOIN students s ON s.id=ce.student_id
+        WHERE s.family_id=?
+          AND ce.status='Active'
+        ORDER BY rr.rehearsal_date,rr.start_time
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_recitals.html",
+        account=dict(account),
+        recitals=[dict(row) for row in rows],
+        rehearsals=[dict(row) for row in rehearsals],
+    )
+
+
+@app.route("/parent/tickets")
+@parent_login_required
+def parent_tickets():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    orders = connection.execute(
+        """
+        SELECT
+            tor.*,
+            rs.name AS show_name,
+            rs.show_date,rs.start_time,
+            rp.name AS production_name,
+            tv.name AS venue_name,
+            COUNT(tk.id) AS ticket_count
+        FROM ticket_orders tor
+        JOIN recital_shows rs ON rs.id=tor.recital_show_id
+        JOIN recital_productions rp ON rp.id=rs.production_id
+        LEFT JOIN ticket_show_settings tss ON tss.recital_show_id=rs.id
+        LEFT JOIN ticket_venues tv ON tv.id=tss.venue_id
+        LEFT JOIN tickets tk ON tk.order_id=tor.id AND tk.status='Valid'
+        WHERE tor.family_id=?
+           OR LOWER(COALESCE(tor.purchaser_email,''))=LOWER(?)
+        GROUP BY
+            tor.id,tor.recital_show_id,tor.family_id,
+            tor.purchaser_name,tor.purchaser_email,tor.purchaser_phone,
+            tor.order_status,tor.payment_status,tor.total_amount,
+            tor.notes,tor.created_by,tor.created_at,
+            tor.billing_charge_id,
+            rs.name,rs.show_date,rs.start_time,rp.name,tv.name
+        ORDER BY tor.id DESC
+        """,
+        (account["family_id"],account["primary_email"] or account["email"]),
+    ).fetchall()
+
+    tickets = connection.execute(
+        """
+        SELECT
+            tk.id,tk.order_id,tk.ticket_code,tk.status,tk.checked_in_at,
+            ts.row_label,ts.seat_number,ts.seat_type,
+            sec.name AS section_name
+        FROM tickets tk
+        JOIN ticket_orders tor ON tor.id=tk.order_id
+        JOIN ticket_seats ts ON ts.id=tk.seat_id
+        JOIN ticket_sections sec ON sec.id=ts.section_id
+        WHERE (
+            tor.family_id=?
+            OR LOWER(COALESCE(tor.purchaser_email,''))=LOWER(?)
+        )
+          AND tk.status='Valid'
+        ORDER BY tk.order_id DESC,sec.sort_order,ts.row_label,ts.seat_number
+        """,
+        (account["family_id"],account["primary_email"] or account["email"]),
+    ).fetchall()
+
+    connection.close()
+
+    grouped_tickets = {}
+    for ticket in tickets:
+        grouped_tickets.setdefault(int(ticket["order_id"]),[]).append(dict(ticket))
+
+    return render_template(
+        "parent_tickets.html",
+        account=dict(account),
+        orders=[dict(row) for row in orders],
+        grouped_tickets=grouped_tickets,
+    )
+
+
+@app.route("/parent/messages")
+@parent_login_required
+def parent_messages():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    messages = connection.execute(
+        """
+        SELECT DISTINCT
+            nc.id,nc.name,nc.category,nc.subject,nc.body_text,
+            nc.status,nc.created_at,
+            ppmr.read_at
+        FROM notification_campaigns nc
+        JOIN notification_recipients nr ON nr.campaign_id=nc.id
+        LEFT JOIN parent_portal_message_reads ppmr
+          ON ppmr.campaign_id=nc.id
+         AND ppmr.account_id=?
+        WHERE nr.family_id=?
+          AND nc.status IN ('Queued','Completed')
+        ORDER BY nc.id DESC
+        """,
+        (account["id"],account["family_id"]),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_messages.html",
+        account=dict(account),
+        messages=[dict(row) for row in messages],
+    )
+
+
+@app.route("/parent/messages/<int:campaign_id>")
+@parent_login_required
+def parent_message(campaign_id):
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    message = connection.execute(
+        """
+        SELECT DISTINCT nc.*
+        FROM notification_campaigns nc
+        JOIN notification_recipients nr ON nr.campaign_id=nc.id
+        WHERE nc.id=?
+          AND nr.family_id=?
+          AND nc.status IN ('Queued','Completed')
+        """,
+        (campaign_id,account["family_id"]),
+    ).fetchone()
+
+    if not message:
+        connection.close()
+        return ("Message not found",404)
+
+    connection.execute(
+        """
+        INSERT INTO parent_portal_message_reads (
+            account_id,campaign_id
+        ) VALUES (?,?)
+        ON CONFLICT(account_id,campaign_id) DO UPDATE SET
+            read_at=CURRENT_TIMESTAMP
+        """,
+        (account["id"],campaign_id),
+    )
+    log_parent_activity(
+        connection,
+        int(account["family_id"]),
+        "Message viewed",
+        message["subject"] or message["name"],
+    )
+    connection.commit()
+    connection.close()
+
+    return render_template(
+        "parent_message.html",
+        account=dict(account),
+        message=dict(message),
+    )
+
+
+@app.route("/parent/documents")
+@parent_login_required
+def parent_documents():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    documents = connection.execute(
+        """
+        SELECT *
+        FROM parent_portal_documents
+        WHERE active=1
+          AND (family_id IS NULL OR family_id=?)
+        ORDER BY category,title,id DESC
+        """,
+        (account["family_id"],),
+    ).fetchall()
+
+    connection.close()
+    return render_template(
+        "parent_documents.html",
+        account=dict(account),
+        documents=[dict(row) for row in documents],
+    )
+
+
+@app.route("/parent/profile", methods=["GET","POST"])
+@parent_login_required
+def parent_profile():
+    connection = get_db()
+    account = current_parent_account(connection)
+    if not account:
+        connection.close()
+        return redirect(url_for("parent_logout"))
+
+    if request.method=="POST":
+        action = request.form.get("action","profile")
+
+        if action=="password":
+            current_password = request.form.get("current_password","")
+            new_password = request.form.get("new_password","")
+            confirm_password = request.form.get("confirm_password","")
+
+            if not check_password_hash(account["password_hash"],current_password):
+                connection.close()
+                flash("Current password is incorrect.","error")
+                return redirect(url_for("parent_profile"))
+
+            if len(new_password)<8:
+                connection.close()
+                flash("New password must be at least 8 characters.","error")
+                return redirect(url_for("parent_profile"))
+
+            if new_password!=confirm_password:
+                connection.close()
+                flash("New passwords do not match.","error")
+                return redirect(url_for("parent_profile"))
+
+            connection.execute(
+                """
+                UPDATE parent_portal_accounts SET
+                    password_hash=?,
+                    must_change_password=0,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE id=?
+                """,
+                (generate_password_hash(new_password),account["id"]),
+            )
+            log_parent_activity(
+                connection,
+                int(account["family_id"]),
+                "Password changed",
+            )
+            connection.commit()
+            connection.close()
+            flash("Password updated.","success")
+            return redirect(url_for("parent_profile"))
+
+        primary_email = request.form.get("primary_email","").strip().lower()
+        primary_phone = request.form.get("primary_phone","").strip()
+        display_name = request.form.get("display_name","").strip()
+
+        connection.execute(
+            """
+            UPDATE families SET
+                primary_email=?,
+                primary_phone=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (primary_email,primary_phone,account["family_id"]),
+        )
+        connection.execute(
+            """
+            UPDATE parent_portal_accounts SET
+                email=?,
+                display_name=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (primary_email,display_name,account["id"]),
+        )
+        log_parent_activity(
+            connection,
+            int(account["family_id"]),
+            "Parent profile updated",
+            primary_email,
+        )
+        connection.commit()
+        connection.close()
+
+        session["parent_display_name"] = display_name
+        flash("Family contact information updated.","success")
+        return redirect(url_for("parent_profile"))
+
+    connection.close()
+    return render_template(
+        "parent_profile.html",
+        account=dict(account),
+    )
+
+
+@app.route("/admin/parent-portal")
+@login_required
+def parent_portal_admin():
+    connection = get_db()
+
+    accounts = connection.execute(
+        """
+        SELECT
+            ppa.*,
+            f.family_name,
+            f.primary_email,
+            f.primary_phone,
+            COUNT(DISTINCT s.id) AS student_count
+        FROM parent_portal_accounts ppa
+        JOIN families f ON f.id=ppa.family_id
+        LEFT JOIN students s ON s.family_id=f.id
+        GROUP BY
+            ppa.id,ppa.family_id,ppa.email,ppa.password_hash,
+            ppa.display_name,ppa.active,ppa.must_change_password,
+            ppa.last_login_at,ppa.created_at,ppa.updated_at,
+            f.family_name,f.primary_email,f.primary_phone
+        ORDER BY f.family_name
+        """
+    ).fetchall()
+
+    families = connection.execute(
+        """
+        SELECT
+            f.id,f.family_name,f.primary_email,f.primary_phone,
+            COUNT(s.id) AS student_count
+        FROM families f
+        LEFT JOIN students s ON s.family_id=f.id
+        LEFT JOIN parent_portal_accounts ppa ON ppa.family_id=f.id
+        WHERE ppa.id IS NULL
+        GROUP BY f.id,f.family_name,f.primary_email,f.primary_phone
+        ORDER BY f.family_name
+        """
+    ).fetchall()
+
+    documents = connection.execute(
+        """
+        SELECT
+            ppd.*,
+            f.family_name
+        FROM parent_portal_documents ppd
+        LEFT JOIN families f ON f.id=ppd.family_id
+        ORDER BY ppd.id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "parent_portal_admin.html",
+        accounts=[dict(row) for row in accounts],
+        families=[dict(row) for row in families],
+        documents=[dict(row) for row in documents],
+    )
+
+
+@app.route("/admin/parent-portal/accounts/create", methods=["POST"])
+@login_required
+def create_parent_portal_account():
+    family_id = int(request.form.get("family_id","0") or 0)
+    password = request.form.get("password","")
+    display_name = request.form.get("display_name","").strip()
+
+    if len(password)<8:
+        flash("Temporary password must be at least 8 characters.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    connection = get_db()
+    family = connection.execute(
+        "SELECT * FROM families WHERE id=?",
+        (family_id,),
+    ).fetchone()
+
+    if not family:
+        connection.close()
+        flash("Family not found.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    email = request.form.get("email","").strip().lower() or str(family["primary_email"] or "").strip().lower()
+    if not email:
+        connection.close()
+        flash("A family email is required.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    try:
+        connection.execute(
+            """
+            INSERT INTO parent_portal_accounts (
+                family_id,email,password_hash,display_name,
+                active,must_change_password
+            ) VALUES (?,?,?,?,1,1)
+            """,
+            (
+                family_id,
+                email,
+                generate_password_hash(password),
+                display_name,
+            ),
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        connection.close()
+        flash("A parent portal account already exists for this family or email.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    connection.close()
+    flash("Parent portal account created. The parent will be required to change the temporary password.","success")
+    return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/parent-portal/accounts/<int:account_id>/update", methods=["POST"])
+@login_required
+def update_parent_portal_account(account_id):
+    connection = get_db()
+    account = connection.execute(
+        "SELECT * FROM parent_portal_accounts WHERE id=?",
+        (account_id,),
+    ).fetchone()
+
+    if not account:
+        connection.close()
+        return ("Parent account not found",404)
+
+    # This route intentionally NEVER reads or updates a password.
+    # Account status/profile changes and password resets are isolated.
+    active = 1 if request.form.get("active")=="on" else 0
+    display_name = request.form.get("display_name","").strip()
+
+    connection.execute(
+        """
+        UPDATE parent_portal_accounts SET
+            active=?,
+            display_name=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (active,display_name,account_id),
+    )
+
+    connection.execute(
+        """
+        INSERT INTO parent_portal_activity (
+            account_id,family_id,action,details
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            account_id,
+            account["family_id"],
+            "Admin account settings changed",
+            "Enabled" if active else "Disabled",
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+    flash(
+        "Parent portal account enabled. Existing password was preserved."
+        if active
+        else "Parent portal account disabled. Existing password was preserved.",
+        "success",
+    )
+    return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/parent-portal/accounts/<int:account_id>/reset-password", methods=["POST"])
+@login_required
+def reset_parent_portal_password(account_id):
+    new_password = request.form.get("new_password","")
+
+    if len(new_password)<8:
+        flash("New temporary password must be at least 8 characters.","error")
+        return redirect(url_for("parent_portal_admin"))
+
+    connection = get_db()
+    account = connection.execute(
+        "SELECT * FROM parent_portal_accounts WHERE id=?",
+        (account_id,),
+    ).fetchone()
+
+    if not account:
+        connection.close()
+        return ("Parent account not found",404)
+
+    connection.execute(
+        """
+        UPDATE parent_portal_accounts SET
+            password_hash=?,
+            must_change_password=1,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (generate_password_hash(new_password),account_id),
+    )
+
+    connection.execute(
+        """
+        INSERT INTO parent_portal_activity (
+            account_id,family_id,action,details
+        ) VALUES (?,?,?,?)
+        """,
+        (
+            account_id,
+            account["family_id"],
+            "Admin temporary password reset",
+            "Parent must change password at next login",
+        ),
+    )
+
+    connection.commit()
+    connection.close()
+
+    flash(
+        "Temporary password reset. The parent must change it at the next login.",
+        "success",
+    )
+    return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/parent-portal/documents/save", methods=["POST"])
+@login_required
+def save_parent_portal_document():
+    family_value = request.form.get("family_id","").strip()
+    family_id = int(family_value) if family_value else None
+
+    connection = get_db()
+    connection.execute(
+        """
+        INSERT INTO parent_portal_documents (
+            family_id,title,category,description,
+            document_url,active,created_by
+        ) VALUES (?,?,?,?,?,1,?)
+        """,
+        (
+            family_id,
+            request.form.get("title","").strip(),
+            request.form.get("category","General").strip(),
+            request.form.get("description","").strip(),
+            request.form.get("document_url","").strip(),
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Parent portal document added.","success")
+    return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/parent-portal/documents/<int:document_id>/delete", methods=["POST"])
+@login_required
+def delete_parent_portal_document(document_id):
+    connection = get_db()
+    connection.execute(
+        "DELETE FROM parent_portal_documents WHERE id=?",
+        (document_id,),
+    )
+    connection.commit()
+    connection.close()
+    flash("Parent portal document removed.","success")
+    return redirect(url_for("parent_portal_admin"))
+
+
+@app.route("/admin/notifications")
+@permission_required("notifications")
+def notification_center():
+    connection = get_db()
+
+    templates = connection.execute(
+        """
+        SELECT *
+        FROM notification_templates
+        ORDER BY active DESC,category,name
+        """
+    ).fetchall()
+
+    campaigns = connection.execute(
+        """
+        SELECT
+            nc.*,
+            nt.name AS template_name,
+            COUNT(nr.id) AS recipient_count,
+            SUM(CASE WHEN nr.status='Sent' THEN 1 ELSE 0 END) AS sent_count,
+            SUM(CASE WHEN nr.status='Failed' THEN 1 ELSE 0 END) AS failed_count
+        FROM notification_campaigns nc
+        LEFT JOIN notification_templates nt ON nt.id=nc.template_id
+        LEFT JOIN notification_recipients nr ON nr.campaign_id=nc.id
+        GROUP BY
+            nc.id,nc.name,nc.template_id,nc.category,
+            nc.subject,nc.body_text,nc.recipient_scope,
+            nc.scheduled_for,nc.status,nc.created_by,
+            nc.created_at,nc.updated_at,nt.name
+        ORDER BY nc.id DESC
+        LIMIT 100
+        """
+    ).fetchall()
+
+    summary = connection.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM notification_templates WHERE active=1) AS active_templates,
+            (SELECT COUNT(*) FROM notification_campaigns WHERE status='Draft') AS draft_campaigns,
+            (SELECT COUNT(*) FROM notification_recipients WHERE status='Queued') AS queued_recipients,
+            (SELECT COUNT(*) FROM notification_recipients WHERE status='Failed') AS failed_recipients
+        """
+    ).fetchone()
+
+    connection.close()
+
+    return render_template(
+        "notification_center.html",
+        templates=[dict(row) for row in templates],
+        campaigns=[dict(row) for row in campaigns],
+        summary=dict(summary),
+    )
+
+
+@app.route("/admin/notifications/templates/save", methods=["POST"])
+@permission_required("notifications")
+def save_notification_template():
+    template_id = request.form.get("id","").strip()
+    values = (
+        request.form.get("name","").strip(),
+        request.form.get("category","General").strip(),
+        request.form.get("subject","").strip(),
+        request.form.get("body_text","").strip(),
+        1 if request.form.get("active")=="on" else 0,
+    )
+
+    connection = get_db()
+
+    if template_id:
+        connection.execute(
+            """
+            UPDATE notification_templates SET
+                name=?,category=?,subject=?,body_text=?,active=?,
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            values + (int(template_id),),
+        )
+        saved_id = int(template_id)
+    else:
+        sql = """
+            INSERT INTO notification_templates (
+                name,category,subject,body_text,
+                active,created_by
+            ) VALUES (?,?,?,?,?,?)
+        """
+        if connection.backend=="postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            values + (int(session.get("admin_user_id") or 0) or None,),
+        )
+        saved_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend=="postgresql"
+            else int(cursor.lastrowid)
+        )
+
+    connection.commit()
+    connection.close()
+    flash("Notification template saved.","success")
+    return redirect(url_for("notification_template",template_id=saved_id))
+
+
+@app.route("/admin/notifications/templates/<int:template_id>")
+@permission_required("notifications")
+def notification_template(template_id):
+    connection = get_db()
+    template = connection.execute(
+        "SELECT * FROM notification_templates WHERE id=?",
+        (template_id,),
+    ).fetchone()
+    connection.close()
+
+    if not template:
+        return ("Template not found",404)
+
+    return render_template(
+        "notification_template.html",
+        template=dict(template),
+    )
+
+
+@app.route("/admin/notifications/campaigns/create", methods=["POST"])
+@permission_required("notifications")
+def create_notification_campaign():
+    template_value = request.form.get("template_id","").strip()
+    template_id = int(template_value) if template_value else None
+    scope = request.form.get("recipient_scope","Manual").strip()
+
+    connection = get_db()
+    template = None
+    if template_id:
+        template = connection.execute(
+            "SELECT * FROM notification_templates WHERE id=?",
+            (template_id,),
+        ).fetchone()
+
+    subject = request.form.get("subject","").strip()
+    body_text = request.form.get("body_text","").strip()
+    category = request.form.get("category","General").strip()
+
+    if template:
+        if not subject:
+            subject = template["subject"]
+        if not body_text:
+            body_text = template["body_text"]
+        if category=="General":
+            category = template["category"]
+
+    sql = """
+        INSERT INTO notification_campaigns (
+            name,template_id,category,subject,body_text,
+            recipient_scope,scheduled_for,status,created_by
+        ) VALUES (?,?,?,?,?,?,?,'Draft',?)
+    """
+    if connection.backend=="postgresql":
+        sql += " RETURNING id"
+
+    cursor = connection.execute(
+        sql,
+        (
+            request.form.get("name","").strip(),
+            template_id,
+            category,
+            subject,
+            body_text,
+            scope,
+            request.form.get("scheduled_for","").strip() or None,
+            int(session.get("admin_user_id") or 0) or None,
+        ),
+    )
+    campaign_id = (
+        int(cursor.fetchone()["id"])
+        if connection.backend=="postgresql"
+        else int(cursor.lastrowid)
+    )
+
+    if scope!="Manual":
+        for recipient in notification_scope_recipients(connection,scope):
+            connection.execute(
+                """
+                INSERT INTO notification_recipients (
+                    campaign_id,family_id,student_id,
+                    recipient_name,recipient_email,recipient_phone,
+                    source_type,source_reference,status
+                ) VALUES (?,?,?,?,?,?,?,?,'Queued')
+                """,
+                (
+                    campaign_id,
+                    recipient["family_id"],
+                    recipient["student_id"],
+                    recipient["recipient_name"],
+                    recipient["recipient_email"],
+                    recipient["recipient_phone"],
+                    recipient["source_type"],
+                    recipient["source_reference"],
+                ),
+            )
+
+    connection.commit()
+    connection.close()
+
+    flash("Notification campaign created.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/campaigns/<int:campaign_id>")
+@permission_required("notifications")
+def notification_campaign(campaign_id):
+    connection = get_db()
+
+    campaign = connection.execute(
+        """
+        SELECT nc.*,nt.name AS template_name
+        FROM notification_campaigns nc
+        LEFT JOIN notification_templates nt ON nt.id=nc.template_id
+        WHERE nc.id=?
+        """,
+        (campaign_id,),
+    ).fetchone()
+
+    if not campaign:
+        connection.close()
+        return ("Campaign not found",404)
+
+    recipients = connection.execute(
+        """
+        SELECT *
+        FROM notification_recipients
+        WHERE campaign_id=?
+        ORDER BY recipient_name,recipient_email,id
+        """,
+        (campaign_id,),
+    ).fetchall()
+
+    log_rows = connection.execute(
+        """
+        SELECT
+            ndl.*,
+            nr.recipient_name,
+            nr.recipient_email
+        FROM notification_delivery_log ndl
+        JOIN notification_recipients nr ON nr.id=ndl.recipient_id
+        WHERE ndl.campaign_id=?
+        ORDER BY ndl.id DESC
+        LIMIT 200
+        """,
+        (campaign_id,),
+    ).fetchall()
+
+    families = connection.execute(
+        """
+        SELECT id,family_name,primary_email,primary_phone
+        FROM families
+        WHERE COALESCE(primary_email,'')!=''
+        ORDER BY family_name
+        """
+    ).fetchall()
+
+    connection.close()
+
+    return render_template(
+        "notification_campaign.html",
+        campaign=dict(campaign),
+        recipients=[dict(row) for row in recipients],
+        delivery_log=[dict(row) for row in log_rows],
+        families=[dict(row) for row in families],
+    )
+
+
+@app.route("/admin/notifications/campaigns/<int:campaign_id>/update", methods=["POST"])
+@permission_required("notifications")
+def update_notification_campaign(campaign_id):
+    connection = get_db()
+    connection.execute(
+        """
+        UPDATE notification_campaigns SET
+            name=?,category=?,subject=?,body_text=?,
+            scheduled_for=?,updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (
+            request.form.get("name","").strip(),
+            request.form.get("category","General").strip(),
+            request.form.get("subject","").strip(),
+            request.form.get("body_text","").strip(),
+            request.form.get("scheduled_for","").strip() or None,
+            campaign_id,
+        ),
+    )
+    connection.commit()
+    connection.close()
+    flash("Campaign updated.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/campaigns/<int:campaign_id>/recipients/add", methods=["POST"])
+@permission_required("notifications")
+def add_notification_recipient(campaign_id):
+    connection = get_db()
+
+    family_value = request.form.get("family_id","").strip()
+    family_id = int(family_value) if family_value else None
+
+    recipient_name = request.form.get("recipient_name","").strip()
+    recipient_email = request.form.get("recipient_email","").strip()
+    recipient_phone = request.form.get("recipient_phone","").strip()
+
+    if family_id and (not recipient_name or not recipient_email):
+        family = connection.execute(
+            """
+            SELECT family_name,primary_email,primary_phone
+            FROM families
+            WHERE id=?
+            """,
+            (family_id,),
+        ).fetchone()
+        if family:
+            recipient_name = recipient_name or family["family_name"]
+            recipient_email = recipient_email or family["primary_email"]
+            recipient_phone = recipient_phone or family["primary_phone"]
+
+    if not recipient_email:
+        connection.close()
+        flash("Recipient email is required.","error")
+        return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+    connection.execute(
+        """
+        INSERT INTO notification_recipients (
+            campaign_id,family_id,recipient_name,
+            recipient_email,recipient_phone,
+            source_type,source_reference,status
+        ) VALUES (?,?,?,?,?,'Manual','','Queued')
+        """,
+        (
+            campaign_id,
+            family_id,
+            recipient_name,
+            recipient_email,
+            recipient_phone,
+        ),
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Recipient added.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/recipients/<int:recipient_id>/remove", methods=["POST"])
+@permission_required("notifications")
+def remove_notification_recipient(recipient_id):
+    connection = get_db()
+    recipient = connection.execute(
+        "SELECT campaign_id FROM notification_recipients WHERE id=?",
+        (recipient_id,),
+    ).fetchone()
+
+    if not recipient:
+        connection.close()
+        return ("Recipient not found",404)
+
+    campaign_id = int(recipient["campaign_id"])
+    connection.execute(
+        "DELETE FROM notification_recipients WHERE id=?",
+        (recipient_id,),
+    )
+    connection.commit()
+    connection.close()
+
+    flash("Recipient removed.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/campaigns/<int:campaign_id>/queue", methods=["POST"])
+@permission_required("notifications")
+def queue_notification_campaign(campaign_id):
+    connection = get_db()
+
+    campaign = connection.execute(
+        "SELECT * FROM notification_campaigns WHERE id=?",
+        (campaign_id,),
+    ).fetchone()
+
+    if not campaign:
+        connection.close()
+        return ("Campaign not found",404)
+
+    recipients = connection.execute(
+        """
+        SELECT *
+        FROM notification_recipients
+        WHERE campaign_id=?
+          AND COALESCE(recipient_email,'')!=''
+        """,
+        (campaign_id,),
+    ).fetchall()
+
+    if not recipients:
+        connection.close()
+        flash("Add at least one recipient before queueing the campaign.","error")
+        return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+    for recipient in recipients:
+        existing = connection.execute(
+            """
+            SELECT id
+            FROM notification_delivery_log
+            WHERE campaign_id=? AND recipient_id=?
+              AND status IN ('Queued','Sent')
+            """,
+            (campaign_id,recipient["id"]),
+        ).fetchone()
+
+        if not existing:
+            connection.execute(
+                """
+                INSERT INTO notification_delivery_log (
+                    campaign_id,recipient_id,channel,
+                    provider,status
+                ) VALUES (?,?,'Email','Internal Queue','Queued')
+                """,
+                (campaign_id,recipient["id"]),
+            )
+
+        connection.execute(
+            """
+            UPDATE notification_recipients SET
+                status='Queued',
+                last_error='',
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (recipient["id"],),
+        )
+
+    connection.execute(
+        """
+        UPDATE notification_campaigns SET
+            status='Queued',
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (campaign_id,),
+    )
+
+    connection.commit()
+    connection.close()
+
+    event_id = create_workflow_event(
+        "notification_campaign_queued",
+        "notifications",
+        "Notification campaign queued",
+        f"Campaign #{campaign_id} · {len(recipients)} recipient(s)",
+        "info",
+        str(campaign_id),
+    )
+    evaluate_workflow_rules(event_id)
+
+    flash("Campaign queued in the internal notification engine.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/delivery/<int:delivery_id>/mark-sent", methods=["POST"])
+@permission_required("notifications")
+def mark_notification_sent(delivery_id):
+    connection = get_db()
+
+    delivery = connection.execute(
+        """
+        SELECT campaign_id,recipient_id
+        FROM notification_delivery_log
+        WHERE id=?
+        """,
+        (delivery_id,),
+    ).fetchone()
+
+    if not delivery:
+        connection.close()
+        return ("Delivery record not found",404)
+
+    connection.execute(
+        """
+        UPDATE notification_delivery_log SET
+            status='Sent',
+            sent_at=CURRENT_TIMESTAMP,
+            error_message=''
+        WHERE id=?
+        """,
+        (delivery_id,),
+    )
+    connection.execute(
+        """
+        UPDATE notification_recipients SET
+            status='Sent',
+            last_error='',
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (delivery["recipient_id"],),
+    )
+
+    remaining = connection.execute(
+        """
+        SELECT COUNT(*) AS count
+        FROM notification_recipients
+        WHERE campaign_id=? AND status!='Sent'
+        """,
+        (delivery["campaign_id"],),
+    ).fetchone()
+
+    if int(remaining["count"] or 0)==0:
+        connection.execute(
+            """
+            UPDATE notification_campaigns SET
+                status='Completed',
+                updated_at=CURRENT_TIMESTAMP
+            WHERE id=?
+            """,
+            (delivery["campaign_id"],),
+        )
+
+    connection.commit()
+    campaign_id = int(delivery["campaign_id"])
+    connection.close()
+
+    flash("Delivery marked sent.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
+
+
+@app.route("/admin/notifications/delivery/<int:delivery_id>/mark-failed", methods=["POST"])
+@permission_required("notifications")
+def mark_notification_failed(delivery_id):
+    connection = get_db()
+
+    delivery = connection.execute(
+        """
+        SELECT campaign_id,recipient_id
+        FROM notification_delivery_log
+        WHERE id=?
+        """,
+        (delivery_id,),
+    ).fetchone()
+
+    if not delivery:
+        connection.close()
+        return ("Delivery record not found",404)
+
+    error_message = request.form.get("error_message","").strip() or "Delivery failed"
+
+    connection.execute(
+        """
+        UPDATE notification_delivery_log SET
+            status='Failed',
+            error_message=?
+        WHERE id=?
+        """,
+        (error_message,delivery_id),
+    )
+    connection.execute(
+        """
+        UPDATE notification_recipients SET
+            status='Failed',
+            last_error=?,
+            updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+        """,
+        (error_message,delivery["recipient_id"]),
+    )
+
+    connection.commit()
+    campaign_id = int(delivery["campaign_id"])
+    connection.close()
+
+    flash("Delivery marked failed.","success")
+    return redirect(url_for("notification_campaign",campaign_id=campaign_id))
 
 init_db()
 
