@@ -1116,380 +1116,59 @@ def init_db() -> None:
 
     cursor.execute(
         f"""
-        CREATE TABLE IF NOT EXISTS ticket_delivery_settings (
-            id {id_column},
-            recital_show_id INTEGER NOT NULL UNIQUE,
-            mobile_tickets_enabled INTEGER NOT NULL DEFAULT 1,
-            checkin_enabled INTEGER NOT NULL DEFAULT 1,
-            allow_reentry INTEGER NOT NULL DEFAULT 0,
-            reentry_limit INTEGER NOT NULL DEFAULT 1,
-            door_notes TEXT NOT NULL DEFAULT '',
-            delivery_message TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CREATE TABLE IF NOT EXISTS production_show_state (
+            id {id_column}, show_id INTEGER NOT NULL UNIQUE, current_performance_id INTEGER,
+            live_status TEXT NOT NULL DEFAULT 'Not Started', started_at TIMESTAMP,
+            intermission_active INTEGER NOT NULL DEFAULT 0, delay_minutes INTEGER NOT NULL DEFAULT 0,
+            emergency_note TEXT NOT NULL DEFAULT '', updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(current_performance_id) REFERENCES recital_performances(id) ON DELETE SET NULL
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS production_performance_students (
+            id {id_column}, performance_id INTEGER NOT NULL, student_id INTEGER NOT NULL,
+            assignment_source TEXT NOT NULL DEFAULT 'Class', quick_change INTEGER NOT NULL DEFAULT 0,
+            dressing_room TEXT NOT NULL DEFAULT '', backstage_note TEXT NOT NULL DEFAULT '',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(performance_id,student_id),
+            FOREIGN KEY(performance_id) REFERENCES recital_performances(id) ON DELETE CASCADE,
+            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+        )
+        """
+    )
+    cursor.execute(
+        f"""
+        CREATE TABLE IF NOT EXISTS production_performance_cues (
+            id {id_column}, performance_id INTEGER NOT NULL UNIQUE, lights_cue TEXT NOT NULL DEFAULT '',
+            music_cue TEXT NOT NULL DEFAULT '', curtain_cue TEXT NOT NULL DEFAULT '', props_cue TEXT NOT NULL DEFAULT '',
+            stage_note TEXT NOT NULL DEFAULT '', photo_allowed INTEGER NOT NULL DEFAULT 1, video_allowed INTEGER NOT NULL DEFAULT 1,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE
+            FOREIGN KEY(performance_id) REFERENCES recital_performances(id) ON DELETE CASCADE
         )
         """
     )
     cursor.execute(
         f"""
-        CREATE TABLE IF NOT EXISTS ticket_checkin_events (
-            id {id_column},
-            ticket_id INTEGER NOT NULL,
-            recital_show_id INTEGER NOT NULL,
-            action TEXT NOT NULL,
-            method TEXT NOT NULL DEFAULT 'Manual',
-            staff_user_id INTEGER,
-            notes TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
-            FOREIGN KEY(recital_show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
-            FOREIGN KEY(staff_user_id) REFERENCES admin_users(id) ON DELETE SET NULL
+        CREATE TABLE IF NOT EXISTS production_assignments (
+            id {id_column}, show_id INTEGER NOT NULL, performance_id INTEGER, assignment_type TEXT NOT NULL,
+            person_name TEXT NOT NULL, location TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+            notes TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'Assigned',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(performance_id) REFERENCES recital_performances(id) ON DELETE CASCADE
         )
         """
     )
-
-
     cursor.execute(
         f"""
-        CREATE TABLE IF NOT EXISTS notification_templates (
-            id {id_column},
-            name TEXT NOT NULL,
-            category TEXT NOT NULL DEFAULT 'General',
-            subject TEXT NOT NULL DEFAULT '',
-            body_text TEXT NOT NULL DEFAULT '',
-            active INTEGER NOT NULL DEFAULT 1,
-            created_by INTEGER,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS notification_campaigns (
-            id {id_column},
-            name TEXT NOT NULL,
-            template_id INTEGER,
-            category TEXT NOT NULL DEFAULT 'General',
-            subject TEXT NOT NULL DEFAULT '',
-            body_text TEXT NOT NULL DEFAULT '',
-            recipient_scope TEXT NOT NULL DEFAULT 'Manual',
-            scheduled_for TIMESTAMP,
-            status TEXT NOT NULL DEFAULT 'Draft',
-            created_by INTEGER,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(template_id) REFERENCES notification_templates(id) ON DELETE SET NULL,
-            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS notification_recipients (
-            id {id_column},
-            campaign_id INTEGER NOT NULL,
-            family_id INTEGER,
-            student_id INTEGER,
-            recipient_name TEXT NOT NULL DEFAULT '',
-            recipient_email TEXT NOT NULL DEFAULT '',
-            recipient_phone TEXT NOT NULL DEFAULT '',
-            source_type TEXT NOT NULL DEFAULT 'Manual',
-            source_reference TEXT NOT NULL DEFAULT '',
-            status TEXT NOT NULL DEFAULT 'Queued',
-            last_error TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(campaign_id) REFERENCES notification_campaigns(id) ON DELETE CASCADE,
-            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
-            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS notification_delivery_log (
-            id {id_column},
-            campaign_id INTEGER NOT NULL,
-            recipient_id INTEGER NOT NULL,
-            channel TEXT NOT NULL DEFAULT 'Email',
-            provider TEXT NOT NULL DEFAULT 'Internal Queue',
-            provider_message_id TEXT NOT NULL DEFAULT '',
-            status TEXT NOT NULL DEFAULT 'Queued',
-            error_message TEXT NOT NULL DEFAULT '',
-            sent_at TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(campaign_id) REFERENCES notification_campaigns(id) ON DELETE CASCADE,
-            FOREIGN KEY(recipient_id) REFERENCES notification_recipients(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS parent_portal_accounts (
-            id {id_column},
-            family_id INTEGER NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            display_name TEXT NOT NULL DEFAULT '',
-            active INTEGER NOT NULL DEFAULT 1,
-            must_change_password INTEGER NOT NULL DEFAULT 0,
-            last_login_at TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS parent_portal_activity (
-            id {id_column},
-            account_id INTEGER,
-            family_id INTEGER NOT NULL,
-            action TEXT NOT NULL,
-            details TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(account_id) REFERENCES parent_portal_accounts(id) ON DELETE SET NULL,
-            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS parent_portal_message_reads (
-            id {id_column},
-            account_id INTEGER NOT NULL,
-            campaign_id INTEGER NOT NULL,
-            read_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(account_id,campaign_id),
-            FOREIGN KEY(account_id) REFERENCES parent_portal_accounts(id) ON DELETE CASCADE,
-            FOREIGN KEY(campaign_id) REFERENCES notification_campaigns(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS parent_portal_documents (
-            id {id_column},
-            family_id INTEGER,
-            title TEXT NOT NULL,
-            category TEXT NOT NULL DEFAULT 'General',
-            description TEXT NOT NULL DEFAULT '',
-            document_url TEXT NOT NULL DEFAULT '',
-            active INTEGER NOT NULL DEFAULT 1,
-            created_by INTEGER,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE CASCADE,
-            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS staff_portal_accounts (
-            id {id_column},
-            teacher_id INTEGER NOT NULL UNIQUE,
-            email TEXT NOT NULL UNIQUE,
-            password_hash TEXT NOT NULL,
-            display_name TEXT NOT NULL DEFAULT '',
-            active INTEGER NOT NULL DEFAULT 1,
-            must_change_password INTEGER NOT NULL DEFAULT 0,
-            last_login_at TIMESTAMP,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS staff_portal_activity (
-            id {id_column},
-            account_id INTEGER,
-            teacher_id INTEGER NOT NULL,
-            action TEXT NOT NULL,
-            details TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(account_id) REFERENCES staff_portal_accounts(id) ON DELETE SET NULL,
-            FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS staff_student_notes (
-            id {id_column},
-            teacher_id INTEGER NOT NULL,
-            student_id INTEGER NOT NULL,
-            class_id INTEGER,
-            note TEXT NOT NULL,
-            visibility TEXT NOT NULL DEFAULT 'Staff',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
-            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE,
-            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS staff_portal_announcements (
-            id {id_column},
-            title TEXT NOT NULL,
-            message TEXT NOT NULL,
-            audience TEXT NOT NULL DEFAULT 'All Staff',
-            active INTEGER NOT NULL DEFAULT 1,
-            starts_at TIMESTAMP,
-            expires_at TIMESTAMP,
-            created_by INTEGER,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS staff_portal_documents (
-            id {id_column},
-            teacher_id INTEGER,
-            title TEXT NOT NULL,
-            category TEXT NOT NULL DEFAULT 'General',
-            description TEXT NOT NULL DEFAULT '',
-            document_url TEXT NOT NULL DEFAULT '',
-            active INTEGER NOT NULL DEFAULT 1,
-            created_by INTEGER,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
-            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS report_snapshots (
-            id {id_column},
-            report_key TEXT NOT NULL,
-            report_name TEXT NOT NULL,
-            snapshot_json TEXT NOT NULL DEFAULT '{{}}',
-            created_by INTEGER,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS report_saved_views (
-            id {id_column},
-            name TEXT NOT NULL,
-            report_key TEXT NOT NULL,
-            filter_json TEXT NOT NULL DEFAULT '{{}}',
-            created_by INTEGER,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS class_registration_settings (
-            id {id_column},
-            class_id INTEGER NOT NULL UNIQUE,
-            public_enabled INTEGER NOT NULL DEFAULT 0,
-            approval_required INTEGER NOT NULL DEFAULT 0,
-            waitlist_enabled INTEGER NOT NULL DEFAULT 1,
-            registration_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
-            costume_fee DOUBLE PRECISION NOT NULL DEFAULT 0,
-            registration_opens_at TIMESTAMP,
-            registration_closes_at TIMESTAMP,
-            minimum_age INTEGER,
-            maximum_age INTEGER,
-            waiver_title TEXT NOT NULL DEFAULT 'Registration Agreement',
-            waiver_text TEXT NOT NULL DEFAULT '',
-            public_notes TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS registration_applications (
-            id {id_column},
-            class_id INTEGER NOT NULL,
-            family_id INTEGER,
-            student_id INTEGER,
-            source TEXT NOT NULL DEFAULT 'Public',
-            applicant_family_name TEXT NOT NULL DEFAULT '',
-            guardian_name TEXT NOT NULL DEFAULT '',
-            guardian_email TEXT NOT NULL DEFAULT '',
-            guardian_phone TEXT NOT NULL DEFAULT '',
-            student_first_name TEXT NOT NULL DEFAULT '',
-            student_last_name TEXT NOT NULL DEFAULT '',
-            student_birth_date TEXT NOT NULL DEFAULT '',
-            student_grade TEXT NOT NULL DEFAULT '',
-            student_school TEXT NOT NULL DEFAULT '',
-            student_medical_notes TEXT NOT NULL DEFAULT '',
-            emergency_contact_name TEXT NOT NULL DEFAULT '',
-            emergency_contact_phone TEXT NOT NULL DEFAULT '',
-            waiver_accepted INTEGER NOT NULL DEFAULT 0,
-            waiver_accepted_name TEXT NOT NULL DEFAULT '',
-            waiver_accepted_at TIMESTAMP,
-            status TEXT NOT NULL DEFAULT 'Pending',
-            waitlist_position INTEGER,
-            billing_charge_id INTEGER,
-            admin_notes TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE,
-            FOREIGN KEY(family_id) REFERENCES families(id) ON DELETE SET NULL,
-            FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE SET NULL,
-            FOREIGN KEY(billing_charge_id) REFERENCES billing_charges(id) ON DELETE SET NULL
-        )
-        """
-    )
-
-    cursor.execute(
-        f"""
-        CREATE TABLE IF NOT EXISTS registration_waitlist_history (
-            id {id_column},
-            application_id INTEGER NOT NULL,
-            class_id INTEGER NOT NULL,
-            old_position INTEGER,
-            new_position INTEGER,
-            action TEXT NOT NULL,
-            notes TEXT NOT NULL DEFAULT '',
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(application_id) REFERENCES registration_applications(id) ON DELETE CASCADE,
-            FOREIGN KEY(class_id) REFERENCES classes(id) ON DELETE CASCADE
+        CREATE TABLE IF NOT EXISTS production_checklist_items (
+            id {id_column}, show_id INTEGER NOT NULL, category TEXT NOT NULL DEFAULT 'General', item_text TEXT NOT NULL,
+            completed INTEGER NOT NULL DEFAULT 0, completed_at TIMESTAMP, completed_by INTEGER, notes TEXT NOT NULL DEFAULT '',
+            sort_order INTEGER NOT NULL DEFAULT 0, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(show_id) REFERENCES recital_shows(id) ON DELETE CASCADE,
+            FOREIGN KEY(completed_by) REFERENCES admin_users(id) ON DELETE SET NULL
         )
         """
     )

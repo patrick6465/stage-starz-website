@@ -1,29 +1,28 @@
-STAGE STARZ REPORTING & BUSINESS INTELLIGENCE CENTER V1.1
+STAGE STARZ RECITAL PRODUCTION CENTER V1
 
 REPLACE:
 - app.py
+- database.py
+- templates/dashboard.html
+
+ADD:
+- templates/production_center.html
+- templates/production_show.html
+- templates/production_performance.html
+- templates/production_live.html
 
 INSTALL:
 git checkout railway-deployment
-git add app.py
-git commit -m "Fix reporting CSV downloads"
+git add app.py database.py templates/dashboard.html templates/production_center.html templates/production_show.html templates/production_performance.html templates/production_live.html
+git commit -m "Add recital production center"
 git push origin railway-deployment
 
-FIX:
-- CSV exports no longer call the missing Flask make_response function.
-- CSV responses now use the already imported Flask Response class.
-- UTF-8 BOM added for better Microsoft Excel compatibility.
-- Standard CRLF CSV line endings used.
-- Cache-Control no-store added to downloads.
-
-RETEST THESE FOUR DOWNLOADS:
-1. /admin/reports/export/families.csv
-2. /admin/reports/export/enrollment.csv
-3. /admin/reports/export/attendance.csv
-4. /admin/reports/export/tickets.csv
-
-EXPECTED:
-- Browser downloads a .csv file.
-- File opens normally in Excel.
-- Column headings are present.
-- Report records match the live Reporting Center data.
+VERIFY:
+1. Railway Active
+2. /health ok
+3. /ready ready
+4. Migration Center shows 019
+5. Open /admin/production
+6. Open a recital show and sync class dancers
+7. Add cues, dressing rooms, quick changes, volunteers, and checklist items
+8. Open Live Stage Manager and advance performances
