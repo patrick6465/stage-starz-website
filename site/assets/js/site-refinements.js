@@ -17,6 +17,10 @@
     document.body.setAttribute('data-competition-team','true');
   }
 
+  if(current==='competition.html'){
+    document.querySelectorAll('a[href="teen-competition-team.html"] h3').forEach(function(h){h.textContent='Teen / Senior Competition Team';});
+  }
+
   if(isHome){
     document.title='Dance Classes Near Toledo & Temperance | Stage Starz Academy of Dance';
     var description='Dance classes for ages 3+ in Temperance, Michigan, serving Bedford Township, southern Monroe County and the Toledo area. Recreational and competitive programs at Stage Starz Academy of Dance.';
