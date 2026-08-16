@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Website Inquiries | Stage Starz</title>
+<style>
+:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--teal:#50d6d0;--gold:#ffc867;--pink:#ef3d98;--purple:#9b4dcc}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif}
+a{color:inherit;text-decoration:none}
+header{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:18px 4vw;border-bottom:1px solid var(--line)}
+.wrap{width:min(1200px,calc(100% - 28px));margin:25px auto 60px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric{font-size:1.7rem;font-weight:950}
+.muted{color:var(--muted)}
+.inquiry{display:grid;grid-template-columns:1.15fr 1fr;gap:20px}
+.meta{display:grid;gap:7px}
+.badge{display:inline-block;width:max-content;padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.13);color:var(--teal);font-size:.75rem;font-weight:900}
+.badge.new{color:var(--gold);background:rgba(255,200,103,.12)}
+label{display:block;font-size:.8rem;font-weight:850;margin-bottom:5px}
+select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:9px;background:#100a1d;color:#fff}
+button{padding:10px 14px;border:0;border-radius:9px;color:#fff;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));cursor:pointer}
+.message{white-space:pre-wrap;padding:13px;border-radius:12px;background:#100a1d;border:1px solid var(--line)}
+@media(max-width:800px){.stats,.inquiry{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header><strong>📨 Website Inquiries</strong><a href="/admin">← Command Center</a></header>
+<main class="wrap">
+<section class="stats">
+<div class="card"><div class="metric">{{ summary.total or 0 }}</div><div class="muted">Total</div></div>
+<div class="card"><div class="metric">{{ summary.new_count or 0 }}</div><div class="muted">New</div></div>
+<div class="card"><div class="metric">{{ summary.contacted_count or 0 }}</div><div class="muted">Contacted</div></div>
+<div class="card"><div class="metric">{{ summary.closed_count or 0 }}</div><div class="muted">Closed</div></div>
+</section>
+
+{% for inquiry in inquiries %}
+<section class="card inquiry">
+<div>
+<div class="badge {% if inquiry.status=='New' %}new{% endif %}">{{ inquiry.status }}</div>
+<h2>{{ inquiry.first_name }} {{ inquiry.last_name }}</h2>
+<div class="meta">
+<a href="mailto:{{ inquiry.email }}">{{ inquiry.email }}</a>
+{% if inquiry.phone %}<a href="tel:{{ inquiry.phone }}">{{ inquiry.phone }}</a>{% endif %}
+{% if inquiry.interest %}<span><strong>Interested in:</strong> {{ inquiry.interest }}</span>{% endif %}
+<span class="muted">{{ inquiry.created_at }}</span>
+</div>
+<h3>Message</h3>
+<div class="message">{{ inquiry.message }}</div>
+</div>
+<form method="post" action="/admin/website/inquiries/{{ inquiry.id }}/update">
+<label>Status</label>
+<select name="status">
+{% for status in ['New','Contacted','Closed'] %}
+<option {% if inquiry.status==status %}selected{% endif %}>{{ status }}</option>
+{% endfor %}
+</select>
+<p><label>Staff Notes</label><textarea name="admin_notes" rows="8">{{ inquiry.admin_notes }}</textarea></p>
+<button>Save Inquiry</button>
+</form>
+</section>
+{% else %}
+<section class="card"><h2>No website inquiries yet.</h2><p class="muted">New Contact-form submissions will appear here.</p></section>
+{% endfor %}
+</main>
+</body>
+</html>
