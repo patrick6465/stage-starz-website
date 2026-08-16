@@ -267,8 +267,8 @@ h1 span{
 }
 .program-card{
   position:relative;
-  min-height:320px;
-  padding:30px;
+  min-height:340px;
+  padding:96px 30px 30px;
   display:flex;
   flex-direction:column;
   justify-content:flex-end;
@@ -313,14 +313,24 @@ h1 span{
   left:26px;
   display:grid;
   place-items:center;
-  width:54px;
-  height:54px;
-  border-radius:18px;
-  border:1px solid rgba(255,255,255,.18);
-  background:rgba(255,255,255,.07);
-  color:var(--teal);
-  font-size:1.5rem;
-  font-weight:900;
+  width:52px;
+  height:52px;
+  border-radius:50%;
+  border:1px solid rgba(115,221,216,.62);
+  background:linear-gradient(145deg,rgba(181,59,212,.20),rgba(32,200,199,.12));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 8px 22px rgba(0,0,0,.18);
+  color:#fff;
+  font-size:0;
+  line-height:1;
+}
+.program-icon:before{
+  content:"★";
+  display:block;
+  font-size:1.28rem;
+  line-height:1;
+  color:#fff;
+  transform:translateY(-1px);
+  text-shadow:0 0 12px rgba(115,221,216,.45);
 }
 .age{
   margin:0 0 10px;
@@ -482,7 +492,7 @@ h1 span{
   .section-heading{text-align:left}
   .program-grid{display:grid;grid-template-columns:1fr}
   .program-card.wide,.program-card.third{grid-column:auto}
-  .program-card{min-height:285px;padding:26px}
+  .program-card{min-height:305px;padding:90px 26px 26px}
   .finder{padding:30px 23px;border-radius:27px}
   .finder-actions .btn{width:100%}
   .steps{gap:14px}
