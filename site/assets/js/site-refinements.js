@@ -3,7 +3,9 @@
   document.documentElement.classList.add('ss-motion');
   var current=(location.pathname.split('/').pop()||'index.html').toLowerCase();
   var isHome=current==='index.html'||current===''||location.pathname==='/';
+  var isRegistration=/^(preschool|primary|elementary|intermediate-advanced|specialized)-class-registration\.html$/.test(current);
   if(isHome){document.body.setAttribute('data-homepage','true');}
+  if(isRegistration){document.body.setAttribute('data-registration-page','true');}
 
   document.querySelectorAll('.nav-links a[href]').forEach(function(link){
     var href=(link.getAttribute('href')||'').split('#')[0].toLowerCase();
@@ -16,7 +18,6 @@
   }
 
   if(isHome){
-    // Homepage search/social metadata. Keep the approved visible hero unchanged.
     document.title='Dance Classes Near Toledo & Temperance | Stage Starz Academy of Dance';
     var description='Dance classes for ages 3+ in Temperance, Michigan, serving Bedford Township, southern Monroe County and the Toledo area. Recreational and competitive programs at Stage Starz Academy of Dance.';
     var meta=document.querySelector('meta[name="description"]');
@@ -44,7 +45,6 @@
       trust.insertAdjacentElement('afterend',local);
     }
 
-    // Parent decision section: answers the questions most likely to block a first registration.
     var finalCta=document.querySelector('.cta');
     if(finalCta&&!document.querySelector('.ss-parent-guide')){
       var guide=document.createElement('section');
@@ -60,6 +60,22 @@
       mobile.setAttribute('aria-label','Quick actions');
       mobile.innerHTML='<a class="primary" href="classes.html">Find Classes</a><a class="secondary" href="contact.html">Ask a Question</a>';
       document.body.appendChild(mobile);
+    }
+  }
+
+  if(isRegistration){
+    var jrCard=document.querySelector('.jackrabbit-card');
+    var jrFrame=document.querySelector('.jackrabbit-frame');
+    if(jrCard&&jrFrame&&!jrCard.querySelector('.ss-jr-status')){
+      var status=document.createElement('div');
+      status.className='ss-jr-status';
+      status.innerHTML='<strong>Live Class Openings</strong><span>Select the registration option beside the class you want.</span>';
+      jrFrame.insertAdjacentElement('beforebegin',status);
+
+      var foot=document.createElement('div');
+      foot.className='ss-jr-foot';
+      foot.innerHTML='<span>Need help choosing the right class?</span><a href="contact.html">Ask Stage Starz for guidance →</a>';
+      jrFrame.insertAdjacentElement('afterend',foot);
     }
   }
 
