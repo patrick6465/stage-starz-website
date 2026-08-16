@@ -9,8 +9,6 @@
     var href=(link.getAttribute('href')||'').split('#')[0].toLowerCase();
     if(href===current){link.setAttribute('aria-current','page');}
   });
-
-  // Normalize old development-home links without changing the approved visual design.
   document.querySelectorAll('a[href="index-new.html"],a[href="index.html"]').forEach(function(link){link.setAttribute('href','/');});
 
   if(/^(mini|petite|junior|juniorettes|teen)-competition-team\.html$/.test(current)||current==='team-only.html'||current==='competition-auditions.html'){
@@ -18,17 +16,44 @@
   }
 
   if(isHome){
-    // Add local-market confidence immediately after the existing trust strip.
+    // Homepage search/social metadata. Keep the approved visible hero unchanged.
+    document.title='Dance Classes Near Toledo & Temperance | Stage Starz Academy of Dance';
+    var description='Dance classes for ages 3+ in Temperance, Michigan, serving Bedford Township, southern Monroe County and the Toledo area. Recreational and competitive programs at Stage Starz Academy of Dance.';
+    var meta=document.querySelector('meta[name="description"]');
+    if(meta){meta.setAttribute('content',description);}
+    function headMeta(attr,key,value){var selector='meta['+attr+'="'+key+'"]';var el=document.querySelector(selector);if(!el){el=document.createElement('meta');el.setAttribute(attr,key);document.head.appendChild(el);}el.setAttribute('content',value);}
+    function headLink(rel,href){var el=document.querySelector('link[rel="'+rel+'"]');if(!el){el=document.createElement('link');el.rel=rel;document.head.appendChild(el);}el.href=href;}
+    headLink('canonical','https://www.stagestarzdance.net/');
+    headMeta('property','og:type','website');
+    headMeta('property','og:site_name','Stage Starz Academy of Dance');
+    headMeta('property','og:title','Dance Classes Near Toledo & Temperance | Stage Starz');
+    headMeta('property','og:description',description);
+    headMeta('property','og:url','https://www.stagestarzdance.net/');
+    headMeta('property','og:image','https://www.stagestarzdance.net/assets/images/audriana-homepage-hero.jpg');
+    headMeta('name','twitter:card','summary_large_image');
+    headMeta('name','twitter:title','Stage Starz Academy of Dance');
+    headMeta('name','twitter:description',description);
+    headMeta('name','twitter:image','https://www.stagestarzdance.net/assets/images/audriana-homepage-hero.jpg');
+
     var trust=document.querySelector('.trust-strip');
     if(trust&&!document.querySelector('.ss-local-proof')){
       var local=document.createElement('section');
       local.className='ss-local-proof';
       local.setAttribute('aria-label','Serving local dance families');
-      local.innerHTML='<div class="ss-local-proof-inner"><div class="ss-local-proof-copy"><strong>Dance training close to home.</strong><span>Conveniently located in Temperance for families throughout southern Monroe County and the Toledo area.</span></div><div class="ss-local-proof-item">Temperance, MI<small>6800 Lewis Ave</small></div><div class="ss-local-proof-item">Ages 3+<small>Beginner through advanced</small></div><div class="ss-local-proof-item">Recreational + Competitive<small>A path for every dancer</small></div></div>';
+      local.innerHTML='<div class="ss-local-proof-inner"><div class="ss-local-proof-copy"><strong>Dance training close to home.</strong><span>Conveniently located in Temperance for families throughout Bedford Township, southern Monroe County and the Toledo area.</span></div><div class="ss-local-proof-item">Temperance, MI<small>6800 Lewis Ave</small></div><div class="ss-local-proof-item">Ages 3+<small>Beginner through advanced</small></div><div class="ss-local-proof-item">Recreational + Competitive<small>A path for every dancer</small></div></div>';
       trust.insertAdjacentElement('afterend',local);
     }
 
-    // Give mobile visitors a persistent, low-friction route to classes and help.
+    // Parent decision section: answers the questions most likely to block a first registration.
+    var finalCta=document.querySelector('.cta');
+    if(finalCta&&!document.querySelector('.ss-parent-guide')){
+      var guide=document.createElement('section');
+      guide.className='ss-parent-guide';
+      guide.setAttribute('aria-labelledby','ss-parent-guide-title');
+      guide.innerHTML='<div class="ss-parent-guide-inner"><div class="ss-parent-guide-head"><p class="eyebrow">New to Stage Starz?</p><h2 id="ss-parent-guide-title">Starting dance should feel simple.</h2><p>Whether your dancer is brand new or ready for a new challenge, we’ll help you find the right starting point.</p></div><div class="ss-parent-guide-grid"><article><span>01</span><h3>Choose by age & level</h3><p>Browse our clear program pathways for ages 3 through advanced dancers.</p><a href="classes.html">View class options →</a></article><article><span>02</span><h3>Not sure which class?</h3><p>Use the Class Finder to narrow the choices and find a comfortable fit.</p><a href="class-finder.html">Use the Class Finder →</a></article><article><span>03</span><h3>Have a question first?</h3><p>Tell us about your dancer and our studio can help point you in the right direction.</p><a href="contact.html">Ask Stage Starz →</a></article></div><div class="ss-parent-guide-note"><strong>Convenient for Toledo-area families.</strong> Stage Starz is located at 6800 Lewis Ave in Temperance, just north of Toledo, with recreational and competitive opportunities under one studio roof.</div></div>';
+      finalCta.insertAdjacentElement('beforebegin',guide);
+    }
+
     if(!document.querySelector('.ss-mobile-cta')){
       var mobile=document.createElement('nav');
       mobile.className='ss-mobile-cta';
