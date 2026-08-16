@@ -206,9 +206,53 @@
     color:#0056d6 !important;
 }
 
+.contact-status{display:none;margin-bottom:14px;padding:12px 14px;border-radius:12px;font-weight:800}
+.contact-status.success{display:block;background:#e8fff8;color:#096447;border:1px solid #9ee8d2}
+.contact-status.error{display:block;background:#fff1f4;color:#8c2140;border:1px solid #f3b6c6}
+.contact-hp{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.form-note{font-size:.85rem;opacity:.72;margin-bottom:0}
 </style><script type="application/ld+json">{"@context": "https://schema.org", "@type": "DanceSchool", "name": "Stage Starz Academy of Dance", "address": {"@type": "PostalAddress", "streetAddress": "6800 Lewis Ave", "addressLocality": "Temperance", "addressRegion": "MI", "postalCode": "48182", "addressCountry": "US"}, "telephone": "+1-734-497-3740", "email": "stagestarzdance@aol.com", "url": "https://www.stagestarzdance.net/"}</script><link rel="stylesheet" href="assets/css/site-refinements.css">
 </head><body>
-<div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div><header class="header"><nav class="nav"><a class="logo" href="index.html"><span class="logo-mark">★</span><span>Stage Starz</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="/store">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="contact.html">Register</a></div></nav></header><main><section class="page-hero"><p class="eyebrow">Contact</p><h1>Contact Stage Starz.</h1><p class="lead">Stage Starz Academy of Dance, 6800 Lewis Ave, Temperance, MI 48182.</p></section><section class="section grid two"><div class="content-box"><h2>Studio Info</h2><p><strong>Phone:</strong> <a href="tel:+17344973740">(734) 497-3740</a></p><p><strong>Email:</strong> <a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></p><iframe class="map" title="Map" src="https://www.google.com/maps?q=6800%20Lewis%20Ave%20Temperance%20MI%2048182&output=embed"></iframe></div><form class="form-card"><label>First Name<input></label><label>Last Name<input></label><label>Email<input type="email"></label><label>Phone<input></label><label>Message<textarea rows="5"></textarea></label><button class="btn primary">Submit</button></form></section></main><a class="btn primary sticky-enroll" href="contact.html">Enroll Now</a><footer class="footer"><div class="footer-inner"><div><h3>Stage Starz Academy of Dance</h3><p>Dance classes, competition teams, recital showcases, and parent resources in Temperance, Michigan.</p></div><div><h3>Pages</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a></div><div><h3>Contact</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a></div></div></footer><script>
+<div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div><header class="header"><nav class="nav"><a class="logo" href="/"><span class="logo-mark">★</span><span>Stage Starz</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="/store">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="classes.html">Register</a></div></nav></header><main><section class="page-hero"><p class="eyebrow">Contact</p><h1>Contact Stage Starz.</h1><p class="lead">Stage Starz Academy of Dance, 6800 Lewis Ave, Temperance, MI 48182.</p></section><section class="section grid two"><div class="content-box"><h2>Studio Info</h2><p><strong>Phone:</strong> <a href="tel:+17344973740">(734) 497-3740</a></p><p><strong>Email:</strong> <a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></p><iframe class="map" title="Map" src="https://www.google.com/maps?q=6800%20Lewis%20Ave%20Temperance%20MI%2048182&output=embed"></iframe></div><form class="form-card" id="contact-form" method="post" action="/contact/submit">
+<div id="contact-status" class="contact-status" role="status" aria-live="polite"></div>
+<label>First Name<input name="first_name" autocomplete="given-name" required maxlength="100"></label>
+<label>Last Name<input name="last_name" autocomplete="family-name" maxlength="100"></label>
+<label>Email<input name="email" type="email" autocomplete="email" required maxlength="254"></label>
+<label>Phone<input name="phone" type="tel" autocomplete="tel" maxlength="60"></label>
+<label>I'm Interested In
+<select name="interest">
+<option value="">Choose one</option>
+<option>Preschool Dance</option>
+<option>Primary Dance</option>
+<option>Elementary Dance</option>
+<option>Intermediate / Advanced</option>
+<option>Specialized Classes</option>
+<option>Competition Team</option>
+<option>Private / Semi-Private Lessons</option>
+<option>General Question</option>
+</select>
+</label>
+<label>Message<textarea name="message" rows="5" required maxlength="5000" placeholder="Tell us how we can help your dancer."></textarea></label>
+<label class="contact-hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
+<button class="btn primary" type="submit">Send Message</button>
+<p class="form-note">We’ll use this information only to respond to your Stage Starz inquiry.</p>
+</form></section></main><a class="btn primary sticky-enroll" href="classes.html">Enroll Now</a><footer class="footer"><div class="footer-inner"><div><h3>Stage Starz Academy of Dance</h3><p>Dance classes, competition teams, recital showcases, and parent resources in Temperance, Michigan.</p></div><div><h3>Pages</h3><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a></div><div><h3>Contact</h3><a href="tel:+17344973740">(734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a><a href="https://www.instagram.com/stagestarzdance/">Instagram</a></div></div></footer><script>
 const m=document.querySelector('.menu'),n=document.querySelector('.nav-links');if(m&&n){m.addEventListener('click',()=>{const o=n.classList.toggle('open');m.setAttribute('aria-expanded',String(o));});}
+</script><script>
+(function(){
+  const status=document.getElementById('contact-status');
+  if(!status)return;
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('sent')==='1'){
+    status.textContent='Thank you! Your message was sent to Stage Starz. We’ll be in touch soon.';
+    status.className='contact-status success';
+  }else if(params.get('error')==='required'){
+    status.textContent='Please complete your first name, email, and message.';
+    status.className='contact-status error';
+  }else if(params.get('error')==='email'){
+    status.textContent='Please enter a valid email address.';
+    status.className='contact-status error';
+  }
+})();
 </script><script src="assets/js/site-refinements.js" defer></script>
 </body></html>
