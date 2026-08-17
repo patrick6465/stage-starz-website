@@ -5,7 +5,7 @@ import re
 
 from flask import request
 
-from database import get_db
+import class_content_editor as class_editor
 
 
 PHOTO_PANEL_PATHS = {
@@ -32,9 +32,9 @@ PATH_PAGE_KEYS = {
     "/junior-competition-team.html": "junior_competition",
 }
 
-# The non-Teen competition pages currently do not contain a built-in hero image.
-# Use the locally bundled full-team photo as a reliable starter image. Each team
-# can then be given its own photo through the Class Page Editor / Media Library.
+# These competition pages were rebuilt without a dedicated built-in hero image.
+# Keep a local, reliable starter image until a team-specific photo is published
+# through the Class Page Editor.
 COMPETITION_FALLBACK = "/assets/images/full-team-picture.jpg"
 DEFAULT_PHOTOS = {
     "/mini-competition-team.html": COMPETITION_FALLBACK,
@@ -49,11 +49,10 @@ PANEL_STYLE = r"""
   min-height:auto!important;
 }
 .hero:before,.hero::before{
-  background-image:
+  background:
     radial-gradient(circle at 82% 22%,rgba(181,59,212,.24),transparent 28rem),
     radial-gradient(circle at 72% 78%,rgba(32,200,199,.13),transparent 30rem),
     linear-gradient(135deg,#05050c 0%,#10091b 52%,#06050d 100%)!important;
-  background-color:#05050c!important;
   background-position:center!important;
   background-size:cover!important;
   background-repeat:no-repeat!important;
@@ -113,49 +112,97 @@ PANEL_STYLE = r"""
 
 
 def _hero_photo_url(body: str) -> str:
-    """Return the image currently assigned to the page's desktop hero background."""
-    hero_block = re.search(
+    """Return the image currently assigned to a page's hero background."""
+    hero_blocks = re.findall(
         r'\.hero:before\s*\{(?P<body>[^{}]*)\}',
         body,
         flags=re.IGNORECASE | re.DOTALL,
     )
-    if not hero_block:
-        return ""
-    urls = re.findall(
-        r'url\(\s*["\']?([^"\')]+)["\']?\s*\)',
-        hero_block.group("body"),
-        flags=re.IGNORECASE,
-    )
-    return urls[-1].strip() if urls else ""
+    for block in hero_blocks:
+        urls = re.findall(
+            r'url\(\s*["\']?([^"\')]+)["\']?\s*\)',
+            block,
+            flags=re.IGNORECASE,
+        )
+        if urls:
+            return urls[-1].strip()
+    return ""
 
 
 def _saved_photo_url(path: str) -> str:
-    """Prefer a photo already published from the backend editor."""
+    """Use the exact saved editor value that the editor itself displays."""
     page_key = PATH_PAGE_KEYS.get(path)
     if not page_key:
         return ""
     try:
-        connection = get_db()
-        row = connection.execute(
-            "SELECT hero_image FROM class_page_content WHERE page_key=?",
-            (page_key,),
-        ).fetchone()
-        connection.close()
-        if row:
-            try:
-                value = row["hero_image"]
-            except (TypeError, KeyError, IndexError):
-                value = row[0]
-            value = (value or "").strip()
-            if value.startswith("/uploads/"):
-                return value
+        saved = class_editor._get_saved_content(page_key)
     except Exception:
         return ""
-    return ""
+    if not saved:
+        return ""
+    value = (saved.get("hero_image") or "").strip()
+    return value if value.startswith("/uploads/") else ""
+
+
+def _inject_photo_panel(body: str, photo_url: str, fallback_url: str = "") -> str:
+    """Insert the photo card directly into the hero HTML; no client JS required."""
+    if 'id="ss-program-photo-hero-style"' in body or "ss-program-photo-panel" in body:
+        return body
+
+    hero_pattern = re.compile(
+        r'(?P<open><section\s+class="hero"[^>]*>\s*<div\s+class="hero-inner"[^>]*>)'
+        r'(?P<content>.*?)'
+        r'(?P<close></div>\s*</section>)',
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    match = hero_pattern.search(body)
+    if not match:
+        return body
+
+    title_match = re.search(r'<h1[^>]*>(.*?)</h1>', match.group("content"), flags=re.I | re.S)
+    title = "Stage Starz Program"
+    if title_match:
+        title = re.sub(r"<[^>]+>", " ", title_match.group(1))
+        title = html.unescape(re.sub(r"\s+", " ", title)).strip() or title
+
+    safe_url = html.escape(photo_url, quote=True)
+    safe_fallback = html.escape(fallback_url, quote=True)
+    onerror = ""
+    if safe_fallback and safe_fallback != safe_url:
+        onerror = (
+            " onerror=\"if(this.dataset.fallback!=='1'){this.dataset.fallback='1';"
+            f"this.src='{safe_fallback}';}}\""
+        )
+
+    open_tag = match.group("open")
+    open_tag = re.sub(
+        r'class="hero-inner([^"]*)"',
+        lambda m: f'class="hero-inner{m.group(1)} ss-program-photo-grid"',
+        open_tag,
+        count=1,
+        flags=re.I,
+    )
+
+    figure = (
+        '<figure class="ss-program-photo-panel">'
+        f'<img src="{safe_url}" alt="{html.escape(title, quote=True)}"{onerror}>'
+        f'<figcaption>{html.escape(title)}</figcaption>'
+        '</figure>'
+    )
+    replacement = (
+        open_tag
+        + '<div class="ss-program-hero-copy">'
+        + match.group("content")
+        + '</div>'
+        + figure
+        + match.group("close")
+    )
+    body = body[: match.start()] + replacement + body[match.end() :]
+    return body.replace("</head>", PANEL_STYLE + "</head>", 1)
 
 
 def register_program_hero_panels(app) -> None:
-    """Move program/team hero photography out of the background into a dedicated photo card."""
+    """Render program/team photography in a dedicated card instead of a background."""
 
     @app.after_request
     def add_program_photo_panel(response):
@@ -163,9 +210,6 @@ def register_program_hero_panels(app) -> None:
             return response
         try:
             body = response.get_data(as_text=True)
-            if 'id="ss-program-photo-hero-style"' in body:
-                return response
-
             fallback_url = DEFAULT_PHOTOS.get(request.path, "")
             photo_url = (
                 _saved_photo_url(request.path)
@@ -175,47 +219,9 @@ def register_program_hero_panels(app) -> None:
             if not photo_url:
                 return response
 
-            safe_url = html.escape(photo_url, quote=True)
-            safe_fallback = html.escape(fallback_url, quote=True)
-            onerror = ""
-            if safe_fallback and safe_fallback != safe_url:
-                onerror = (
-                    " onerror=\"if(this.dataset.fallback!=='1'){this.dataset.fallback='1';"
-                    f"this.src='{safe_fallback}';}}\""
-                )
-
-            script = f"""
-<script id="ss-program-photo-hero-script">
-(function(){{
-  function setup(){{
-    var hero=document.querySelector('.hero');
-    var inner=hero&&hero.querySelector('.hero-inner');
-    if(!hero||!inner||inner.querySelector('.ss-program-photo-panel')) return;
-
-    inner.classList.add('ss-program-photo-grid');
-    var title=(hero.querySelector('h1')&&hero.querySelector('h1').textContent||'Stage Starz Program').replace(/\\s+/g,' ').trim();
-
-    // Keep all hero wording/buttons together in the left column. Previously the
-    // grid treated each heading, paragraph and button row as a separate grid item.
-    var copy=document.createElement('div');
-    copy.className='ss-program-hero-copy';
-    while(inner.firstChild) copy.appendChild(inner.firstChild);
-
-    var figure=document.createElement('figure');
-    figure.className='ss-program-photo-panel';
-    figure.innerHTML='<img src="{safe_url}" alt="'+title.replace(/"/g,'&quot;')+'"{onerror}><figcaption>'+title+'</figcaption>';
-
-    inner.appendChild(copy);
-    inner.appendChild(figure);
-  }}
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',setup);
-  else setup();
-}})();
-</script>
-"""
-            body = body.replace("</head>", PANEL_STYLE + "</head>", 1)
-            body = body.replace("</body>", script + "</body>", 1)
+            body = _inject_photo_panel(body, photo_url, fallback_url)
             response.set_data(body)
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         except Exception:
             app.logger.exception("Could not build program photo-card hero")
         return response
