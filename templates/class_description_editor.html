@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Class Description Editor | Stage Starz</title>
+<style>
+:root{--night:#0c0717;--panel:#17102a;--panel2:#120b20;--line:#342744;--white:#fff;--muted:#a99db7;--purple:#9b4dcc;--pink:#ef3d98;--teal:#50d6d0;--success:#62e6aa;--danger:#ff7785;--gold:#ffc867}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 5% 0%,rgba(155,77,204,.25),transparent 28rem),radial-gradient(circle at 96% 4%,rgba(80,214,208,.12),transparent 30rem),var(--night);color:var(--white);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}a{color:inherit;text-decoration:none}
+.header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;gap:18px;align-items:center;padding:17px clamp(16px,4vw,48px);background:rgba(12,7,23,.95);border-bottom:1px solid var(--line);backdrop-filter:blur(18px)}
+.header h1{margin:0;font-size:1.25rem}.links{display:flex;gap:14px;flex-wrap:wrap;color:#ddd3e9;font-weight:750}.links a:hover{color:var(--teal)}
+.shell{width:min(1480px,calc(100% - 28px));margin:24px auto 60px;display:grid;grid-template-columns:240px minmax(380px,560px) 1fr;gap:18px;align-items:start}
+.panel{background:rgba(23,16,42,.95);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:0 18px 50px rgba(0,0,0,.22)}
+.nav-panel{position:sticky;top:88px}.nav-panel h2{font-size:1rem;margin:0 0 12px;color:#f3ecf8}.page-nav{display:grid;gap:8px}.page-nav button{width:100%;text-align:left;border:1px solid transparent;border-radius:13px;padding:12px 13px;background:rgba(255,255,255,.045);color:#eee6f5;font:inherit;font-weight:820;cursor:pointer}.page-nav button span{display:block;margin-top:3px;color:var(--muted);font-size:.76rem;font-weight:650}.page-nav button.active{background:linear-gradient(90deg,rgba(239,61,152,.18),rgba(80,214,208,.1));border-color:rgba(80,214,208,.32);color:#fff}
+.editor{min-width:0}.editor-card{display:none}.editor-card.active{display:block}.editor-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}.editor-head h2{margin:0 0 5px;font-size:1.5rem}.status{padding:7px 10px;border-radius:999px;font-size:.75rem;font-weight:900;background:rgba(98,230,170,.12);color:var(--success);border:1px solid rgba(98,230,170,.22)}.status.original{background:rgba(255,200,103,.09);border-color:rgba(255,200,103,.2);color:var(--gold)}
+.intro{color:var(--muted);margin:0 0 20px;line-height:1.6}.field{margin-bottom:18px}label{display:block;margin-bottom:7px;color:#f2eaf8;font-size:.88rem;font-weight:900}.helper{display:block;margin-top:7px;color:var(--muted);font-size:.78rem;line-height:1.5}textarea{width:100%;resize:vertical;padding:13px 14px;border:1px solid #49365f;border-radius:12px;color:#fff;background:#100a1d;outline:none;font:inherit;line-height:1.55}textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(80,214,208,.1)}.hero-text{min-height:112px}.details-text{min-height:330px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:11px;padding:12px 16px;font-weight:900;cursor:pointer;font:inherit}.primary{color:#fff;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}.secondary{color:#fff;background:#2a1d3c}.danger{color:#fff;background:rgba(255,119,133,.14);border:1px solid rgba(255,119,133,.3)}.open-live{margin-left:auto;color:var(--teal);font-size:.85rem;font-weight:850}
+.flash{width:min(1480px,calc(100% - 28px));margin:18px auto 0;padding:12px 14px;border-radius:12px;background:rgba(98,230,170,.12);border:1px solid rgba(98,230,170,.28);color:#e9fff5}
+.preview{position:sticky;top:88px;overflow:hidden}.preview-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.preview-head h2{margin:0;font-size:1.08rem}.preview-note{color:var(--muted);font-size:.78rem}.device{width:100%;height:790px;border:0;border-radius:16px;background:#fff}.format-note{margin-top:18px;padding:14px;border:1px solid rgba(80,214,208,.17);border-radius:13px;background:rgba(80,214,208,.055);color:#cfc6d8;font-size:.82rem;line-height:1.55}.format-note strong{color:#fff}
+@media(max-width:1160px){.shell{grid-template-columns:220px 1fr}.preview{grid-column:1/-1;position:static}.device{height:700px}}
+@media(max-width:780px){.shell{grid-template-columns:1fr}.nav-panel{position:static}.page-nav{grid-template-columns:1fr 1fr}.editor-head{flex-direction:column}.open-live{margin-left:0}.preview{grid-column:auto}.device{height:620px}}
+@media(max-width:520px){.page-nav{grid-template-columns:1fr}.header{align-items:flex-start;flex-direction:column}.actions{flex-direction:column}.actions .btn{width:100%}.details-text{min-height:280px}}
+</style>
+</head>
+<body>
+<header class="header">
+  <h1>✏️ Class Description Editor</h1>
+  <nav class="links"><a href="/admin">Command Center</a><a href="/admin/website/homepage">Homepage Editor</a><a href="/classes.html" target="_blank">Open Classes Page</a></nav>
+</header>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+{% endwith %}
+
+<main class="shell">
+  <aside class="panel nav-panel">
+    <h2>Class Pages</h2>
+    <div class="page-nav">
+      {% for page in pages %}
+      <button type="button" data-page="{{ page.key }}" onclick="showPage('{{ page.key }}')">
+        {{ page.label }}
+        <span>{{ page.audience }}</span>
+      </button>
+      {% endfor %}
+    </div>
+    <div class="format-note"><strong>Yearly updates are safe.</strong><br>Your saved descriptions live in the database, so you can update prices, ages, wording, and program details without touching the page design or Jackrabbit registration boxes.</div>
+  </aside>
+
+  <section class="editor">
+    {% for page in pages %}
+    <form class="panel editor-card" id="page-{{ page.key }}" method="post" action="/admin/website/classes/save">
+      <input type="hidden" name="page_key" value="{{ page.key }}">
+      <div class="editor-head">
+        <div>
+          <h2>{{ page.label }}</h2>
+          <p class="intro">Edit only the wording shown on this class registration page. The layout, photos, registration links, and Jackrabbit schedule stay untouched.</p>
+        </div>
+        {% if page.is_custom %}<span class="status">Custom text published</span>{% else %}<span class="status original">Using original text</span>{% endif %}
+      </div>
+
+      <div class="field">
+        <label for="hero-{{ page.key }}">Short description under the page headline</label>
+        <textarea class="hero-text" id="hero-{{ page.key }}" name="hero_description" maxlength="1500" required>{{ page.hero_description }}</textarea>
+        <span class="helper">Keep this concise. It is also used as the page's search-engine description after you publish.</span>
+      </div>
+
+      <div class="field">
+        <label for="details-{{ page.key }}">Program description and yearly details</label>
+        <textarea class="details-text" id="details-{{ page.key }}" name="program_description" maxlength="20000" required>{{ page.program_description }}</textarea>
+        <span class="helper">Use a blank line between paragraphs. Start a line with <strong>-</strong> or <strong>•</strong> to create a bullet list. This is a good place to update ages, tuition, registration fees, requirements, and season-specific notes.</span>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" type="submit" name="action" value="save">Publish {{ page.label }} Changes</button>
+        <button class="btn secondary" type="button" onclick="refreshPreview()">Refresh Preview</button>
+        <button class="btn danger" type="submit" name="action" value="reset" formnovalidate onclick="return confirm('Restore the original website text for {{ page.label }}?')">Restore Original Text</button>
+        <a class="open-live" href="/{{ page.filename }}" target="_blank">Open live page ↗</a>
+      </div>
+    </form>
+    {% endfor %}
+  </section>
+
+  <section class="panel preview">
+    <div class="preview-head">
+      <div><h2>Live Page Preview</h2><div class="preview-note">Shows the currently published version.</div></div>
+      <a id="previewLink" href="#" target="_blank">Open full screen ↗</a>
+    </div>
+    <iframe id="previewFrame" class="device" title="Class page preview"></iframe>
+  </section>
+</main>
+
+<script>
+const pages = {
+{% for page in pages %}  "{{ page.key }}": "/{{ page.filename }}"{% if not loop.last %},{% endif %}
+{% endfor %}};
+
+function showPage(key){
+  if(!pages[key]) return;
+  document.querySelectorAll('.editor-card').forEach(el=>el.classList.toggle('active',el.id==='page-'+key));
+  document.querySelectorAll('.page-nav button').forEach(el=>el.classList.toggle('active',el.dataset.page===key));
+  const frame=document.getElementById('previewFrame');
+  const link=document.getElementById('previewLink');
+  if(frame.dataset.page!==key){frame.src=pages[key];frame.dataset.page=key;}
+  link.href=pages[key];
+  if(location.hash!=='#page-'+key){history.replaceState(null,'','#page-'+key);}
+}
+
+function refreshPreview(){
+  const frame=document.getElementById('previewFrame');
+  if(frame.src) frame.contentWindow.location.reload();
+}
+
+const requested=(location.hash||'').replace('#page-','');
+showPage(pages[requested] ? requested : Object.keys(pages)[0]);
+</script>
+</body>
+</html>
