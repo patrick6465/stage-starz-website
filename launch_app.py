@@ -7,6 +7,7 @@ from app import app, log_activity, permission_required
 from admin_editor_fixes import register_admin_editor_fixes
 from bundled_assets import install_bundled_assets
 from class_content_editor import CLASS_PAGES, register_class_content_editor
+from classes_hero_layout import register_classes_hero_layout
 from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
@@ -46,6 +47,7 @@ install_competition_editor_support(app)
 register_launch_foundation(app, permission_required, log_activity)
 register_class_content_editor(app, permission_required, log_activity)
 register_competition_site_fixes(app)
+register_classes_hero_layout(app)
 
 # Register the finalizer before the panel renderer. Flask runs after_request
 # handlers in reverse registration order, so the renderer builds the photo card
