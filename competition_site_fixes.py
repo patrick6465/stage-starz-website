@@ -29,6 +29,81 @@ TEEN_LABEL_FIX = """<script id=\"ss-teen-team-label-fix\">
 document.querySelectorAll('a[href=\"teen-competition-team.html\"] h3').forEach(function(h){h.textContent='Teen Competition Team';});
 </script>"""
 
+TEEN_PHOTO_STYLE = """<style id=\"ss-teen-team-photo-style\">
+@media(min-width:821px){
+  body[data-competition-team] .hero .hero-inner.ss-teen-hero-grid{
+    max-width:1180px!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,.9fr) minmax(420px,1.1fr)!important;
+    gap:42px!important;
+    align-items:center!important;
+  }
+}
+.ss-teen-hero-copy{min-width:0}
+.ss-teen-team-photo{
+  margin:0;
+  padding:9px;
+  border-radius:26px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.16);
+  background:linear-gradient(145deg,rgba(140,76,255,.22),rgba(40,215,210,.12));
+  box-shadow:0 26px 72px rgba(0,0,0,.46),0 0 36px rgba(140,76,255,.16);
+}
+.ss-teen-team-photo img{
+  display:block;
+  width:100%;
+  height:auto;
+  max-height:560px;
+  object-fit:cover;
+  object-position:center center;
+  border-radius:19px;
+}
+.ss-teen-team-photo figcaption{
+  padding:10px 7px 2px;
+  color:#d8d1e4;
+  font-size:.78rem;
+  font-weight:800;
+  text-align:center;
+}
+@media(max-width:820px){
+  body[data-competition-team] .hero .hero-inner.ss-teen-hero-grid{display:block!important}
+  .ss-teen-team-photo{margin-top:30px}
+  .ss-teen-team-photo img{max-height:none}
+}
+</style>"""
+
+TEEN_PHOTO = """<figure class=\"ss-teen-team-photo\">
+<img src=\"assets/images/teen-competition-team.jpg\" alt=\"Stage Starz Teen Competition Team dancers performing on stage\">
+<figcaption>Stage Starz Teen Competition Team</figcaption>
+</figure>"""
+
+
+def _add_teen_photo(body: str) -> str:
+    if "ss-teen-team-photo" in body:
+        return body
+
+    hero_pattern = re.compile(
+        r'(<section\s+class="hero"[^>]*>\s*<div\s+class="hero-inner"[^>]*>)(.*?)(</div>\s*</section>)',
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    match = hero_pattern.search(body)
+    if not match:
+        return body
+
+    hero_content = match.group(2)
+    replacement = (
+        match.group(1).replace('class="hero-inner"', 'class="hero-inner ss-teen-hero-grid"')
+        + '<div class="ss-teen-hero-copy">'
+        + hero_content
+        + '</div>'
+        + TEEN_PHOTO
+        + match.group(3)
+    )
+    body = body[: match.start()] + replacement + body[match.end() :]
+    if 'id="ss-teen-team-photo-style"' not in body:
+        body = body.replace("</head>", TEEN_PHOTO_STYLE + "</head>", 1)
+    return body
+
 
 def register_competition_site_fixes(app) -> None:
     """Keep competition-team navigation consistent across all public team pages."""
@@ -52,6 +127,9 @@ def register_competition_site_fixes(app) -> None:
                 flags=re.IGNORECASE | re.DOTALL,
             )
             body = footer_pattern.sub(TEAM_LINKS, body, count=1)
+
+            if request.path == "/teen-competition-team.html":
+                body = _add_teen_photo(body)
 
             # site-refinements.js historically renamed Teen to Teen/Senior on the overview.
             # Run this tiny correction after that script so the current team name wins.
