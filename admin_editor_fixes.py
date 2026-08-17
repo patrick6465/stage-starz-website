@@ -169,11 +169,19 @@ def register_admin_editor_fixes(app, upload_folder, save_uploaded_image, log_act
             return response
         try:
             body = response.get_data(as_text=True)
-            if request.path == "/admin/website/classes" and 'id="ss-class-editor-mobile-fix"' not in body:
-                body = body.replace("</body>", CLASS_EDITOR_MOBILE_FIX + "</body>", 1)
+            if request.path == "/admin/website/classes":
+                # The Teen team's built-in image is a sharper bundled WEBP. Keep the
+                # editor preview aligned with the public page without changing custom uploads.
+                body = body.replace(
+                    "/assets/images/teen-competition-team.jpg",
+                    "/assets/images/teen-competition-team.webp",
+                )
+                if 'id="ss-class-editor-mobile-fix"' not in body:
+                    body = body.replace("</body>", CLASS_EDITOR_MOBILE_FIX + "</body>", 1)
                 response.set_data(body)
-            elif request.path == "/admin/media" and 'id="ss-media-mobile-fix"' not in body:
-                body = body.replace("</body>", MEDIA_LIBRARY_MOBILE_FIX + "</body>", 1)
+            elif request.path == "/admin/media":
+                if 'id="ss-media-mobile-fix"' not in body:
+                    body = body.replace("</body>", MEDIA_LIBRARY_MOBILE_FIX + "</body>", 1)
                 response.set_data(body)
         except Exception:
             app.logger.exception("Could not apply admin mobile fixes")
