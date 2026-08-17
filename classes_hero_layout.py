@@ -7,40 +7,56 @@ from config import BASE_DIR
 
 CLASSES_HERO_LAYOUT = r"""
 <style id="ss-classes-hero-right-layout">
-/* Keep the dancer unobstructed on desktop by using the open space to her right. */
+/* Use the new dancer photo on the left and reserve the open right side for copy. */
 @media(min-width:921px){
   .hero{
-    background-position:43% center!important;
+    background-color:#080712!important;
+    background-image:url("/assets/images/classes-hero-dancer.webp")!important;
+    background-repeat:no-repeat!important;
+    background-size:auto 100%!important;
+    background-position:left center!important;
   }
   .hero:before{
     background:
       linear-gradient(to left,
-        rgba(8,7,18,.97) 0%,
-        rgba(8,7,18,.88) 36%,
-        rgba(8,7,18,.38) 68%,
-        rgba(8,7,18,.24) 100%),
-      linear-gradient(0deg,rgba(8,7,18,.62),transparent 48%)!important;
+        rgba(8,7,18,.98) 0%,
+        rgba(8,7,18,.93) 34%,
+        rgba(8,7,18,.48) 57%,
+        rgba(8,7,18,.12) 76%,
+        rgba(8,7,18,.06) 100%),
+      linear-gradient(0deg,rgba(8,7,18,.48),transparent 45%)!important;
   }
   .hero-inner{
     display:flex!important;
     justify-content:flex-end!important;
   }
   .hero-copy{
-    width:min(52%,610px)!important;
-    max-width:610px!important;
+    width:min(49%,580px)!important;
+    max-width:580px!important;
     margin-left:auto!important;
     margin-right:0!important;
   }
 }
 
-/* At medium widths keep a little more breathing room without covering the dancer. */
+/* At medium desktop widths give the copy enough room while keeping it off the dancer. */
 @media(min-width:921px) and (max-width:1080px){
   .hero-copy{
-    width:54%!important;
-    max-width:560px!important;
+    width:50%!important;
+    max-width:520px!important;
   }
   .hero{
-    background-position:39% center!important;
+    background-size:auto 96%!important;
+    background-position:left center!important;
+  }
+}
+
+/* Mobile keeps the proven stacked copy treatment and crops the photo around the dancer. */
+@media(max-width:920px){
+  .hero{
+    background-image:url("/assets/images/classes-hero-dancer.webp")!important;
+    background-size:cover!important;
+    background-position:42% center!important;
+    background-repeat:no-repeat!important;
   }
 }
 </style>
@@ -60,7 +76,7 @@ def _render_classes_page() -> Response:
 
 
 def register_classes_hero_layout(app) -> None:
-    """Move Classes-page hero copy into the open space to the dancer's right."""
+    """Use the selected Classes hero photo and keep desktop copy to the dancer's right."""
 
     # Use an exact route instead of the generic static-file route. The static
     # response carries an ETag based only on classes.html, so Python-only layout
