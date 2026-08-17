@@ -1,6 +1,9 @@
 """Railway entrypoint that layers launch-readiness routes onto the Stage Starz app."""
 
-from app import app, log_activity, permission_required, save_uploaded_image
+import app as app_module
+import class_content_editor as class_editor
+
+from app import app, log_activity, permission_required
 from admin_editor_fixes import register_admin_editor_fixes
 from bundled_assets import install_bundled_assets
 from class_content_editor import CLASS_PAGES, register_class_content_editor
@@ -8,12 +11,25 @@ from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
 from launch_foundation import register_launch_foundation
+from persistent_media import (
+    delete_persistent_image,
+    register_persistent_media,
+    save_persistent_image,
+)
 from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
 from teen_image_asset import register_teen_image_asset
 
 # Keep existing bundled assets available for older references.
 install_bundled_assets()
+
+# Uploaded photos are stored in the persistent database and mirrored back to the
+# Railway filesystem at every restart/deploy. Patch all existing upload/delete
+# call sites so Homepage Editor, Media Library and Class/Team Editor share it.
+register_persistent_media(app)
+app_module.save_uploaded_image = save_persistent_image
+app_module.delete_uploaded_image = delete_persistent_image
+class_editor._save_uploaded_image = save_persistent_image
 
 # Serve the new sharp Teen photo from a cache-busting URL.
 register_teen_image_asset(app)
@@ -37,6 +53,6 @@ register_competition_site_fixes(app)
 register_program_hero_finalizer(app)
 register_program_hero_panels(app)
 
-register_admin_editor_fixes(app, UPLOAD_FOLDER, save_uploaded_image, log_activity)
+register_admin_editor_fixes(app, UPLOAD_FOLDER, save_persistent_image, log_activity)
 
 __all__ = ["app"]
