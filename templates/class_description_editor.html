@@ -17,9 +17,9 @@
 .photo-box{margin:4px 0 22px;padding:18px;border:1px solid rgba(80,214,208,.18);border-radius:17px;background:linear-gradient(145deg,rgba(80,214,208,.055),rgba(155,77,204,.055))}.photo-box h3{margin:0 0 7px;font-size:1rem}.photo-box>p{margin:0 0 16px;color:var(--muted);font-size:.86rem;line-height:1.55}.photo-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.photo-grid .full{grid-column:1/-1}.image-preview-wrap{position:relative;min-height:145px;border:1px dashed #4c3b60;border-radius:14px;overflow:hidden;background:#0d0817;display:grid;place-items:center}.image-preview{display:block;width:100%;height:190px;object-fit:cover}.built-in-note{padding:26px;text-align:center;color:var(--muted);font-size:.84rem}.photo-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}.mini-btn{border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 12px;background:#251936;color:#fff;font-weight:850;cursor:pointer}.mini-btn.danger{background:rgba(255,119,133,.10);border-color:rgba(255,119,133,.27)}
 .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:11px;padding:12px 16px;font-weight:900;cursor:pointer;font:inherit}.primary{color:#fff;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}.secondary{color:#fff;background:#2a1d3c}.danger{color:#fff;background:rgba(255,119,133,.14);border:1px solid rgba(255,119,133,.3)}.open-live{margin-left:auto;color:var(--teal);font-size:.85rem;font-weight:850}
 .flash{width:min(1480px,calc(100% - 28px));margin:18px auto 0;padding:12px 14px;border-radius:12px;background:rgba(98,230,170,.12);border:1px solid rgba(98,230,170,.28);color:#e9fff5}
-.preview{position:sticky;top:88px;overflow:hidden}.preview-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.preview-head h2{margin:0;font-size:1.08rem}.preview-note{color:var(--muted);font-size:.78rem}.device{width:100%;height:790px;border:0;border-radius:16px;background:#fff}.format-note{margin-top:18px;padding:14px;border:1px solid rgba(80,214,208,.17);border-radius:13px;background:rgba(80,214,208,.055);color:#cfc6d8;font-size:.82rem;line-height:1.55}.format-note strong{color:#fff}
+.preview{position:sticky;top:88px;overflow:hidden}.preview-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.preview-head h2{margin:0;font-size:1.08rem}.preview-note{color:var(--muted);font-size:.78rem}.device{width:100%;height:790px;border:0;border-radius:16px;background:#fff}.format-note{margin-top:18px;padding:14px;border:1px solid rgba(80,214,208,.17);border-radius:13px;background:rgba(80,214,208,.055);color:#cfc6d8;font-size:.82rem;line-height:1.55}.format-note strong{color:#fff}.ss-mobile-page-picker{display:none;margin-bottom:14px}.ss-mobile-page-picker label{display:block;margin-bottom:7px;font-size:.82rem;font-weight:900}.ss-mobile-page-picker select{border-color:var(--teal);font-weight:850}
 @media(max-width:1160px){.shell{grid-template-columns:220px 1fr}.preview{grid-column:1/-1;position:static}.device{height:700px}}
-@media(max-width:780px){.shell{grid-template-columns:1fr}.nav-panel{position:static}.page-nav{grid-template-columns:1fr 1fr}.editor-head{flex-direction:column}.status-row{justify-content:flex-start}.open-live{margin-left:0}.preview{grid-column:auto}.device{height:620px}}
+@media(max-width:780px){.shell{grid-template-columns:1fr}.nav-panel{position:static}.page-nav{grid-template-columns:1fr 1fr}.editor-head{flex-direction:column}.status-row{justify-content:flex-start}.open-live{margin-left:0}.preview{grid-column:auto}.device{height:620px}.ss-mobile-page-picker{display:block}}
 @media(max-width:520px){.page-nav,.photo-grid{grid-template-columns:1fr}.photo-grid .full{grid-column:auto}.header{align-items:flex-start;flex-direction:column}.actions{flex-direction:column}.actions .btn{width:100%}.details-text{min-height:280px}.image-preview{height:165px}.photo-actions{flex-direction:column}.photo-actions .mini-btn{width:100%}}
 </style>
 </head>
@@ -36,9 +36,15 @@
 <main class="shell">
   <aside class="panel nav-panel">
     <h2>Class Pages</h2>
+    <div class="ss-mobile-page-picker">
+      <label for="ss-mobile-page-picker-select">Choose a class or team to edit</label>
+      <select id="ss-mobile-page-picker-select" onchange="showPage(this.value,true)">
+        {% for page in pages %}<option value="{{ page.key }}">{{ page.label }} — {{ page.audience }}</option>{% endfor %}
+      </select>
+    </div>
     <div class="page-nav">
       {% for page in pages %}
-      <button type="button" data-page="{{ page.key }}" onclick="showPage('{{ page.key }}')">
+      <button type="button" data-page="{{ page.key }}" onclick="showPage('{{ page.key }}',true)">
         {{ page.label }}
         <span>{{ page.audience }}</span>
       </button>
@@ -68,8 +74,11 @@
         <p>Upload a new photo or choose one already in the Stage Starz Media Library. Publishing replaces the hero image for this class page while keeping its dark overlays and responsive layout.</p>
         <div class="photo-grid">
           <div class="full image-preview-wrap" id="image-wrap-{{ page.key }}">
+            {% set teen_builtin = '/assets/images/teen-competition-team.jpg' if page.filename == 'teen-competition-team.html' else '' %}
             {% if page.hero_image %}
               <img class="image-preview" id="image-preview-{{ page.key }}" src="{{ page.hero_image }}" alt="Current {{ page.label }} hero photo">
+            {% elif teen_builtin %}
+              <img class="image-preview" id="image-preview-{{ page.key }}" src="{{ teen_builtin }}" alt="Built-in {{ page.label }} hero photo">
             {% else %}
               <div class="built-in-note" id="built-in-note-{{ page.key }}">Using the hero photo currently built into the {{ page.label }} page.<br>The live preview at right shows it.</div>
               <img class="image-preview" id="image-preview-{{ page.key }}" alt="Selected {{ page.label }} hero photo" hidden>
@@ -131,15 +140,20 @@ const pages = {
 {% for page in pages %}  "{{ page.key }}": "/{{ page.filename }}"{% if not loop.last %},{% endif %}
 {% endfor %}};
 
-function showPage(key){
+function showPage(key,shouldScroll){
   if(!pages[key]) return;
   document.querySelectorAll('.editor-card').forEach(el=>el.classList.toggle('active',el.id==='page-'+key));
   document.querySelectorAll('.page-nav button').forEach(el=>el.classList.toggle('active',el.dataset.page===key));
+  const picker=document.getElementById('ss-mobile-page-picker-select');
+  if(picker) picker.value=key;
   const frame=document.getElementById('previewFrame');
   const link=document.getElementById('previewLink');
   if(frame.dataset.page!==key){frame.src=pages[key];frame.dataset.page=key;}
   link.href=pages[key];
   if(location.hash!=='#page-'+key){history.replaceState(null,'','#page-'+key);}
+  if(shouldScroll && window.matchMedia('(max-width:780px)').matches){
+    setTimeout(()=>{const card=document.getElementById('page-'+key);if(card) card.scrollIntoView({behavior:'smooth',block:'start'});},60);
+  }
 }
 
 function refreshPreview(){
@@ -177,7 +191,7 @@ function previewUpload(key,input){
 }
 
 const requested=(location.hash||'').replace('#page-','');
-showPage(pages[requested] ? requested : Object.keys(pages)[0]);
+showPage(pages[requested] ? requested : Object.keys(pages)[0],false);
 </script>
 </body>
 </html>
