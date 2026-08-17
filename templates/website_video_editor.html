@@ -97,14 +97,35 @@ function uploadForm(form){
   const bar=form.querySelector('.progress-bar');
   const text=form.querySelector('.progress-text');
   const buttons=form.querySelectorAll('button');
+  let uploadBodySent=false;
   name.textContent=selected.name+' • '+humanSize(selected.size);
   if(selected.size>250*1024*1024){wrap.style.display='block';bar.style.width='0';text.textContent='This video is over the 250 MB limit.';return;}
   wrap.style.display='block';text.textContent='Uploading… 0%';buttons.forEach(b=>b.disabled=true);
   const data=new FormData(form);data.set('action','save');
   const xhr=new XMLHttpRequest();xhr.open('POST',form.action,true);
+  const refreshToConfirm=function(){
+    bar.style.width='100%';
+    text.textContent='Upload received — refreshing to confirm…';
+    buttons.forEach(b=>b.disabled=true);
+    setTimeout(function(){window.location.href='/admin/website/videos#slot-'+form.dataset.slot;},900);
+  };
+  const showFailure=function(message){
+    buttons.forEach(b=>b.disabled=false);
+    text.textContent=message;
+  };
   xhr.upload.onprogress=function(e){if(e.lengthComputable){const pct=Math.min(99,Math.round((e.loaded/e.total)*100));bar.style.width=pct+'%';text.textContent='Uploading… '+pct+'%';}};
-  xhr.onload=function(){if(xhr.status>=200&&xhr.status<400){bar.style.width='100%';text.textContent='Upload complete — publishing…';window.location.href=xhr.responseURL||('/admin/website/videos#slot-'+form.dataset.slot);}else{buttons.forEach(b=>b.disabled=false);text.textContent='Upload failed. Please try again.';}};
-  xhr.onerror=function(){buttons.forEach(b=>b.disabled=false);text.textContent='Upload failed. Check your connection and try again.';};
+  xhr.upload.onload=function(){uploadBodySent=true;bar.style.width='99%';text.textContent='Upload received — finishing…';};
+  xhr.onload=function(){
+    if(xhr.status>=200&&xhr.status<400){bar.style.width='100%';text.textContent='Upload complete — publishing…';setTimeout(function(){window.location.href=xhr.responseURL||('/admin/website/videos#slot-'+form.dataset.slot);},250);return;}
+    if(xhr.status===413){showFailure('This video is larger than the server upload limit.');return;}
+    if(uploadBodySent&&xhr.status>=500){refreshToConfirm();return;}
+    showFailure('Upload failed. Please try again.');
+  };
+  xhr.onerror=function(){
+    if(uploadBodySent){refreshToConfirm();return;}
+    showFailure('Upload failed. Check your connection and try again.');
+  };
+  xhr.onabort=function(){showFailure('Upload was cancelled.');};
   xhr.send(data);
 }
 document.querySelectorAll('.video-form').forEach(function(form){const input=form.querySelector('.video-file');if(input){input.addEventListener('change',function(){if(this.files&&this.files[0])uploadForm(form);});}});
