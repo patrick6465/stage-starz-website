@@ -18,6 +18,7 @@ from persistent_media import (
     register_persistent_media,
     save_persistent_image,
 )
+from persistent_videos import register_persistent_videos
 from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
 from teen_image_asset import register_teen_image_asset
@@ -35,7 +36,11 @@ app_module.save_uploaded_image = save_persistent_image
 app_module.delete_uploaded_image = delete_persistent_image
 class_editor._save_uploaded_image = save_persistent_image
 
-# Website videos live in the Railway media volume and can be assigned to the
+# Website videos use the same persistence pattern as uploaded photos: back them
+# up to the persistent database and restore them to Railway disk after deploys.
+register_persistent_videos(app)
+
+# Website videos live in Railway media storage and can be assigned to the
 # homepage performance panel or the Musical Theater Competition spotlight.
 register_website_video_manager(app, permission_required, log_activity)
 register_video_admin_nav(app)
