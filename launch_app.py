@@ -21,6 +21,7 @@ from persistent_media import (
 from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
 from teen_image_asset import register_teen_image_asset
+from video_admin_nav import register_video_admin_nav
 from website_video_manager import register_website_video_manager
 
 # Keep existing bundled assets available for older references.
@@ -37,6 +38,7 @@ class_editor._save_uploaded_image = save_persistent_image
 # Website videos live in the Railway media volume and can be assigned to the
 # homepage performance panel or the Musical Theater Competition spotlight.
 register_website_video_manager(app, permission_required, log_activity)
+register_video_admin_nav(app)
 
 # Serve the sharp built-in image assets from cache-busting routes.
 register_teen_image_asset(app)
