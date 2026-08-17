@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import html as html_lib
 import re
+import uuid
 from pathlib import Path
 
 from flask import Response, flash, redirect, render_template, request
+from werkzeug.utils import secure_filename
 
-from config import BASE_DIR
+from config import ALLOWED_IMAGE_EXTENSIONS, BASE_DIR, UPLOAD_FOLDER
 from database import get_db
 
 
@@ -47,10 +49,39 @@ def ensure_class_page_content_schema() -> None:
             page_key TEXT PRIMARY KEY,
             hero_description TEXT NOT NULL DEFAULT '',
             program_description TEXT NOT NULL DEFAULT '',
+            hero_image TEXT NOT NULL DEFAULT '',
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
         """
     )
+
+    backend = getattr(connection, "backend", "sqlite")
+    if backend == "postgresql":
+        image_column = connection.execute(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name='class_page_content' AND column_name='hero_image'
+            """
+        ).fetchone()
+        has_hero_image = bool(image_column)
+    else:
+        columns = connection.execute("PRAGMA table_info(class_page_content)").fetchall()
+        has_hero_image = False
+        for row in columns:
+            try:
+                name = row["name"]
+            except (TypeError, KeyError, IndexError):
+                name = row[1]
+            if name == "hero_image":
+                has_hero_image = True
+                break
+
+    if not has_hero_image:
+        connection.execute(
+            "ALTER TABLE class_page_content ADD COLUMN hero_image TEXT NOT NULL DEFAULT ''"
+        )
+
     connection.commit()
     connection.close()
 
@@ -137,7 +168,7 @@ def _get_saved_content(page_key: str):
     connection = get_db()
     row = connection.execute(
         """
-        SELECT page_key, hero_description, program_description, updated_at
+        SELECT page_key, hero_description, program_description, hero_image, updated_at
         FROM class_page_content
         WHERE page_key=?
         """,
@@ -147,9 +178,31 @@ def _get_saved_content(page_key: str):
     return dict(row) if row else None
 
 
+def _replace_hero_images(source: str, hero_image: str) -> str:
+    """Replace only images used by .hero:before blocks while preserving overlays and positioning."""
+    if not hero_image.startswith("/uploads/"):
+        return source
+
+    block_pattern = re.compile(
+        r'(?P<prefix>[^{}]*\.hero:before\s*\{)(?P<body>[^{}]*)(?P<suffix>\})',
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    url_pattern = re.compile(r'url\(\s*(["\']?)(.*?)\1\s*\)', flags=re.IGNORECASE)
+
+    def replace_block(match: re.Match) -> str:
+        body = match.group("body")
+        if not url_pattern.search(body):
+            return match.group(0)
+        body = url_pattern.sub(lambda _url: f'url("{hero_image}")', body)
+        return match.group("prefix") + body + match.group("suffix")
+
+    return block_pattern.sub(replace_block, source)
+
+
 def _apply_saved_content(source: str, saved: dict[str, str]) -> str:
     hero = saved.get("hero_description", "").strip()
     details = saved.get("program_description", "").strip()
+    hero_image = saved.get("hero_image", "").strip()
 
     escaped_hero = html_lib.escape(hero)
     source = re.sub(
@@ -177,11 +230,42 @@ def _apply_saved_content(source: str, saved: dict[str, str]) -> str:
         count=1,
         flags=re.IGNORECASE | re.DOTALL,
     )
+
+    if hero_image:
+        source = _replace_hero_images(source, hero_image)
     return source
 
 
+def _list_media_files() -> list[dict[str, str]]:
+    if not UPLOAD_FOLDER.exists():
+        return []
+    allowed = {extension.lower().lstrip(".") for extension in ALLOWED_IMAGE_EXTENSIONS}
+    files = []
+    for path in UPLOAD_FOLDER.iterdir():
+        if path.is_file() and path.suffix.lower().lstrip(".") in allowed:
+            files.append({"name": path.name, "url": f"/uploads/{path.name}"})
+    return sorted(files, key=lambda item: item["name"].lower())
+
+
+def _save_uploaded_image(file_storage) -> str:
+    if not file_storage or not file_storage.filename:
+        return ""
+    original = secure_filename(file_storage.filename)
+    if "." not in original:
+        raise ValueError("Choose a JPG, JPEG, PNG, WEBP, or GIF image.")
+    extension = original.rsplit(".", 1)[1].lower()
+    allowed = {item.lower().lstrip(".") for item in ALLOWED_IMAGE_EXTENSIONS}
+    if extension not in allowed:
+        raise ValueError("Choose a JPG, JPEG, PNG, WEBP, or GIF image.")
+    UPLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
+    stem = Path(original).stem[:60] or "class-hero"
+    filename = f"{stem}-{uuid.uuid4().hex[:10]}.{extension}"
+    file_storage.save(UPLOAD_FOLDER / filename)
+    return f"/uploads/{filename}"
+
+
 def register_class_content_editor(app, permission_required, log_activity=None) -> None:
-    """Add an admin editor and database-backed descriptions to class pages."""
+    """Add an admin editor and database-backed descriptions/photos to class pages."""
     ensure_class_page_content_schema()
 
     def make_public_class_view(page_key: str):
@@ -214,23 +298,34 @@ def register_class_content_editor(app, permission_required, log_activity=None) -
         for page_key, page in CLASS_PAGES.items():
             original = _extract_original_content(page["filename"])
             saved = _get_saved_content(page_key)
+            hero_description = saved["hero_description"] if saved else original["hero_description"]
+            program_description = saved["program_description"] if saved else original["program_description"]
+            hero_image = (saved.get("hero_image") or "") if saved else ""
             pages.append(
                 {
                     "key": page_key,
                     "label": page["label"],
                     "filename": page["filename"],
                     "audience": page["audience"],
-                    "hero_description": (
-                        saved["hero_description"] if saved else original["hero_description"]
+                    "hero_description": hero_description,
+                    "program_description": program_description,
+                    "hero_image": hero_image,
+                    "has_custom_image": bool(hero_image),
+                    "is_custom_text": bool(
+                        saved
+                        and (
+                            hero_description != original["hero_description"]
+                            or program_description != original["program_description"]
+                        )
                     ),
-                    "program_description": (
-                        saved["program_description"] if saved else original["program_description"]
-                    ),
-                    "is_custom": bool(saved),
                     "updated_at": saved.get("updated_at") if saved else None,
                 }
             )
-        return render_template("class_description_editor.html", pages=pages)
+        return render_template(
+            "class_description_editor.html",
+            pages=pages,
+            media_files=_list_media_files(),
+        )
 
     @app.route("/admin/website/classes/save", methods=["POST"])
     @permission_required("website")
@@ -242,28 +337,63 @@ def register_class_content_editor(app, permission_required, log_activity=None) -
 
         page = CLASS_PAGES[page_key]
         action = request.form.get("action", "save")
+        original = _extract_original_content(page["filename"])
+        saved = _get_saved_content(page_key)
 
         connection = get_db()
-        if action == "reset":
-            connection.execute(
-                "DELETE FROM class_page_content WHERE page_key=?",
-                (page_key,),
-            )
+
+        if action == "reset_text":
+            if saved and (saved.get("hero_image") or ""):
+                connection.execute(
+                    """
+                    UPDATE class_page_content SET
+                        hero_description=?, program_description=?, updated_at=CURRENT_TIMESTAMP
+                    WHERE page_key=?
+                    """,
+                    (
+                        original["hero_description"],
+                        original["program_description"],
+                        page_key,
+                    ),
+                )
+            else:
+                connection.execute(
+                    "DELETE FROM class_page_content WHERE page_key=?",
+                    (page_key,),
+                )
             connection.commit()
             connection.close()
-            flash(f"{page['label']} was restored to the original website text.", "success")
+            flash(f"{page['label']} wording was restored to the original website text.", "success")
             if log_activity:
                 try:
-                    log_activity(
-                        "Class page description restored",
-                        page["label"],
-                    )
+                    log_activity("Class page text restored", page["label"])
                 except Exception:
-                    app.logger.exception("Could not log class description reset")
+                    app.logger.exception("Could not log class text reset")
+            return redirect(f"/admin/website/classes#page-{page_key}")
+
+        if action == "reset_image":
+            if saved:
+                connection.execute(
+                    """
+                    UPDATE class_page_content SET
+                        hero_image='', updated_at=CURRENT_TIMESTAMP
+                    WHERE page_key=?
+                    """,
+                    (page_key,),
+                )
+                connection.commit()
+            connection.close()
+            flash(f"{page['label']} is using its built-in hero photo again.", "success")
+            if log_activity:
+                try:
+                    log_activity("Class page hero photo restored", page["label"])
+                except Exception:
+                    app.logger.exception("Could not log class hero reset")
             return redirect(f"/admin/website/classes#page-{page_key}")
 
         hero_description = request.form.get("hero_description", "").strip()[:1500]
         program_description = request.form.get("program_description", "").strip()[:20000]
+        hero_image = request.form.get("hero_image", "").strip()
 
         if not hero_description:
             connection.close()
@@ -274,44 +404,73 @@ def register_class_content_editor(app, permission_required, log_activity=None) -
             flash("The program description cannot be blank.", "error")
             return redirect(f"/admin/website/classes#page-{page_key}")
 
+        uploaded_file = request.files.get("hero_image_upload")
+        if uploaded_file and uploaded_file.filename:
+            try:
+                hero_image = _save_uploaded_image(uploaded_file)
+            except ValueError as error:
+                connection.close()
+                flash(str(error), "error")
+                return redirect(f"/admin/website/classes#page-{page_key}")
+
+        if hero_image and not hero_image.startswith("/uploads/"):
+            hero_image = ""
+
         connection.execute(
             """
             INSERT INTO class_page_content (
-                page_key, hero_description, program_description, updated_at
-            ) VALUES (?,?,?,CURRENT_TIMESTAMP)
+                page_key, hero_description, program_description, hero_image, updated_at
+            ) VALUES (?,?,?,?,CURRENT_TIMESTAMP)
             ON CONFLICT(page_key) DO UPDATE SET
                 hero_description=excluded.hero_description,
                 program_description=excluded.program_description,
+                hero_image=excluded.hero_image,
                 updated_at=CURRENT_TIMESTAMP
             """,
-            (page_key, hero_description, program_description),
+            (page_key, hero_description, program_description, hero_image),
         )
         connection.commit()
         connection.close()
 
         if log_activity:
             try:
-                log_activity(
-                    "Class page description updated",
-                    page["label"],
-                )
+                log_activity("Class page content updated", page["label"])
             except Exception:
-                app.logger.exception("Could not log class description update")
+                app.logger.exception("Could not log class page update")
 
-        flash(f"{page['label']} descriptions published.", "success")
+        flash(f"{page['label']} page changes published.", "success")
         return redirect(f"/admin/website/classes#page-{page_key}")
 
     @app.after_request
     def add_class_editor_to_command_center(response):
-        """Surface the editor beside Homepage Editor without altering dashboard markup."""
+        """Surface the class editor on both desktop and mobile Command Center navigation."""
         if request.path != "/admin" or response.mimetype != "text/html":
             return response
         try:
             body = response.get_data(as_text=True)
-            needle = '<a href="/admin/website/homepage">🏠 Homepage Editor</a>'
-            new_link = '<a href="/admin/website/classes">✏️ Class Description Editor</a>'
-            if needle in body and new_link not in body:
-                response.set_data(body.replace(needle, needle + new_link, 1))
+
+            desktop_needle = '<a href="/admin/website/homepage">🏠 Homepage Editor</a>'
+            desktop_link = '<a href="/admin/website/classes">✏️ Class Page Editor</a>'
+            if desktop_needle in body and desktop_link not in body:
+                body = body.replace(desktop_needle, desktop_needle + desktop_link, 1)
+
+            mobile_needle = '<a href="/admin/store"><b>🛍</b>Store</a>'
+            mobile_link = '<a href="/admin/website/classes"><b>✏️</b>Class Pages</a>'
+            if mobile_needle in body and mobile_link not in body:
+                body = body.replace(mobile_needle, mobile_needle + mobile_link, 1)
+
+            mobile_style = """
+<style id="class-editor-mobile-nav-fix">
+@media(max-width:760px){
+  .mobile-nav{grid-template-columns:repeat(5,1fr)!important}
+  .mobile-nav a{font-size:.61rem!important;line-height:1.2}
+}
+</style>
+"""
+            if mobile_link in body and 'id="class-editor-mobile-nav-fix"' not in body:
+                body = body.replace("</head>", mobile_style + "</head>", 1)
+
+            response.set_data(body)
         except Exception:
-            app.logger.exception("Could not add Class Description Editor link to dashboard")
+            app.logger.exception("Could not add Class Page Editor links to dashboard")
         return response
