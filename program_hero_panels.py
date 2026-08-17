@@ -32,33 +32,41 @@ PATH_PAGE_KEYS = {
     "/junior-competition-team.html": "junior_competition",
 }
 
-# The four non-Teen competition pages were rebuilt without any image source in
-# their Railway HTML. Seed their new photo-card heroes from the current public
-# Stage Starz/Wix team photography so the cards are not empty.
+# The non-Teen competition pages currently do not contain a built-in hero image.
+# Use the locally bundled full-team photo as a reliable starter image. Each team
+# can then be given its own photo through the Class Page Editor / Media Library.
+COMPETITION_FALLBACK = "/assets/images/full-team-picture.jpg"
 DEFAULT_PHOTOS = {
-    "/mini-competition-team.html": "https://static.wixstatic.com/media/dd8497_a75ee9344e394285bcc4030968720eaa~mv2.jpg/v1/fill/w_980,h_700,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Minis%20Comp%20Web%20Pic.jpg",
-    "/petite-competition-team.html": "https://static.wixstatic.com/media/6dd5c2_be6790629ced47abbfe131999c1cbb0a~mv2.png/v1/fill/w_980,h_700,al_c,q_90,usm_0.66_1.00_0.01,enc_avif,quality_auto/Minis%20Lyrical.png",
-    # Petites and Juniorettes share several competition blocks; use the same
-    # existing stage image as a starter until a dedicated Juniorettes photo is
-    # assigned through the editor.
-    "/juniorettes-competition-team.html": "https://static.wixstatic.com/media/6dd5c2_be6790629ced47abbfe131999c1cbb0a~mv2.png/v1/fill/w_980,h_700,al_c,q_90,usm_0.66_1.00_0.01,enc_avif,quality_auto/Minis%20Lyrical.png",
-    "/junior-competition-team.html": "https://static.wixstatic.com/media/6dd5c2_8e1939b9eb72433fab5c15f4dc0afb3c~mv2.jpg/v1/fill/w_980,h_653,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/HOF_DETROIT1_22596.jpg",
+    "/mini-competition-team.html": COMPETITION_FALLBACK,
+    "/petite-competition-team.html": COMPETITION_FALLBACK,
+    "/juniorettes-competition-team.html": COMPETITION_FALLBACK,
+    "/junior-competition-team.html": COMPETITION_FALLBACK,
 }
 
 PANEL_STYLE = r"""
 <style id="ss-program-photo-hero-style">
-.hero:before{
-  background:
+.hero{
+  min-height:auto!important;
+}
+.hero:before,.hero::before{
+  background-image:
     radial-gradient(circle at 82% 22%,rgba(181,59,212,.24),transparent 28rem),
     radial-gradient(circle at 72% 78%,rgba(32,200,199,.13),transparent 30rem),
     linear-gradient(135deg,#05050c 0%,#10091b 52%,#06050d 100%)!important;
+  background-color:#05050c!important;
+  background-position:center!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
 }
 .hero-inner.ss-program-photo-grid{
   display:grid!important;
   grid-template-columns:minmax(0,.9fr) minmax(380px,1.1fr)!important;
   gap:42px!important;
   align-items:center!important;
+  padding-top:72px!important;
+  padding-bottom:72px!important;
 }
+.ss-program-hero-copy{min-width:0}
 .ss-program-photo-panel{
   margin:0;
   padding:9px;
@@ -89,11 +97,14 @@ PANEL_STYLE = r"""
   .hero-inner.ss-program-photo-grid{
     grid-template-columns:1fr!important;
     gap:30px!important;
+    padding-top:46px!important;
+    padding-bottom:46px!important;
   }
   .ss-program-photo-panel{margin-top:4px}
   .ss-program-photo-panel img{aspect-ratio:16/10}
 }
 @media(max-width:640px){
+  .hero-inner.ss-program-photo-grid{padding-top:34px!important;padding-bottom:38px!important}
   .ss-program-photo-panel{padding:7px;border-radius:22px}
   .ss-program-photo-panel img{border-radius:16px;aspect-ratio:4/3}
 }
@@ -102,7 +113,7 @@ PANEL_STYLE = r"""
 
 
 def _hero_photo_url(body: str) -> str:
-    """Return the image currently assigned to the desktop hero background."""
+    """Return the image currently assigned to the page's desktop hero background."""
     hero_block = re.search(
         r'\.hero:before\s*\{(?P<body>[^{}]*)\}',
         body,
@@ -155,15 +166,24 @@ def register_program_hero_panels(app) -> None:
             if 'id="ss-program-photo-hero-style"' in body:
                 return response
 
+            fallback_url = DEFAULT_PHOTOS.get(request.path, "")
             photo_url = (
                 _saved_photo_url(request.path)
                 or _hero_photo_url(body)
-                or DEFAULT_PHOTOS.get(request.path, "")
+                or fallback_url
             )
             if not photo_url:
                 return response
 
             safe_url = html.escape(photo_url, quote=True)
+            safe_fallback = html.escape(fallback_url, quote=True)
+            onerror = ""
+            if safe_fallback and safe_fallback != safe_url:
+                onerror = (
+                    " onerror=\"if(this.dataset.fallback!=='1'){this.dataset.fallback='1';"
+                    f"this.src='{safe_fallback}';}}\""
+                )
+
             script = f"""
 <script id="ss-program-photo-hero-script">
 (function(){{
@@ -171,11 +191,21 @@ def register_program_hero_panels(app) -> None:
     var hero=document.querySelector('.hero');
     var inner=hero&&hero.querySelector('.hero-inner');
     if(!hero||!inner||inner.querySelector('.ss-program-photo-panel')) return;
+
     inner.classList.add('ss-program-photo-grid');
     var title=(hero.querySelector('h1')&&hero.querySelector('h1').textContent||'Stage Starz Program').replace(/\\s+/g,' ').trim();
+
+    // Keep all hero wording/buttons together in the left column. Previously the
+    // grid treated each heading, paragraph and button row as a separate grid item.
+    var copy=document.createElement('div');
+    copy.className='ss-program-hero-copy';
+    while(inner.firstChild) copy.appendChild(inner.firstChild);
+
     var figure=document.createElement('figure');
     figure.className='ss-program-photo-panel';
-    figure.innerHTML='<img src="{safe_url}" alt="'+title.replace(/"/g,'&quot;')+'"><figcaption>'+title+'</figcaption>';
+    figure.innerHTML='<img src="{safe_url}" alt="'+title.replace(/"/g,'&quot;')+'"{onerror}><figcaption>'+title+'</figcaption>';
+
+    inner.appendChild(copy);
     inner.appendChild(figure);
   }}
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',setup);
