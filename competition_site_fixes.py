@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import re
 
 from flask import request
@@ -53,10 +54,9 @@ TEEN_PHOTO_STYLE = """<style id=\"ss-teen-team-photo-style\">
   display:block;
   width:100%;
   height:auto;
-  max-height:560px;
-  object-fit:cover;
-  object-position:center center;
+  object-fit:contain;
   border-radius:19px;
+  image-rendering:auto;
 }
 .ss-teen-team-photo figcaption{
   padding:10px 7px 2px;
@@ -68,14 +68,20 @@ TEEN_PHOTO_STYLE = """<style id=\"ss-teen-team-photo-style\">
 @media(max-width:820px){
   body[data-competition-team] .hero .hero-inner.ss-teen-hero-grid{display:block!important}
   .ss-teen-team-photo{margin-top:30px}
-  .ss-teen-team-photo img{max-height:none}
 }
 </style>"""
 
-TEEN_PHOTO = """<figure class=\"ss-teen-team-photo\">
-<img src=\"assets/images/teen-competition-team.jpg\" alt=\"Stage Starz Teen Competition Team dancers performing on stage\">
-<figcaption>Stage Starz Teen Competition Team</figcaption>
-</figure>"""
+
+def _teen_photo_url(body: str) -> str:
+    """Read the Teen page's editable hero-image marker after admin overrides are applied."""
+    marker = re.search(
+        r'\.hero:before\s*\{[^{}]*?url\(\s*[\"\']?([^\"\')]+)',
+        body,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if marker:
+        return marker.group(1).strip()
+    return "assets/images/teen-competition-team.webp"
 
 
 def _add_teen_photo(body: str) -> str:
@@ -90,13 +96,21 @@ def _add_teen_photo(body: str) -> str:
     if not match:
         return body
 
+    photo_url = html.escape(_teen_photo_url(body), quote=True)
     hero_content = match.group(2)
+    photo = (
+        '<figure class="ss-teen-team-photo">'
+        f'<img class="ss-teen-team-photo-image" src="{photo_url}" '
+        'alt="Stage Starz Teen Competition Team dancers performing on stage">'
+        '<figcaption>Stage Starz Teen Competition Team</figcaption>'
+        '</figure>'
+    )
     replacement = (
         match.group(1).replace('class="hero-inner"', 'class="hero-inner ss-teen-hero-grid"')
         + '<div class="ss-teen-hero-copy">'
         + hero_content
         + '</div>'
-        + TEEN_PHOTO
+        + photo
         + match.group(3)
     )
     body = body[: match.start()] + replacement + body[match.end() :]
@@ -132,7 +146,6 @@ def register_competition_site_fixes(app) -> None:
                 body = _add_teen_photo(body)
 
             # site-refinements.js historically renamed Teen to Teen/Senior on the overview.
-            # Run this tiny correction after that script so the current team name wins.
             if request.path == "/competition.html" and 'id="ss-teen-team-label-fix"' not in body:
                 body = body.replace("</body>", TEEN_LABEL_FIX + "</body>", 1)
 
