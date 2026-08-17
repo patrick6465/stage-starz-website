@@ -104,17 +104,17 @@ MEDIA_LIBRARY_MOBILE_FIX = r"""
 
     var heading=form.closest('.card');
     var note=heading ? heading.querySelector('p') : null;
-    if(note) note.textContent='Choose a JPG, PNG, WEBP, or GIF. Upload starts automatically after you select the file. Maximum size: 10 MB.';
+    if(note) note.textContent='Choose a JPG, PNG, WEBP, HEIC, or HEIF photo. Upload starts automatically. Maximum original size: 25 MB.';
 
     input.addEventListener('change',function(){
       var file=input.files&&input.files[0];
       if(!file) return;
       var mb=file.size/1024/1024;
       status.className='ss-upload-status show';
-      status.textContent='Selected: '+file.name+' ('+mb.toFixed(1)+' MB). Uploading…';
-      if(file.size>10*1024*1024){
+      status.textContent='Selected: '+file.name+' ('+mb.toFixed(1)+' MB). Uploading and optimizing…';
+      if(file.size>25*1024*1024){
         status.className='ss-upload-status show error';
-        status.textContent='That photo is larger than 10 MB. Please choose a smaller image.';
+        status.textContent='That photo is larger than 25 MB. Please choose a smaller image.';
         input.value='';
         return;
       }
@@ -155,12 +155,12 @@ def register_admin_editor_fixes(app, upload_folder, save_uploaded_image, log_act
                 flash("Choose an image before uploading.", "error")
             else:
                 log_activity("Image uploaded", Path(image_url).name)
-                flash(f"{Path(image_url).name} uploaded successfully.", "success")
+                flash(f"{Path(image_url).name} uploaded and saved permanently.", "success")
         except ValueError as error:
             flash(str(error), "error")
-        except OSError:
+        except Exception:
             app.logger.exception("Media Library upload failed")
-            flash("The photo could not be saved. Please try again, preferably with a JPG or PNG under 10 MB.", "error")
+            flash("That photo could not be uploaded. Please try it again or choose another image.", "error")
         return redirect(url_for("media_library"))
 
     @app.after_request
