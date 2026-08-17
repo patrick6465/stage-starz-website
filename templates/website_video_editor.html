@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Website Video Editor | Stage Starz</title>
+<style>
+:root{--night:#0b0715;--panel:#17102a;--panel2:#110b20;--line:#39294d;--white:#fff;--muted:#aaa0b8;--purple:#9b4dcc;--pink:#ef3d98;--teal:#50d6d0;--gold:#f0ca75;--danger:#ff7888;--success:#62e6aa}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 6% 0%,rgba(155,77,204,.24),transparent 28rem),radial-gradient(circle at 96% 8%,rgba(80,214,208,.11),transparent 30rem),var(--night);color:var(--white);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}a{color:inherit;text-decoration:none}
+.header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;gap:18px;align-items:center;padding:17px clamp(16px,4vw,48px);background:rgba(11,7,21,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(18px)}.header h1{margin:0;font-size:1.24rem}.links{display:flex;gap:14px;flex-wrap:wrap;color:#ddd3e9;font-weight:780}.links a:hover{color:var(--teal)}
+.wrap{width:min(1320px,calc(100% - 28px));margin:24px auto 60px}.intro-card,.slot,.library{background:rgba(23,16,42,.95);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:0 20px 55px rgba(0,0,0,.23)}.intro-card{margin-bottom:18px}.intro-card h2,.library h2{margin:0 0 8px}.intro-card p,.slot p,.library p{color:var(--muted);line-height:1.58}.badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.badge{padding:7px 10px;border:1px solid rgba(80,214,208,.22);background:rgba(80,214,208,.08);color:#dffffd;border-radius:999px;font-size:.76rem;font-weight:850}
+.flash{margin-bottom:16px;padding:12px 14px;border:1px solid rgba(98,230,170,.28);border-radius:12px;background:rgba(98,230,170,.10);color:#effff6}
+.slot-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.slot{min-width:0}.slot-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:15px}.slot h2{margin:0 0 4px;font-size:1.3rem}.slot-label{color:var(--gold);text-transform:uppercase;letter-spacing:.12em;font-size:.69rem;font-weight:950}.open-page{color:var(--teal);font-size:.82rem;font-weight:850;white-space:nowrap}
+.video-shell{position:relative;aspect-ratio:16/9;border:1px solid rgba(255,255,255,.14);border-radius:18px;overflow:hidden;background:#05050c;margin:15px 0}.video-shell video{display:block;width:100%;height:100%;object-fit:contain;background:#05050c}.placeholder{height:100%;display:grid;place-items:center;text-align:center;padding:24px;background:linear-gradient(145deg,#28133f,#112b35);color:#e8e1ee;font-weight:900}.placeholder span{display:block;color:#aaa0b8;font-size:.8rem;font-weight:700;margin-top:7px}
+.field{margin-top:14px}label{display:block;margin-bottom:7px;font-size:.84rem;font-weight:900;color:#eee6f5}input,select{width:100%;padding:12px 13px;border:1px solid #4a3860;border-radius:11px;background:#0f091b;color:#fff;font:inherit}select option{background:#0f091b}.help{display:block;margin-top:6px;color:var(--muted);font-size:.76rem;line-height:1.45}.file-name{margin-top:7px;color:#d9d0e2;font-size:.78rem;word-break:break-word}
+.progress-wrap{display:none;margin-top:11px}.progress-track{height:11px;border-radius:999px;overflow:hidden;background:#0c0715;border:1px solid #3d2c50}.progress-bar{height:100%;width:0;background:linear-gradient(90deg,var(--pink),var(--purple),var(--teal));transition:width .15s}.progress-text{margin-top:6px;color:#d9d0e2;font-size:.78rem;font-weight:800}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.btn{border:0;border-radius:11px;padding:11px 14px;font:inherit;font-weight:900;cursor:pointer}.primary{color:#fff;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}.secondary{color:#fff;background:#2a1d3c}.danger{color:#fff;background:rgba(255,120,136,.12);border:1px solid rgba(255,120,136,.28)}.btn:disabled{opacity:.55;cursor:wait}
+.library{margin-top:18px}.library-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:17px}.media{overflow:hidden;border:1px solid #3a2b4c;border-radius:17px;background:#100a1d}.media video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#05050c}.media-body{padding:13px}.name{font-size:.8rem;font-weight:850;word-break:break-all}.size{margin-top:4px;color:var(--muted);font-size:.76rem}.media-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.media-actions button{padding:8px 10px;font-size:.76rem}
+.tip{margin-top:18px;padding:14px;border-radius:14px;border:1px solid rgba(240,202,117,.19);background:rgba(240,202,117,.06);color:#d7ccdf;font-size:.82rem;line-height:1.55}.tip strong{color:#fff}
+@media(max-width:900px){.slot-grid{grid-template-columns:1fr}.library-grid{grid-template-columns:1fr 1fr}.header{align-items:flex-start;flex-direction:column}}
+@media(max-width:560px){.wrap{width:min(calc(100% - 20px),1320px)}.library-grid{grid-template-columns:1fr}.slot,.intro-card,.library{padding:17px;border-radius:20px}.slot-head{flex-direction:column}.actions{flex-direction:column}.actions .btn{width:100%}.links{gap:9px;font-size:.8rem}}
+</style>
+</head>
+<body>
+<header class="header">
+  <h1>🎬 Website Video Editor</h1>
+  <nav class="links"><a href="/admin">Command Center</a><a href="/admin/website/homepage">Homepage Editor</a><a href="/admin/website/classes">Class Page Editor</a><a href="/admin/media">Media Library</a></nav>
+</header>
+<main class="wrap">
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
+
+  <section class="intro-card">
+    <h2>Stage Starz Website Videos</h2>
+    <p>Upload a performance video once, then assign it to either website location. Videos are kept in the Railway media storage instead of GitHub, so large performance files do not bloat the website code.</p>
+    <div class="badge-row"><span class="badge">Up to {{ max_video_mb }} MB</span><span class="badge">MP4 recommended</span><span class="badge">Full-screen playback</span><span class="badge">Mobile friendly</span></div>
+  </section>
+
+  <section class="slot-grid">
+  {% for slot in slots %}
+    <article class="slot" id="slot-{{ slot.key }}">
+      <div class="slot-head"><div><div class="slot-label">Website placement</div><h2>{{ slot.label }}</h2></div><a class="open-page" href="{{ slot.page_url }}" target="_blank">Open live page ↗</a></div>
+      <p>{{ slot.description }}</p>
+      <div class="video-shell">
+        {% if slot.video_url %}<video controls playsinline preload="metadata" src="{{ slot.video_url }}"></video>{% else %}<div class="placeholder"><div>No video published yet<span>Choose or upload one below.</span></div></div>{% endif %}
+      </div>
+
+      <form class="video-form" method="post" action="/admin/website/videos/save" enctype="multipart/form-data" data-slot="{{ slot.key }}">
+        <input type="hidden" name="slot" value="{{ slot.key }}">
+        <div class="field">
+          <label>Upload a new video</label>
+          <input class="video-file" type="file" name="video_upload" accept="video/mp4,video/webm,video/quicktime,video/x-m4v,.mp4,.webm,.mov,.m4v">
+          <span class="help">Selecting a file starts the upload automatically. Keep this page open until it reaches 100%.</span>
+          <div class="file-name"></div>
+          <div class="progress-wrap"><div class="progress-track"><div class="progress-bar"></div></div><div class="progress-text">Preparing upload…</div></div>
+        </div>
+        {% if video_files %}
+        <div class="field">
+          <label>Or choose from the Video Library</label>
+          <select name="video_url">
+            <option value="">Choose an uploaded video…</option>
+            {% for file in video_files %}<option value="{{ file.url }}" {% if slot.video_url == file.url %}selected{% endif %}>{{ file.name }} — {{ file.size_mb }} MB</option>{% endfor %}
+          </select>
+        </div>
+        {% else %}<input type="hidden" name="video_url" value="">{% endif %}
+        <div class="actions">
+          <button class="btn primary publish-btn" type="submit" name="action" value="save">Publish Video</button>
+          {% if slot.video_url %}<button class="btn danger" type="submit" name="action" value="clear" formnovalidate onclick="return confirm('Remove this video from {{ slot.label }}? The file will stay in the Video Library.')">Remove from Page</button>{% endif %}
+        </div>
+      </form>
+    </article>
+  {% endfor %}
+  </section>
+
+  <section class="library">
+    <h2>Video Library</h2>
+    <p>Videos uploaded from either card are stored here so you can reuse them later without uploading them again.</p>
+    <div class="library-grid">
+      {% for file in video_files %}
+      <article class="media">
+        <video controls playsinline preload="metadata" src="{{ file.url }}"></video>
+        <div class="media-body"><div class="name">{{ file.name }}</div><div class="size">{{ file.size_mb }} MB</div><div class="media-actions"><button class="btn secondary" type="button" onclick="copyUrl('{{ file.url }}',this)">Copy URL</button><form method="post" action="/admin/website/videos/delete" onsubmit="return confirm('Delete this video permanently? It will also be removed from any website slot using it.')"><input type="hidden" name="video_url" value="{{ file.url }}"><button class="btn danger">Delete</button></form></div></div>
+      </article>
+      {% else %}<div class="tip"><strong>No videos uploaded yet.</strong> Choose a file in either website placement above. Upload progress will appear immediately.</div>{% endfor %}
+    </div>
+    <div class="tip"><strong>Best format:</strong> MP4 using H.264 video and AAC audio gives the widest compatibility on phones, tablets, Macs, and Windows PCs. The upload limit is {{ max_video_mb }} MB.</div>
+  </section>
+</main>
+<script>
+function humanSize(bytes){if(bytes<1024*1024)return (bytes/1024).toFixed(0)+' KB';return (bytes/(1024*1024)).toFixed(1)+' MB';}
+function copyUrl(url,button){navigator.clipboard.writeText(url);button.textContent='Copied';setTimeout(()=>button.textContent='Copy URL',1500);}
+function uploadForm(form){
+  const file=form.querySelector('.video-file');
+  if(!file||!file.files||!file.files[0])return;
+  const selected=file.files[0];
+  const name=form.querySelector('.file-name');
+  const wrap=form.querySelector('.progress-wrap');
+  const bar=form.querySelector('.progress-bar');
+  const text=form.querySelector('.progress-text');
+  const buttons=form.querySelectorAll('button');
+  name.textContent=selected.name+' • '+humanSize(selected.size);
+  if(selected.size>250*1024*1024){wrap.style.display='block';bar.style.width='0';text.textContent='This video is over the 250 MB limit.';return;}
+  wrap.style.display='block';text.textContent='Uploading… 0%';buttons.forEach(b=>b.disabled=true);
+  const data=new FormData(form);data.set('action','save');
+  const xhr=new XMLHttpRequest();xhr.open('POST',form.action,true);
+  xhr.upload.onprogress=function(e){if(e.lengthComputable){const pct=Math.min(99,Math.round((e.loaded/e.total)*100));bar.style.width=pct+'%';text.textContent='Uploading… '+pct+'%';}};
+  xhr.onload=function(){if(xhr.status>=200&&xhr.status<400){bar.style.width='100%';text.textContent='Upload complete — publishing…';window.location.href=xhr.responseURL||('/admin/website/videos#slot-'+form.dataset.slot);}else{buttons.forEach(b=>b.disabled=false);text.textContent='Upload failed. Please try again.';}};
+  xhr.onerror=function(){buttons.forEach(b=>b.disabled=false);text.textContent='Upload failed. Check your connection and try again.';};
+  xhr.send(data);
+}
+document.querySelectorAll('.video-form').forEach(function(form){const input=form.querySelector('.video-file');if(input){input.addEventListener('change',function(){if(this.files&&this.files[0])uploadForm(form);});}});
+</script>
+</body>
+</html>
