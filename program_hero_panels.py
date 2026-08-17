@@ -5,6 +5,8 @@ import re
 
 from flask import request
 
+from database import get_db
+
 
 PHOTO_PANEL_PATHS = {
     "/preschool-class-registration.html",
@@ -16,6 +18,31 @@ PHOTO_PANEL_PATHS = {
     "/petite-competition-team.html",
     "/juniorettes-competition-team.html",
     "/junior-competition-team.html",
+}
+
+PATH_PAGE_KEYS = {
+    "/preschool-class-registration.html": "preschool",
+    "/primary-class-registration.html": "primary",
+    "/elementary-class-registration.html": "elementary",
+    "/intermediate-advanced-registration.html": "intermediate_advanced",
+    "/specialized-class-registration.html": "specialized",
+    "/mini-competition-team.html": "mini_competition",
+    "/petite-competition-team.html": "petite_competition",
+    "/juniorettes-competition-team.html": "juniorettes_competition",
+    "/junior-competition-team.html": "junior_competition",
+}
+
+# The four non-Teen competition pages were rebuilt without any image source in
+# their Railway HTML. Seed their new photo-card heroes from the current public
+# Stage Starz/Wix team photography so the cards are not empty.
+DEFAULT_PHOTOS = {
+    "/mini-competition-team.html": "https://static.wixstatic.com/media/dd8497_a75ee9344e394285bcc4030968720eaa~mv2.jpg/v1/fill/w_980,h_700,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/Minis%20Comp%20Web%20Pic.jpg",
+    "/petite-competition-team.html": "https://static.wixstatic.com/media/6dd5c2_be6790629ced47abbfe131999c1cbb0a~mv2.png/v1/fill/w_980,h_700,al_c,q_90,usm_0.66_1.00_0.01,enc_avif,quality_auto/Minis%20Lyrical.png",
+    # Petites and Juniorettes share several competition blocks; use the same
+    # existing stage image as a starter until a dedicated Juniorettes photo is
+    # assigned through the editor.
+    "/juniorettes-competition-team.html": "https://static.wixstatic.com/media/6dd5c2_be6790629ced47abbfe131999c1cbb0a~mv2.png/v1/fill/w_980,h_700,al_c,q_90,usm_0.66_1.00_0.01,enc_avif,quality_auto/Minis%20Lyrical.png",
+    "/junior-competition-team.html": "https://static.wixstatic.com/media/6dd5c2_8e1939b9eb72433fab5c15f4dc0afb3c~mv2.jpg/v1/fill/w_980,h_653,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/HOF_DETROIT1_22596.jpg",
 }
 
 PANEL_STYLE = r"""
@@ -91,6 +118,31 @@ def _hero_photo_url(body: str) -> str:
     return urls[-1].strip() if urls else ""
 
 
+def _saved_photo_url(path: str) -> str:
+    """Prefer a photo already published from the backend editor."""
+    page_key = PATH_PAGE_KEYS.get(path)
+    if not page_key:
+        return ""
+    try:
+        connection = get_db()
+        row = connection.execute(
+            "SELECT hero_image FROM class_page_content WHERE page_key=?",
+            (page_key,),
+        ).fetchone()
+        connection.close()
+        if row:
+            try:
+                value = row["hero_image"]
+            except (TypeError, KeyError, IndexError):
+                value = row[0]
+            value = (value or "").strip()
+            if value.startswith("/uploads/"):
+                return value
+    except Exception:
+        return ""
+    return ""
+
+
 def register_program_hero_panels(app) -> None:
     """Move program/team hero photography out of the background into a dedicated photo card."""
 
@@ -103,7 +155,11 @@ def register_program_hero_panels(app) -> None:
             if 'id="ss-program-photo-hero-style"' in body:
                 return response
 
-            photo_url = _hero_photo_url(body)
+            photo_url = (
+                _saved_photo_url(request.path)
+                or _hero_photo_url(body)
+                or DEFAULT_PHOTOS.get(request.path, "")
+            )
             if not photo_url:
                 return response
 
