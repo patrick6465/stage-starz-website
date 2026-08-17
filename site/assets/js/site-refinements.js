@@ -83,7 +83,9 @@
     }
   }
 
-  var performanceArt=document.querySelector('.performance-art');
+  // Only install the legacy fallback video when the managed Website Video player
+  // has not already replaced the performance artwork.
+  var performanceArt=document.querySelector('.performance-art:not(.ss-home-performance-video)');
   if(performanceArt){
     performanceArt.style.background='#050505';
     var video=document.createElement('video');
