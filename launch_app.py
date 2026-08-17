@@ -21,6 +21,7 @@ from persistent_media import (
 from persistent_videos import register_persistent_videos
 from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
+from public_video_routes import register_public_video_routes
 from teen_image_asset import register_teen_image_asset
 from video_admin_nav import register_video_admin_nav
 from video_player_polish import register_video_player_polish
@@ -44,6 +45,11 @@ register_persistent_videos(app)
 # Website videos live in Railway media storage and can be assigned to the
 # homepage performance panel or the Musical Theater Competition spotlight.
 register_website_video_manager(app, permission_required, log_activity)
+
+# Render assigned videos directly while the public HTML page is being served.
+# This is especially important for competition.html, which otherwise comes from
+# send_from_directory as a streaming response that is unreliable to rewrite later.
+register_public_video_routes(app)
 register_video_player_polish(app)
 register_video_admin_nav(app)
 
