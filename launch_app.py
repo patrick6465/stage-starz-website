@@ -4,6 +4,7 @@ from app import app, log_activity, permission_required, save_uploaded_image
 from admin_editor_fixes import register_admin_editor_fixes
 from bundled_assets import install_bundled_assets
 from class_content_editor import CLASS_PAGES, register_class_content_editor
+from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
 from launch_foundation import register_launch_foundation
@@ -23,6 +24,7 @@ CLASS_PAGES["teen_competition"] = {
     "audience": "Ages 14+ • Int2–Advanced",
     "built_in_hero_image": "/assets/images/teen-competition-team-sharp.webp",
 }
+install_competition_editor_support(app)
 
 register_launch_foundation(app, permission_required, log_activity)
 register_class_content_editor(app, permission_required, log_activity)
