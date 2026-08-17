@@ -1,6 +1,13 @@
-"""Small public-video behavior refinements for Stage Starz pages."""
+"""Public-video behavior and resilient placement refinements for Stage Starz pages."""
 
 from flask import request
+
+from website_video_manager import (
+    PUBLIC_VIDEO_STYLE,
+    _inject_competition_video,
+    _settings,
+    _valid_video_url,
+)
 
 
 PLAYER_POLISH = r"""
@@ -43,23 +50,60 @@ PLAYER_POLISH = r"""
 
 
 def register_video_player_polish(app) -> None:
-    """Hide the descriptive video tag while a public website video is playing."""
+    """Keep public video placement reliable and hide captions during playback."""
 
     @app.after_request
     def polish_public_video_player(response):
-        if request.path not in {"/", "/competition.html"}:
-            return response
         if response.mimetype != "text/html":
             return response
+
         try:
             body = response.get_data(as_text=True)
+            if not body:
+                return response
+
+            changed = False
+            is_home = request.path == "/" or "ss-home-performance-video" in body
+            is_competition = (
+                '<section class="competition-hero">' in body
+                or 'class="competition-hero"' in body
+                or request.path.rstrip("/").lower() in {"/competition", "/competition.html"}
+            )
+
+            # The main video manager historically keyed this placement to the exact
+            # /competition.html path. Detect the page from its hero markup as a
+            # fallback so rewritten/normalized URLs still receive the spotlight.
+            if is_competition and "ss-musical-theater-spotlight" not in body:
+                values = _settings()
+                competition_video = _valid_video_url(
+                    values.get("competition_musical_theater", "")
+                )
+                updated = _inject_competition_video(body, competition_video)
+                if updated != body:
+                    body = updated
+                    changed = True
+
+            # If this fallback performed the placement on a rewritten URL, the main
+            # manager may not add its shared player CSS/JS. Ensure it exists here.
             if (
-                body
+                (is_home or is_competition)
+                and 'id="ss-public-video-style"' not in body
+                and "</head>" in body
+            ):
+                body = body.replace("</head>", PUBLIC_VIDEO_STYLE + "</head>", 1)
+                changed = True
+
+            if (
+                (is_home or is_competition)
                 and 'id="ss-video-player-polish-style"' not in body
                 and "</head>" in body
             ):
                 body = body.replace("</head>", PLAYER_POLISH + "</head>", 1)
+                changed = True
+
+            if changed:
                 response.set_data(body)
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 response.headers.pop("ETag", None)
         except Exception:
             app.logger.exception("Could not apply public video player polish")
