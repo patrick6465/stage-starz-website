@@ -49,9 +49,9 @@
         <div class="field">
           <label>Upload a new video</label>
           <input class="video-file" type="file" name="video_upload" accept="video/mp4,video/webm,video/quicktime,video/x-m4v,.mp4,.webm,.mov,.m4v">
-          <span class="help">Selecting a file starts the upload automatically. Keep this page open until it reaches 100%.</span>
+          <span class="help">Choose a file, then click Publish Video. Keep this page open while the upload finishes.</span>
           <div class="file-name"></div>
-          <div class="progress-wrap"><div class="progress-track"><div class="progress-bar"></div></div><div class="progress-text">Preparing upload…</div></div>
+          <div class="progress-wrap"><div class="progress-track"><div class="progress-bar"></div></div><div class="progress-text">Ready to upload.</div></div>
         </div>
         {% if video_files %}
         <div class="field">
@@ -80,7 +80,7 @@
         <video controls playsinline preload="metadata" src="{{ file.url }}"></video>
         <div class="media-body"><div class="name">{{ file.name }}</div><div class="size">{{ file.size_mb }} MB</div><div class="media-actions"><button class="btn secondary" type="button" onclick="copyUrl('{{ file.url }}',this)">Copy URL</button><form method="post" action="/admin/website/videos/delete" onsubmit="return confirm('Delete this video permanently? It will also be removed from any website slot using it.')"><input type="hidden" name="video_url" value="{{ file.url }}"><button class="btn danger">Delete</button></form></div></div>
       </article>
-      {% else %}<div class="tip"><strong>No videos uploaded yet.</strong> Choose a file in either website placement above. Upload progress will appear immediately.</div>{% endfor %}
+      {% else %}<div class="tip"><strong>No videos uploaded yet.</strong> Choose a file in either website placement above, then click Publish Video.</div>{% endfor %}
     </div>
     <div class="tip"><strong>Best format:</strong> MP4 using H.264 video and AAC audio gives the widest compatibility on phones, tablets, Macs, and Windows PCs. The upload limit is {{ max_video_mb }} MB.</div>
   </section>
@@ -88,7 +88,7 @@
 <script>
 function humanSize(bytes){if(bytes<1024*1024)return (bytes/1024).toFixed(0)+' KB';return (bytes/(1024*1024)).toFixed(1)+' MB';}
 function copyUrl(url,button){navigator.clipboard.writeText(url);button.textContent='Copied';setTimeout(()=>button.textContent='Copy URL',1500);}
-function uploadForm(form){
+function prepareVideo(form){
   const file=form.querySelector('.video-file');
   if(!file||!file.files||!file.files[0])return;
   const selected=file.files[0];
@@ -96,39 +96,44 @@ function uploadForm(form){
   const wrap=form.querySelector('.progress-wrap');
   const bar=form.querySelector('.progress-bar');
   const text=form.querySelector('.progress-text');
-  const buttons=form.querySelectorAll('button');
-  let uploadBodySent=false;
   name.textContent=selected.name+' • '+humanSize(selected.size);
-  if(selected.size>250*1024*1024){wrap.style.display='block';bar.style.width='0';text.textContent='This video is over the 250 MB limit.';return;}
-  wrap.style.display='block';text.textContent='Uploading… 0%';buttons.forEach(b=>b.disabled=true);
-  const data=new FormData(form);data.set('action','save');
-  const xhr=new XMLHttpRequest();xhr.open('POST',form.action,true);
-  const refreshToConfirm=function(){
-    bar.style.width='100%';
-    text.textContent='Upload received — refreshing to confirm…';
-    buttons.forEach(b=>b.disabled=true);
-    setTimeout(function(){window.location.href='/admin/website/videos#slot-'+form.dataset.slot;},900);
-  };
-  const showFailure=function(message){
-    buttons.forEach(b=>b.disabled=false);
-    text.textContent=message;
-  };
-  xhr.upload.onprogress=function(e){if(e.lengthComputable){const pct=Math.min(99,Math.round((e.loaded/e.total)*100));bar.style.width=pct+'%';text.textContent='Uploading… '+pct+'%';}};
-  xhr.upload.onload=function(){uploadBodySent=true;bar.style.width='99%';text.textContent='Upload received — finishing…';};
-  xhr.onload=function(){
-    if(xhr.status>=200&&xhr.status<400){bar.style.width='100%';text.textContent='Upload complete — publishing…';setTimeout(function(){window.location.href=xhr.responseURL||('/admin/website/videos#slot-'+form.dataset.slot);},250);return;}
-    if(xhr.status===413){showFailure('This video is larger than the server upload limit.');return;}
-    if(uploadBodySent&&xhr.status>=500){refreshToConfirm();return;}
-    showFailure('Upload failed. Please try again.');
-  };
-  xhr.onerror=function(){
-    if(uploadBodySent){refreshToConfirm();return;}
-    showFailure('Upload failed. Check your connection and try again.');
-  };
-  xhr.onabort=function(){showFailure('Upload was cancelled.');};
-  xhr.send(data);
+  wrap.style.display='block';
+  bar.style.width='0';
+  if(selected.size>250*1024*1024){
+    text.textContent='This video is over the 250 MB limit.';
+    return;
+  }
+  text.textContent='Ready — click Publish Video.';
 }
-document.querySelectorAll('.video-form').forEach(function(form){const input=form.querySelector('.video-file');if(input){input.addEventListener('change',function(){if(this.files&&this.files[0])uploadForm(form);});}});
+document.querySelectorAll('.video-form').forEach(function(form){
+  const input=form.querySelector('.video-file');
+  const publish=form.querySelector('.publish-btn');
+  const wrap=form.querySelector('.progress-wrap');
+  const bar=form.querySelector('.progress-bar');
+  const text=form.querySelector('.progress-text');
+  if(input){
+    input.addEventListener('change',function(){
+      if(this.files&&this.files[0])prepareVideo(form);
+    });
+  }
+  form.addEventListener('submit',function(event){
+    const submitter=event.submitter;
+    if(submitter&&submitter.value==='clear')return;
+    if(input&&input.files&&input.files[0]&&input.files[0].size>250*1024*1024){
+      event.preventDefault();
+      wrap.style.display='block';
+      bar.style.width='0';
+      text.textContent='This video is over the 250 MB limit.';
+      return;
+    }
+    if(input&&input.files&&input.files[0]){
+      wrap.style.display='block';
+      bar.style.width='70%';
+      text.textContent='Uploading and publishing… please keep this page open.';
+      if(publish)publish.textContent='Uploading…';
+    }
+  });
+});
 </script>
 </body>
 </html>
