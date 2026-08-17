@@ -1,5 +1,7 @@
 Flask
 Gunicorn
 psycopg[binary]>=3.2,<4
+Pillow>=10.4,<12
+pillow-heif>=0.18,<1
 
 qrcode>=7.4,<9
