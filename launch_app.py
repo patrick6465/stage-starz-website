@@ -7,6 +7,7 @@ from class_content_editor import CLASS_PAGES, register_class_content_editor
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
 from launch_foundation import register_launch_foundation
+from program_hero_panels import register_program_hero_panels
 from teen_image_asset import register_teen_image_asset
 
 # Keep existing bundled assets available for older references.
@@ -26,6 +27,7 @@ CLASS_PAGES["teen_competition"] = {
 register_launch_foundation(app, permission_required, log_activity)
 register_class_content_editor(app, permission_required, log_activity)
 register_competition_site_fixes(app)
+register_program_hero_panels(app)
 register_admin_editor_fixes(app, UPLOAD_FOLDER, save_uploaded_image, log_activity)
 
 __all__ = ["app"]
