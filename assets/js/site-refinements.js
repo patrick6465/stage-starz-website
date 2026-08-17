@@ -14,8 +14,9 @@
     document.body.setAttribute('data-competition-team','true');
   }
 
-  // Replace the homepage performance artwork with the Stage Starz video.
-  var performanceArt=document.querySelector('.performance-art');
+  // Replace the homepage performance artwork with the legacy fallback video only
+  // when the managed Website Video player has not already replaced the artwork.
+  var performanceArt=document.querySelector('.performance-art:not(.ss-home-performance-video)');
   if(performanceArt){
     performanceArt.style.background='#050505';
     var video=document.createElement('video');
