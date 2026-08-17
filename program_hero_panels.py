@@ -78,8 +78,9 @@ PANEL_STYLE = r"""
 .ss-program-photo-panel img{
   display:block;
   width:100%;
-  aspect-ratio:4/3;
-  object-fit:cover;
+  height:auto;
+  max-height:560px;
+  object-fit:contain;
   object-position:center;
   border-radius:20px;
   image-rendering:auto;
@@ -100,12 +101,12 @@ PANEL_STYLE = r"""
     padding-bottom:46px!important;
   }
   .ss-program-photo-panel{margin-top:4px}
-  .ss-program-photo-panel img{aspect-ratio:16/10}
+  .ss-program-photo-panel img{height:auto;max-height:620px;object-fit:contain}
 }
 @media(max-width:640px){
   .hero-inner.ss-program-photo-grid{padding-top:34px!important;padding-bottom:38px!important}
   .ss-program-photo-panel{padding:7px;border-radius:22px}
-  .ss-program-photo-panel img{border-radius:16px;aspect-ratio:4/3}
+  .ss-program-photo-panel img{border-radius:16px;height:auto;max-height:none;object-fit:contain}
 }
 </style>
 """
