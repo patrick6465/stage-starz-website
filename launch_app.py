@@ -7,6 +7,7 @@ from app import app, log_activity, permission_required
 from admin_editor_fixes import register_admin_editor_fixes
 from bundled_assets import install_bundled_assets
 from class_content_editor import CLASS_PAGES, register_class_content_editor
+from classes_hero_asset import register_classes_hero_asset
 from classes_hero_layout import register_classes_hero_layout
 from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
@@ -32,8 +33,9 @@ app_module.save_uploaded_image = save_persistent_image
 app_module.delete_uploaded_image = delete_persistent_image
 class_editor._save_uploaded_image = save_persistent_image
 
-# Serve the new sharp Teen photo from a cache-busting URL.
+# Serve the sharp built-in image assets from cache-busting routes.
 register_teen_image_asset(app)
+register_classes_hero_asset(app)
 
 # Competition program pages use the same yearly text/photo editor as class pages.
 CLASS_PAGES["teen_competition"] = {
