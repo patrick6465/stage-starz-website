@@ -8,6 +8,7 @@ from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
 from launch_foundation import register_launch_foundation
+from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
 from teen_image_asset import register_teen_image_asset
 
@@ -29,7 +30,13 @@ install_competition_editor_support(app)
 register_launch_foundation(app, permission_required, log_activity)
 register_class_content_editor(app, permission_required, log_activity)
 register_competition_site_fixes(app)
+
+# Register the finalizer before the panel renderer. Flask runs after_request
+# handlers in reverse registration order, so the renderer builds the photo card
+# first and the finalizer then removes legacy backgrounds and applies saved photos.
+register_program_hero_finalizer(app)
 register_program_hero_panels(app)
+
 register_admin_editor_fixes(app, UPLOAD_FOLDER, save_uploaded_image, log_activity)
 
 __all__ = ["app"]
