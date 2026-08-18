@@ -25,6 +25,7 @@ from program_hero_panels import register_program_hero_panels
 from public_page_text_editor import register_public_page_text_editor
 from public_page_text_extras import install_public_page_text_extras
 from public_video_routes import register_public_video_routes
+from studio_active_tab_polish import register_studio_active_tab_polish
 from studio_detail_title_polish import register_studio_detail_title_polish
 from studio_workspace_polish import register_studio_workspace_polish
 from teen_image_asset import register_teen_image_asset
@@ -97,9 +98,10 @@ register_command_center_mobile_polish(app)
 # Give all Website Management tools one shared desktop/mobile workspace shell.
 register_website_workspace_polish(app)
 
-# Register the detail-title polish before the shell. Flask executes after_request
-# handlers in reverse order, so the shell is injected first and the detail title
-# can then be refined to Student Profile, Family Profile, Class Details, etc.
+# Register the active-tab and detail-title polish before the shell. Flask executes
+# after_request handlers in reverse order, so the shell is injected first; these
+# refinements then see the finished Studio Operations workspace markup.
+register_studio_active_tab_polish(app)
 register_studio_detail_title_polish(app)
 
 # Keep family, student, class, attendance, billing and costume screens inside one
