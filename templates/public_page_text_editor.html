@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Website Page Text Editor | Stage Starz</title>
+<style>
+:root{--night:#0b0715;--panel:#17102a;--panel2:#110b20;--line:#39294d;--white:#fff;--muted:#aaa0b8;--purple:#9b4dcc;--pink:#ef3d98;--teal:#50d6d0;--gold:#f0ca75;--danger:#ff7888;--success:#62e6aa}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 6% 0%,rgba(155,77,204,.24),transparent 28rem),radial-gradient(circle at 96% 8%,rgba(80,214,208,.11),transparent 30rem),var(--night);color:var(--white);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}a{color:inherit;text-decoration:none}.header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;gap:18px;align-items:center;padding:17px clamp(16px,4vw,48px);background:rgba(11,7,21,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(18px)}.header h1{margin:0;font-size:1.24rem}.links{display:flex;gap:14px;flex-wrap:wrap;color:#ddd3e9;font-weight:780}.links a:hover{color:var(--teal)}.wrap{width:min(1180px,calc(100% - 28px));margin:24px auto 60px}.intro,.group{background:rgba(23,16,42,.95);border:1px solid var(--line);border-radius:24px;padding:22px;box-shadow:0 20px 55px rgba(0,0,0,.23)}.intro{margin-bottom:18px}.intro h2,.group h2{margin:0 0 8px}.intro p,.help{color:var(--muted);line-height:1.55}.tabs{display:flex;gap:9px;flex-wrap:wrap;margin:17px 0}.tab{padding:10px 14px;border:1px solid #4a3860;border-radius:999px;background:#100a1d;color:#ddd3e9;font-weight:900}.tab.active{background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));color:#fff;border-color:transparent}.page-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin:20px 0}.page-head h2{margin:0}.page-head p{color:var(--muted);margin:6px 0 0}.preview{color:var(--teal);font-weight:900;white-space:nowrap}.flash{margin-bottom:16px;padding:12px 14px;border:1px solid rgba(98,230,170,.28);border-radius:12px;background:rgba(98,230,170,.10);color:#effff6}.groups{display:grid;gap:16px}.group h2{font-size:1.05rem;color:var(--gold)}.fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.field{min-width:0}.field.full{grid-column:1/-1}label{display:block;margin-bottom:7px;font-size:.82rem;font-weight:900;color:#eee6f5}input,textarea{width:100%;padding:12px 13px;border:1px solid #4a3860;border-radius:11px;background:#0f091b;color:#fff;font:inherit}textarea{min-height:92px;resize:vertical;line-height:1.5}.custom{display:inline-block;margin-left:6px;padding:3px 7px;border-radius:999px;background:rgba(80,214,208,.11);color:var(--teal);font-size:.65rem;vertical-align:middle}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.btn{border:0;border-radius:11px;padding:12px 16px;font:inherit;font-weight:900;cursor:pointer}.primary{color:#fff;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}.secondary{color:#fff;background:#2a1d3c}.danger{color:#fff;background:rgba(255,120,136,.12);border:1px solid rgba(255,120,136,.28)}.note{margin-top:18px;padding:14px;border-radius:14px;border:1px solid rgba(240,202,117,.19);background:rgba(240,202,117,.06);color:#d7ccdf;font-size:.82rem;line-height:1.55}.note strong{color:#fff}@media(max-width:760px){.fields{grid-template-columns:1fr}.field.full{grid-column:auto}.page-head{flex-direction:column}.actions{flex-direction:column}.actions .btn{width:100%}.header{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<header class="header">
+  <h1>✏️ Website Page Text Editor</h1>
+  <nav class="links"><a href="/admin">Command Center</a><a href="/admin/website/homepage">Homepage Editor</a><a href="/admin/website/videos">Video Editor</a><a href="/admin/website/classes">Class Page Editor</a></nav>
+</header>
+<main class="wrap">
+  {% with messages = get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="flash">{{ message }}</div>{% endfor %}{% endwith %}
+
+  <section class="intro">
+    <h2>Edit public website wording</h2>
+    <p>These changes are saved in the Stage Starz database, so they remain in place through Railway deployments. This editor changes wording only; it does not alter the page layout, photos, buttons, or destination links.</p>
+    <div class="tabs">
+      {% for key,info in pages.items() %}<a class="tab {% if key==page_key %}active{% endif %}" href="/admin/website/page-text?page={{ key }}">{{ info.label }}</a>{% endfor %}
+    </div>
+  </section>
+
+  <div class="page-head">
+    <div><h2>{{ page.label }}</h2><p>{{ page.description }}</p></div>
+    <a class="preview" href="{{ page.public_url }}" target="_blank">Open live page ↗</a>
+  </div>
+
+  <form method="post" action="/admin/website/page-text/save">
+    <input type="hidden" name="page_key" value="{{ page_key }}">
+    <div class="groups">
+      {% for group in groups %}
+      <section class="group">
+        <h2>{{ group.label }}</h2>
+        <div class="fields">
+          {% for field in group.fields %}
+          <div class="field {% if field.multiline %}full{% endif %}">
+            <label>{{ field.label }}{% if field.is_custom %}<span class="custom">Edited</span>{% endif %}</label>
+            {% if field.multiline %}<textarea name="{{ field.key }}">{{ field.value }}</textarea>{% else %}<input name="{{ field.key }}" value="{{ field.value }}">{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endfor %}
+    </div>
+    <div class="actions"><button class="btn primary" type="submit">Save {{ page.label }} Text</button><a class="btn secondary" href="{{ page.public_url }}" target="_blank">Preview Page</a></div>
+  </form>
+
+  <form method="post" action="/admin/website/page-text/reset" onsubmit="return confirm('Restore all wording on {{ page.label }} to the built-in text?')">
+    <input type="hidden" name="page_key" value="{{ page_key }}">
+    <div class="actions"><button class="btn danger" type="submit">Restore Built-in Text</button></div>
+  </form>
+
+  <div class="note"><strong>Safe editing:</strong> Use this screen for wording and date/time changes. The page design and links remain protected from accidental editing.</div>
+</main>
+</body>
+</html>
