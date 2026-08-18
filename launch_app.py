@@ -9,6 +9,7 @@ from bundled_assets import install_bundled_assets
 from class_content_editor import CLASS_PAGES, register_class_content_editor
 from classes_hero_asset import register_classes_hero_asset
 from classes_hero_layout import register_classes_hero_layout
+from command_center_mobile_polish import register_command_center_mobile_polish
 from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
@@ -86,5 +87,8 @@ register_program_hero_finalizer(app)
 register_program_hero_panels(app)
 
 register_admin_editor_fixes(app, UPLOAD_FOLDER, save_persistent_image, log_activity)
+
+# Keep mobile Command Center work areas compact without changing backend routes.
+register_command_center_mobile_polish(app)
 
 __all__ = ["app"]
