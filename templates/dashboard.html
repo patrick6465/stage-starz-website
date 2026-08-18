@@ -3,167 +3,213 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Stage Starz Command Center 2.0</title>
+<title>Stage Starz Command Center</title>
 <style>
 :root{
-  --night:#090510;--night2:#17102a;--panel:rgba(255,255,255,.075);
-  --line:rgba(255,255,255,.13);--white:#fff;--muted:#bcb2ca;
-  --purple:#9b4dcc;--pink:#ef3d98;--teal:#50d6d0;--gold:#ffc867;
-  --success:#62e6aa;--danger:#ff6c7d
+  --night:#090510;--night2:#17102a;--panel:rgba(255,255,255,.075);--panel2:#120b21;
+  --line:rgba(255,255,255,.13);--white:#fff;--muted:#bcb2ca;--purple:#9b4dcc;
+  --pink:#ef3d98;--teal:#50d6d0;--gold:#ffc867;--success:#62e6aa;--danger:#ff6c7d
 }
 *{box-sizing:border-box}
-body{
-  margin:0;min-height:100vh;color:#fff;
-  font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
-  background:
-    radial-gradient(circle at 5% 0%,rgba(155,77,204,.35),transparent 30rem),
-    radial-gradient(circle at 96% 8%,rgba(80,214,208,.16),transparent 30rem),
-    linear-gradient(145deg,var(--night),var(--night2))
-}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(circle at 5% 0%,rgba(155,77,204,.34),transparent 30rem),radial-gradient(circle at 96% 8%,rgba(80,214,208,.15),transparent 30rem),linear-gradient(145deg,var(--night),var(--night2))}
 a{text-decoration:none;color:inherit}button,input{font:inherit}
-.shell{display:grid;grid-template-columns:275px 1fr;min-height:100vh}
-.sidebar{
-  position:sticky;top:0;height:100vh;padding:22px 16px;overflow:auto;
-  background:rgba(7,3,15,.78);border-right:1px solid var(--line);
-  backdrop-filter:blur(24px)
-}
-.brand{display:flex;gap:12px;align-items:center;padding:7px 8px 22px}
-.brand-mark{width:50px;height:50px;border-radius:17px;display:grid;place-items:center;font-size:1.5rem;background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal));box-shadow:0 12px 30px rgba(239,61,152,.28)}
-.brand strong{display:block}.brand small{color:var(--muted)}
-.module{margin:5px 0}.module-title{padding:14px 10px 7px;color:#8f849f;text-transform:uppercase;letter-spacing:.12em;font-size:.69rem;font-weight:900}
-.module a{display:flex;align-items:center;gap:11px;padding:11px 13px;margin:3px 0;border-radius:13px;color:#e8e1ef;font-weight:760}
-.module a:hover,.module a.active{background:linear-gradient(90deg,rgba(239,61,152,.18),rgba(80,214,208,.1));color:#fff}
-.profile{margin-top:20px;padding:16px;text-align:center;border:1px solid var(--line);background:var(--panel);border-radius:18px}
-.avatar{width:58px;height:58px;margin:auto;border-radius:18px;display:grid;place-items:center;font-size:1.45rem;background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal))}
-.profile strong{display:block;margin-top:9px}.profile small{color:var(--muted)}
-.main{padding:25px clamp(18px,4vw,52px) 60px;min-width:0}
-.topbar{display:grid;grid-template-columns:1fr minmax(260px,500px) auto;gap:15px;align-items:center;margin-bottom:23px}
-.topbar h1{margin:0;font-size:clamp(1.8rem,4vw,2.8rem);letter-spacing:-.045em}.topbar p{margin:6px 0 0;color:var(--muted)}
-.search{display:flex;border:1px solid var(--line);background:rgba(255,255,255,.07);border-radius:15px;overflow:hidden}
-.search input{flex:1;min-width:0;border:0;background:transparent;color:#fff;padding:12px 14px;outline:0}.search button{border:0;background:transparent;color:#fff;padding:0 14px}
-.tools{display:flex;gap:8px}.tool{position:relative;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:#fff;cursor:pointer}
-.counter{position:absolute;right:-5px;top:-5px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--pink);display:grid;place-items:center;font-size:.68rem;font-weight:900}
-.hero-card{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;padding:25px;margin-bottom:18px;border:1px solid var(--line);border-radius:24px;background:linear-gradient(120deg,rgba(239,61,152,.16),rgba(155,77,204,.18),rgba(80,214,208,.12));box-shadow:0 20px 65px rgba(0,0,0,.18)}
-.hero-card h2{font-size:clamp(1.45rem,3vw,2.2rem);margin:0 0 8px}.hero-card p{color:var(--muted);margin:0}.system{display:flex;justify-content:flex-end;align-items:center;gap:10px;color:var(--success);font-weight:850}.dot{width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 15px var(--success)}
-.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
-.card{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(16px);border-radius:21px;box-shadow:0 20px 55px rgba(0,0,0,.17)}
-.stat{padding:19px;position:relative;overflow:hidden}.stat:after{content:"";position:absolute;width:92px;height:92px;border-radius:50%;right:-32px;top:-37px;background:var(--glow)}
-.stat-icon{font-size:1.35rem;margin-bottom:14px}.stat-value{font-size:clamp(1.7rem,4vw,2.45rem);font-weight:950;letter-spacing:-.05em}.stat-label{color:var(--muted);font-size:.85rem}
-.grid{display:grid;grid-template-columns:1.15fr .85fr;gap:17px;margin-bottom:17px}.section{padding:21px}
-.section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:15px}.section-head h2{font-size:1.12rem;margin:0}.section-head a{font-size:.82rem;color:var(--teal);font-weight:850}
-.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}.quick{padding:16px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.042);transition:.2s}.quick:hover{transform:translateY(-2px);border-color:rgba(80,214,208,.48)}.quick .icon{font-size:1.3rem}.quick strong{display:block;margin:8px 0 3px}.quick small,.muted{color:var(--muted)}
-.list{display:grid;gap:9px}.item{display:flex;justify-content:space-between;align-items:center;gap:15px;padding:12px 13px;background:rgba(255,255,255,.042);border:1px solid rgba(255,255,255,.08);border-radius:14px}.item strong{display:block}.item small{color:var(--muted)}.badge{font-size:.73rem;font-weight:900;border-radius:999px;padding:7px 10px;background:rgba(80,214,208,.12);color:var(--teal);white-space:nowrap}.badge.warn{background:rgba(255,200,103,.12);color:var(--gold)}
-.activity-time{font-size:.71rem;color:#8e849e}.empty{color:var(--muted);text-align:center;padding:22px}
-.drawer{position:fixed;inset:0;display:none;background:rgba(0,0,0,.58);z-index:50}.drawer.open{display:block}.drawer-panel{margin-left:auto;width:min(430px,100%);height:100%;padding:20px;background:#130d22;border-left:1px solid var(--line);overflow:auto}.drawer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.drawer-head h2{margin:0}.close{width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;font-size:1.2rem}.notice{padding:14px;border:1px solid var(--line);border-radius:14px;margin:10px 0;background:rgba(255,255,255,.05)}.notice.warning{border-color:rgba(255,200,103,.35)}.notice.danger{border-color:rgba(255,108,125,.38)}.notice.info{border-color:rgba(80,214,208,.34)}.notice strong{display:block}.notice small{color:var(--muted)}
-.mobile-nav{display:none}
-@media(max-width:1160px){.stats{grid-template-columns:repeat(2,1fr)}.topbar{grid-template-columns:1fr auto}.search{grid-column:1/-1;grid-row:2}.grid,.hero-card{grid-template-columns:1fr}.system{justify-content:flex-start}.quick-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:760px){.shell{display:block}.sidebar{display:none}.main{padding:18px 13px 90px}.topbar{grid-template-columns:1fr auto}.topbar p{display:none}.stats{grid-template-columns:1fr 1fr;gap:9px}.stat{padding:15px}.quick-grid{grid-template-columns:1fr}.mobile-nav{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:10px;right:10px;bottom:10px;z-index:30;border:1px solid var(--line);background:rgba(12,7,23,.94);backdrop-filter:blur(22px);border-radius:18px;padding:7px}.mobile-nav a{text-align:center;font-size:.68rem;color:var(--muted)}.mobile-nav b{display:block;font-size:1.15rem;color:#fff}}
+.shell{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+.sidebar{position:sticky;top:0;height:100vh;padding:20px 14px;overflow:auto;background:rgba(7,3,15,.82);border-right:1px solid var(--line);backdrop-filter:blur(24px)}
+.brand{display:flex;gap:12px;align-items:center;padding:7px 8px 19px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:13px}.brand-mark{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:1.45rem;background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal));box-shadow:0 12px 30px rgba(239,61,152,.27)}.brand strong{display:block}.brand small{color:var(--muted)}
+.side-label{padding:12px 10px 6px;color:#8f849f;text-transform:uppercase;letter-spacing:.12em;font-size:.67rem;font-weight:900}.side-nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:3px 0;border-radius:12px;color:#e8e1ef;font-weight:760}.side-nav a:hover,.side-nav a.active{background:linear-gradient(90deg,rgba(239,61,152,.18),rgba(80,214,208,.09));color:#fff}.side-nav .icon{width:24px;text-align:center}
+.profile{margin-top:18px;padding:15px;text-align:center;border:1px solid var(--line);background:var(--panel);border-radius:17px}.avatar{width:54px;height:54px;margin:auto;border-radius:17px;display:grid;place-items:center;font-size:1.35rem;background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal))}.profile strong{display:block;margin-top:9px}.profile small{color:var(--muted)}
+.main{padding:23px clamp(18px,3.5vw,48px) 60px;min-width:0}.topbar{display:grid;grid-template-columns:1fr minmax(260px,470px) auto;gap:14px;align-items:center;margin-bottom:20px}.title-row{display:flex;gap:11px;align-items:center}.menu-button{display:none;width:44px;height:44px;border:1px solid var(--line);border-radius:13px;background:var(--panel);color:#fff;cursor:pointer}.topbar h1{margin:0;font-size:clamp(1.75rem,4vw,2.65rem);letter-spacing:-.045em}.topbar p{margin:5px 0 0;color:var(--muted)}.search{display:flex;border:1px solid var(--line);background:rgba(255,255,255,.07);border-radius:14px;overflow:hidden}.search input{flex:1;min-width:0;border:0;background:transparent;color:#fff;padding:12px 14px;outline:0}.search button{border:0;background:transparent;color:#fff;padding:0 14px;cursor:pointer}.tools{display:flex;gap:8px}.tool{position:relative;width:44px;height:44px;border:1px solid var(--line);border-radius:13px;background:var(--panel);color:#fff;cursor:pointer}.counter{position:absolute;right:-5px;top:-5px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--pink);display:grid;place-items:center;font-size:.68rem;font-weight:900}
+.hero-card{display:grid;grid-template-columns:1.25fr .75fr;gap:18px;padding:23px;margin-bottom:16px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(120deg,rgba(239,61,152,.15),rgba(155,77,204,.17),rgba(80,214,208,.11));box-shadow:0 20px 65px rgba(0,0,0,.17)}.hero-card h2{font-size:clamp(1.35rem,3vw,2rem);margin:0 0 7px}.hero-card p{color:var(--muted);margin:0;line-height:1.5}.system{display:flex;justify-content:flex-end;align-items:center;gap:10px;color:var(--success);font-weight:850}.dot{width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 15px var(--success)}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.card{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(16px);border-radius:19px;box-shadow:0 18px 50px rgba(0,0,0,.16)}.stat{padding:17px;position:relative;overflow:hidden}.stat:after{content:"";position:absolute;width:86px;height:86px;border-radius:50%;right:-30px;top:-34px;background:var(--glow)}.stat-icon{font-size:1.25rem;margin-bottom:10px}.stat-value{font-size:clamp(1.5rem,4vw,2.15rem);font-weight:950;letter-spacing:-.04em}.stat-label{color:var(--muted);font-size:.82rem}
+.section-title{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:27px 0 12px}.section-title h2{margin:0;font-size:1.3rem}.section-title p{margin:4px 0 0;color:var(--muted);font-size:.9rem}.section-title a{font-size:.82rem;color:var(--teal);font-weight:900;white-space:nowrap}
+.quick-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.quick{padding:15px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.045);transition:.18s}.quick:hover{transform:translateY(-2px);border-color:rgba(80,214,208,.48)}.quick .icon{font-size:1.25rem}.quick strong{display:block;margin:7px 0 3px}.quick small{color:var(--muted);font-size:.76rem;line-height:1.35}
+.modules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.module-card{padding:19px;scroll-margin-top:18px}.module-head{display:flex;gap:13px;align-items:flex-start;margin-bottom:15px}.module-icon{width:46px;height:46px;flex:0 0 46px;border-radius:14px;display:grid;place-items:center;font-size:1.35rem;background:linear-gradient(135deg,rgba(239,61,152,.22),rgba(155,77,204,.24),rgba(80,214,208,.16));border:1px solid rgba(255,255,255,.1)}.module-head h3{margin:1px 0 4px;font-size:1.08rem}.module-head p{margin:0;color:var(--muted);font-size:.82rem;line-height:1.4}.tool-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.tool-link{display:flex;gap:10px;align-items:center;min-width:0;padding:11px;border-radius:12px;border:1px solid rgba(255,255,255,.085);background:rgba(255,255,255,.035);font-size:.84rem;font-weight:780}.tool-link:hover{border-color:rgba(80,214,208,.4);background:rgba(80,214,208,.07)}.tool-link .tool-icon{width:24px;text-align:center;flex:0 0 24px}.tool-link span:last-child{min-width:0}.external{color:#bceae7}
+.content-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:16px}.section{padding:19px}.section-head{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:13px}.section-head h2{font-size:1.05rem;margin:0}.section-head a{font-size:.8rem;color:var(--teal);font-weight:850}.list{display:grid;gap:8px}.item{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:11px 12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.075);border-radius:12px}.item strong{display:block}.item small{display:block;color:var(--muted);margin-top:2px}.badge{font-size:.71rem;font-weight:900;border-radius:999px;padding:6px 9px;background:rgba(80,214,208,.12);color:var(--teal);white-space:nowrap}.badge.warn{background:rgba(255,200,103,.12);color:var(--gold)}.activity-time{font-size:.69rem;color:#8e849e}.empty{color:var(--muted);text-align:center;padding:20px}
+.overlay{position:fixed;inset:0;display:none;background:rgba(0,0,0,.6);z-index:70}.overlay.open{display:block}.drawer-panel{margin-left:auto;width:min(430px,100%);height:100%;padding:20px;background:#130d22;border-left:1px solid var(--line);overflow:auto}.drawer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:17px}.drawer-head h2{margin:0}.close{width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;font-size:1.2rem;cursor:pointer}.notice{padding:13px;border:1px solid var(--line);border-radius:13px;margin:9px 0;background:rgba(255,255,255,.05)}.notice.warning{border-color:rgba(255,200,103,.35)}.notice.danger{border-color:rgba(255,108,125,.38)}.notice.info{border-color:rgba(80,214,208,.34)}.notice strong{display:block}.notice small{color:var(--muted)}
+.mobile-menu .drawer-panel{margin-left:0;margin-right:auto;border-left:0;border-right:1px solid var(--line);width:min(360px,88%)}.mobile-menu-brand{display:flex;gap:10px;align-items:center;padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:12px}.mobile-menu-links a{display:flex;gap:11px;align-items:center;padding:12px;border-radius:12px;font-weight:800}.mobile-menu-links a:hover{background:rgba(255,255,255,.07)}.mobile-menu-links .break{height:1px;background:var(--line);margin:10px 0}.mobile-dock{display:none}
+@media(max-width:1200px){.quick-grid{grid-template-columns:repeat(3,1fr)}.topbar{grid-template-columns:1fr auto}.search{grid-column:1/-1;grid-row:2}.hero-card{grid-template-columns:1fr}.system{justify-content:flex-start}}
+@media(max-width:940px){.shell{display:block}.sidebar{display:none}.menu-button{display:grid;place-items:center}.main{padding:17px 13px 88px}.modules,.content-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.tool-list{grid-template-columns:repeat(2,1fr)}.mobile-dock{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:10px;right:10px;bottom:10px;z-index:45;border:1px solid var(--line);background:rgba(12,7,23,.95);backdrop-filter:blur(22px);border-radius:17px;padding:6px}.mobile-dock a,.mobile-dock button{text-align:center;border:0;background:transparent;color:var(--muted);font-size:.64rem;padding:5px 2px}.mobile-dock b{display:block;font-size:1.08rem;color:#fff;margin-bottom:2px}}
+@media(max-width:620px){.topbar h1{font-size:1.65rem}.topbar p{display:none}.quick-grid{grid-template-columns:repeat(2,1fr)}.tool-list{grid-template-columns:1fr}.stats{gap:8px}.stat{padding:14px}.section-title{align-items:flex-start}.section-title a{display:none}.hero-card{padding:19px}.module-card{padding:16px}}
 </style>
 </head>
-<body>
+<body id="command-center-v3">
 <div class="shell">
 <aside class="sidebar">
-  <div class="brand"><div class="brand-mark">★</div><div><strong>Stage Starz</strong><small>Command Center 2.0</small></div></div>
-  <div class="module"><div class="module-title">Overview</div><a class="active" href="/admin">◈ Dashboard</a><a href="/admin/search">⌕ Global Search</a><a href="/admin/system/database">🗄 Database Status</a><a href="/admin/system/migrations">🧬 Migration Center</a>{% if has_permission("users") %}<a href="/admin/system/users">🔐 Users & Roles</a>{% endif %}</div>
-  <div class="module"><div class="module-title">Website</div><a href="/" target="_blank">🌐 Main Website</a><a href="/admin/website/homepage">🏠 Homepage Editor</a><a href="/admin/website/inquiries">📨 Website Inquiries</a><a href="/admin/announcements">📣 Announcements</a></div>
-  <div class="module"><div class="module-title">Commerce</div><a href="/admin/store">🛍 Store Manager</a><a href="/admin/orders">📦 Orders {% if stats.new_orders %}<small>{{ stats.new_orders }} new</small>{% endif %}</a><a href="/admin/reports">📊 Reports & Analytics</a><a href="/store" target="_blank">🛒 View Store</a></div>
-  <div class="module"><div class="module-title">Content</div><a href="/admin/media">🖼 Media Library</a><a href="#" onclick="return false">📅 Events <small>Next</small></a></div>
-  <div class="module"><div class="module-title">Relationships</div><a href="/admin/families">🏠 Families</a><a href="/admin/customers">👥 Customers</a><a href="/admin/students">🩰 Students</a>{% if has_permission("classes") %}<a href="/admin/classes">📚 Classes</a>{% endif %}{% if has_permission("attendance") %}<a href="/admin/attendance">✅ Attendance</a>{% endif %}{% if has_permission("billing") %}<a href="/admin/billing">💳 Billing & Tuition</a>{% endif %}{% if has_permission("costumes") %}<a href="/admin/costumes">👗 Costume Center</a>{% endif %}{% if has_permission("competitions") %}<a href="/admin/competitions">🏆 Competition Center</a>{% endif %}{% if has_permission("ticketing") %}<a href="/admin/ticketing">🎟 Reserved Ticketing</a>{% endif %}<a href="/tickets">🌐 Public Ticket Portal</a>{% if has_permission("recitals") %}<a href="/admin/recitals">🎭 Recital Center</a>{% endif %}{% if has_permission("production") %}<a href="/admin/production">🎬 Production Center</a>{% endif %}{% if has_permission("workflow") %}<a href="/admin/workflows">⚙ Workflow Center</a>{% endif %}<a href="/admin/notifications">🔔 Notifications</a>{% if has_permission("teachers") %}<a href="/admin/teachers">👩‍🏫 Teachers</a>{% endif %}{% if has_permission("notifications") %}<a href="/admin/notifications">✉️ Notification Center</a>{% endif %}<a href="/admin/parent-portal">👨‍👩‍👧 Parent Portal Access</a><a href="/parent/login" target="_blank">🏠 Open Parent Portal</a><a href="/admin/staff-portal">👩‍🏫 Staff Portal Access</a><a href="/staff/login" target="_blank">📋 Open Staff Portal</a></div><div class="module"><div class="module-title">Future</div><a href="#" onclick="return false">✨ AI Assistant</a></div>
+  <div class="brand"><div class="brand-mark">★</div><div><strong>Stage Starz</strong><small>Command Center</small></div></div>
+  <div class="side-label">Workspace</div>
+  <nav class="side-nav">
+    <a class="active" href="/admin"><span class="icon">◈</span>Dashboard</a>
+    <a href="#website-management"><span class="icon">🌐</span>Website</a>
+    <a href="#studio-operations"><span class="icon">🩰</span>Studio Operations</a>
+    <a href="#recital-competition"><span class="icon">🎭</span>Recital & Competition</a>
+    <a href="#store-orders"><span class="icon">🛍</span>Store & Orders</a>
+    <a href="#communication"><span class="icon">🔔</span>Communication</a>
+    <a href="#portals"><span class="icon">🔐</span>Portals</a>
+    <a href="#system-tools"><span class="icon">⚙</span>System</a>
+  </nav>
+  <div class="side-label">Direct</div>
+  <nav class="side-nav">
+    <a href="/admin/search"><span class="icon">⌕</span>Global Search</a>
+    <a href="/" target="_blank"><span class="icon">↗</span>Open Website</a>
+    <a href="/admin/logout"><span class="icon">↪</span>Log Out</a>
+  </nav>
   <div class="profile"><div class="avatar">{{ (current_admin_user.display_name[:2] if current_admin_user else 'SS')|upper }}</div><strong>{{ current_admin_greeting_name }}</strong><small>{{ role_definitions.get(current_admin_user.role, {}).get('label', 'Stage Starz') if current_admin_user else 'Stage Starz' }}</small></div>
 </aside>
 
 <main class="main">
   <div class="topbar">
-    <div><h1>Command Center</h1><p>Live operations across the Stage Starz website and store.</p></div>
-    <form class="search" action="/admin/search"><input name="q" placeholder="Search products, pages, orders and media…"><button>⌕</button></form>
+    <div class="title-row"><button class="menu-button" id="menuButton" aria-label="Open menu">☰</button><div><h1>Command Center</h1><p>Choose a work area instead of hunting through a long menu.</p></div></div>
+    <form class="search" action="/admin/search"><input name="q" placeholder="Search students, orders, pages, media…"><button aria-label="Search">⌕</button></form>
     <div class="tools"><button class="tool" id="notificationButton" title="Notifications">🔔{% if notifications %}<span class="counter">{{ notifications|length }}</span>{% endif %}</button><a class="tool" href="/admin/logout" title="Log Out" style="display:grid;place-items:center">↪</a></div>
   </div>
 
   <section class="hero-card">
-    <div><h2>{{ greeting }}, {{ current_admin_user.display_name if current_admin_user else 'Administrator' }}.</h2><p>You have {{ stats.new_orders }} new order(s), {{ stats.low_stock }} low-stock product(s), and {{ stats.active_announcements }} active announcement(s).</p></div>
+    <div><h2>{{ greeting }}, {{ current_admin_user.display_name if current_admin_user else 'Administrator' }}.</h2><p>Your backend is organized by job: website maintenance, studio records, performances, commerce, communication, portals, and system administration.</p></div>
     <div class="system"><span class="dot"></span>{{ database_backend }} online</div>
   </section>
 
   <section class="stats">
     <article class="card stat" style="--glow:rgba(80,214,208,.22)"><div class="stat-icon">💵</div><div class="stat-value">${{ "{:,.2f}".format(stats.sales_today) }}</div><div class="stat-label">Sales today</div></article>
-    <article class="card stat" style="--glow:rgba(155,77,204,.24)"><div class="stat-icon">📈</div><div class="stat-value">${{ "{:,.2f}".format(stats.sales_month) }}</div><div class="stat-label">Sales this month</div></article>
     <article class="card stat" style="--glow:rgba(239,61,152,.23)"><div class="stat-icon">📦</div><div class="stat-value">{{ stats.new_orders }}</div><div class="stat-label">New orders</div></article>
     <article class="card stat" style="--glow:rgba(255,200,103,.23)"><div class="stat-icon">⚠</div><div class="stat-value">{{ stats.low_stock }}</div><div class="stat-label">Low-stock products</div></article>
+    <article class="card stat" style="--glow:rgba(155,77,204,.22)"><div class="stat-icon">📣</div><div class="stat-value">{{ stats.active_announcements }}</div><div class="stat-label">Active announcements</div></article>
   </section>
 
-  <section class="stats">
-    <article class="card stat" style="--glow:rgba(80,214,208,.18)"><div class="stat-icon">🛍</div><div class="stat-value">{{ stats.active_products }}</div><div class="stat-label">Active products</div></article>
-    <article class="card stat" style="--glow:rgba(155,77,204,.18)"><div class="stat-icon">📚</div><div class="stat-value">{{ stats.total_orders }}</div><div class="stat-label">Total orders</div></article>
-    <article class="card stat" style="--glow:rgba(239,61,152,.18)"><div class="stat-icon">💎</div><div class="stat-value">${{ "{:,.0f}".format(stats.inventory_value) }}</div><div class="stat-label">Inventory value</div></article>
-    <article class="card stat" style="--glow:rgba(255,200,103,.18)"><div class="stat-icon">📣</div><div class="stat-value">{{ stats.active_announcements }}</div><div class="stat-label">Active announcements</div></article>
+  <div class="section-title"><div><h2>Quick Actions</h2><p>The tasks you are most likely to reach for.</p></div></div>
+  <section class="quick-grid">
+    <a class="quick" href="/admin/website/homepage"><span class="icon">🏠</span><strong>Homepage</strong><small>Edit homepage content</small></a>
+    <a class="quick" href="/admin/website/page-text"><span class="icon">✏️</span><strong>Page Text</strong><small>Parent, dancer & recital pages</small></a>
+    <a class="quick" href="/admin/website/videos"><span class="icon">🎬</span><strong>Videos</strong><small>Publish website videos</small></a>
+    <a class="quick" href="/admin/students"><span class="icon">🩰</span><strong>Students</strong><small>Student records and profiles</small></a>
+    <a class="quick" href="/admin/orders"><span class="icon">📦</span><strong>Orders</strong><small>{{ stats.new_orders }} new · {{ stats.ready_orders }} ready</small></a>
+    <a class="quick" href="/admin/notifications"><span class="icon">🔔</span><strong>Notifications</strong><small>Studio communication center</small></a>
   </section>
 
-  <section class="grid">
-    <article class="card section">
-      <div class="section-head"><h2>Quick Actions</h2><span class="muted">Start a task</span></div>
-      <div class="quick-grid">
-        <a class="quick" href="/admin/orders"><span class="icon">📦</span><strong>Manage Orders</strong><small>{{ stats.new_orders }} new · {{ stats.ready_orders }} ready</small></a>
-        <a class="quick" href="/admin/store#new-product"><span class="icon">➕</span><strong>Add Product</strong><small>Merchandise, options and inventory</small></a>
-        <a class="quick" href="/admin/website/homepage"><span class="icon">🏠</span><strong>Edit Homepage</strong><small>Hero, buttons and countdown</small></a>
-        <a class="quick" href="/admin/announcements"><span class="icon">📣</span><strong>Announcement</strong><small>Publish or schedule a notice</small></a>
-        <a class="quick" href="/admin/reports"><span class="icon">📊</span><strong>View Reports</strong><small>Revenue, orders and best sellers</small></a>
-        <a class="quick" href="/admin/ticketing"><span class="icon">🎟</span><strong>Reserved Ticketing</strong><small>Seat maps, orders, printable tickets and check-in</small></a>
+  <div class="section-title"><div><h2>Work Areas</h2><p>Every backend tool grouped by what you are trying to accomplish.</p></div><a href="/admin/search">Search all tools →</a></div>
+  <section class="modules">
+    <article class="card module-card" id="website-management">
+      <div class="module-head"><div class="module-icon">🌐</div><div><h3>Website Management</h3><p>Edit public pages, media, videos, class content and incoming website inquiries.</p></div></div>
+      <div class="tool-list">
+        <a class="tool-link external" href="/" target="_blank"><span class="tool-icon">↗</span><span>Open Main Website</span></a>
+        <a class="tool-link" href="/admin/website/homepage"><span class="tool-icon">🏠</span><span>Homepage Editor</span></a>
+        <a class="tool-link" href="/admin/website/page-text"><span class="tool-icon">✏️</span><span>Page Text Editor</span></a>
+        <a class="tool-link" href="/admin/website/classes"><span class="tool-icon">📄</span><span>Class Page Editor</span></a>
+        <a class="tool-link" href="/admin/website/videos"><span class="tool-icon">🎬</span><span>Video Editor</span></a>
+        <a class="tool-link" href="/admin/media"><span class="tool-icon">🖼</span><span>Media Library</span></a>
+        <a class="tool-link" href="/admin/website/inquiries"><span class="tool-icon">📨</span><span>Website Inquiries</span></a>
       </div>
     </article>
 
-    <article class="card section">
-      <div class="section-head"><h2>Inventory Alerts</h2><a href="/admin/store">Manage</a></div>
-      <div class="list">
-        {% for product in low_stock_products %}
-        <div class="item"><div><strong>{{ product.name }}</strong><small>{{ product.category }}</small></div><span class="badge warn">{{ product.stock }} left</span></div>
-        {% else %}<div class="empty">No low-stock products.</div>{% endfor %}
+    <article class="card module-card" id="studio-operations">
+      <div class="module-head"><div class="module-icon">🩰</div><div><h3>Studio Operations</h3><p>Jackrabbit-style day-to-day management for families, dancers, classes and tuition.</p></div></div>
+      <div class="tool-list">
+        <a class="tool-link" href="/admin/families"><span class="tool-icon">🏠</span><span>Families</span></a>
+        <a class="tool-link" href="/admin/customers"><span class="tool-icon">👥</span><span>Customers</span></a>
+        <a class="tool-link" href="/admin/students"><span class="tool-icon">🩰</span><span>Students</span></a>
+        {% if has_permission("classes") %}<a class="tool-link" href="/admin/classes"><span class="tool-icon">📚</span><span>Classes</span></a>{% endif %}
+        {% if has_permission("teachers") %}<a class="tool-link" href="/admin/teachers"><span class="tool-icon">👩‍🏫</span><span>Teachers</span></a>{% endif %}
+        {% if has_permission("attendance") %}<a class="tool-link" href="/admin/attendance"><span class="tool-icon">✅</span><span>Attendance</span></a>{% endif %}
+        {% if has_permission("billing") %}<a class="tool-link" href="/admin/billing"><span class="tool-icon">💳</span><span>Billing & Tuition</span></a>{% endif %}
+        {% if has_permission("costumes") %}<a class="tool-link" href="/admin/costumes"><span class="tool-icon">👗</span><span>Costume Center</span></a>{% endif %}
+      </div>
+    </article>
+
+    <article class="card module-card" id="recital-competition">
+      <div class="module-head"><div class="module-icon">🎭</div><div><h3>Recital & Competition</h3><p>Performance planning, competition teams, recital production and reserved ticketing.</p></div></div>
+      <div class="tool-list">
+        {% if has_permission("competitions") %}<a class="tool-link" href="/admin/competitions"><span class="tool-icon">🏆</span><span>Competition Center</span></a>{% endif %}
+        {% if has_permission("recitals") %}<a class="tool-link" href="/admin/recitals"><span class="tool-icon">🎭</span><span>Recital Center</span></a>{% endif %}
+        {% if has_permission("production") %}<a class="tool-link" href="/admin/production"><span class="tool-icon">🎬</span><span>Production Center</span></a>{% endif %}
+        {% if has_permission("ticketing") %}<a class="tool-link" href="/admin/ticketing"><span class="tool-icon">🎟</span><span>Reserved Ticketing</span></a>{% endif %}
+        <a class="tool-link external" href="/tickets" target="_blank"><span class="tool-icon">↗</span><span>Public Ticket Portal</span></a>
+        <a class="tool-link external" href="/recital-2027.html" target="_blank"><span class="tool-icon">↗</span><span>Open 2027 Recital Page</span></a>
+      </div>
+    </article>
+
+    <article class="card module-card" id="store-orders">
+      <div class="module-head"><div class="module-icon">🛍</div><div><h3>Store & Orders</h3><p>Products, fulfillment, inventory, orders and business reporting.</p></div></div>
+      <div class="tool-list">
+        <a class="tool-link" href="/admin/store"><span class="tool-icon">🛍</span><span>Store Manager</span></a>
+        <a class="tool-link" href="/admin/orders"><span class="tool-icon">📦</span><span>Orders{% if stats.new_orders %} · {{ stats.new_orders }} new{% endif %}</span></a>
+        <a class="tool-link" href="/admin/reports"><span class="tool-icon">📊</span><span>Reports & Analytics</span></a>
+        <a class="tool-link external" href="/store" target="_blank"><span class="tool-icon">↗</span><span>View Store</span></a>
+      </div>
+    </article>
+
+    <article class="card module-card" id="communication">
+      <div class="module-head"><div class="module-icon">🔔</div><div><h3>Communication</h3><p>Announcements, notifications and automated workflow communication.</p></div></div>
+      <div class="tool-list">
+        <a class="tool-link" href="/admin/announcements"><span class="tool-icon">📣</span><span>Announcements</span></a>
+        <a class="tool-link" href="/admin/notifications"><span class="tool-icon">✉️</span><span>Notification Center</span></a>
+        {% if has_permission("workflow") %}<a class="tool-link" href="/admin/workflows"><span class="tool-icon">⚙</span><span>Workflow Center</span></a>{% endif %}
+      </div>
+    </article>
+
+    <article class="card module-card" id="portals">
+      <div class="module-head"><div class="module-icon">🔐</div><div><h3>Portals</h3><p>Manage family and staff access, then open the live portal experiences.</p></div></div>
+      <div class="tool-list">
+        <a class="tool-link" href="/admin/parent-portal"><span class="tool-icon">👨‍👩‍👧</span><span>Parent Portal Access</span></a>
+        <a class="tool-link external" href="/parent/login" target="_blank"><span class="tool-icon">↗</span><span>Open Parent Portal</span></a>
+        <a class="tool-link" href="/admin/staff-portal"><span class="tool-icon">👩‍🏫</span><span>Staff Portal Access</span></a>
+        <a class="tool-link external" href="/staff/login" target="_blank"><span class="tool-icon">↗</span><span>Open Staff Portal</span></a>
+        <a class="tool-link external" href="/parent-hub.html" target="_blank"><span class="tool-icon">↗</span><span>Open Parent Hub</span></a>
+        <a class="tool-link external" href="/portal.html" target="_blank"><span class="tool-icon">↗</span><span>Open Dancer Portal</span></a>
+      </div>
+    </article>
+
+    <article class="card module-card" id="system-tools">
+      <div class="module-head"><div class="module-icon">⚙</div><div><h3>System & Security</h3><p>Search, database health, migrations and administrator access controls.</p></div></div>
+      <div class="tool-list">
+        <a class="tool-link" href="/admin/search"><span class="tool-icon">⌕</span><span>Global Search</span></a>
+        <a class="tool-link" href="/admin/system/database"><span class="tool-icon">🗄</span><span>Database Status</span></a>
+        <a class="tool-link" href="/admin/system/migrations"><span class="tool-icon">🧬</span><span>Migration Center</span></a>
+        {% if has_permission("users") %}<a class="tool-link" href="/admin/system/users"><span class="tool-icon">🔐</span><span>Users & Roles</span></a>{% endif %}
       </div>
     </article>
   </section>
 
-  <section class="grid">
+  <section class="content-grid">
     <article class="card section">
       <div class="section-head"><h2>Recent Orders</h2><a href="/admin/orders">View All</a></div>
-      <div class="list">
-        {% for order in recent_orders %}
-        <a class="item" href="/admin/orders/{{ order.id }}"><div><strong>{{ order.order_number }}</strong><small>{{ order.customer_name }} · {{ order.status }}</small></div><span class="badge">${{ "%.2f"|format(order.total) }}</span></a>
-        {% else %}<div class="empty">No orders yet.</div>{% endfor %}
-      </div>
+      <div class="list">{% for order in recent_orders %}<a class="item" href="/admin/orders/{{ order.id }}"><div><strong>{{ order.order_number }}</strong><small>{{ order.customer_name }} · {{ order.status }}</small></div><span class="badge">${{ "%.2f"|format(order.total) }}</span></a>{% else %}<div class="empty">No orders yet.</div>{% endfor %}</div>
     </article>
-
     <article class="card section">
-      <div class="section-head"><h2>Recent Activity</h2><span class="muted">Automatic history</span></div>
-      <div class="list">
-        {% for activity in activities %}
-        <div class="item"><div><strong>{{ activity.action }}</strong><small>{{ activity.detail or 'Stage Starz administration' }}</small></div><span class="activity-time">{{ activity.created_at }}</span></div>
-        {% else %}<div class="empty">Activity appears as the system is used.</div>{% endfor %}
-      </div>
+      <div class="section-head"><h2>Inventory Alerts</h2><a href="/admin/store">Manage</a></div>
+      <div class="list">{% for product in low_stock_products %}<div class="item"><div><strong>{{ product.name }}</strong><small>{{ product.category }}</small></div><span class="badge warn">{{ product.stock }} left</span></div>{% else %}<div class="empty">No low-stock products.</div>{% endfor %}</div>
+    </article>
+    <article class="card section" style="grid-column:1/-1">
+      <div class="section-head"><h2>Recent Activity</h2><span style="color:var(--muted);font-size:.8rem">Automatic history</span></div>
+      <div class="list">{% for activity in activities %}<div class="item"><div><strong>{{ activity.action }}</strong><small>{{ activity.detail or 'Stage Starz administration' }}</small></div><span class="activity-time">{{ activity.created_at }}</span></div>{% else %}<div class="empty">Activity appears as the system is used.</div>{% endfor %}</div>
     </article>
   </section>
 </main>
 </div>
 
-<div class="drawer" id="notificationDrawer">
-  <aside class="drawer-panel">
-    <div class="drawer-head"><h2>Notifications</h2><button class="close" id="closeDrawer">×</button></div>
-    {% for notice in notifications %}
-    <div class="notice {{ notice.level }}"><strong>{{ notice.title }}</strong><small>{{ notice.detail }}</small></div>
-    {% else %}<div class="empty">Everything looks good.</div>{% endfor %}
-  </aside>
-</div>
+<div class="overlay" id="notificationDrawer"><aside class="drawer-panel"><div class="drawer-head"><h2>Notifications</h2><button class="close" id="closeNotifications">×</button></div>{% for notice in notifications %}<div class="notice {{ notice.level }}"><strong>{{ notice.title }}</strong><small>{{ notice.detail }}</small></div>{% else %}<div class="empty">Everything looks good.</div>{% endfor %}</aside></div>
 
-<nav class="mobile-nav">
-  <a href="/admin"><b>◈</b>Home</a>
-  <a href="/admin/orders"><b>📦</b>Orders</a>
-  <a href="/admin/store"><b>🛍</b>Store</a>
-  <a href="/admin/logout"><b>↪</b>Log Out</a>
-</nav>
+<div class="overlay mobile-menu" id="mobileMenu"><aside class="drawer-panel"><div class="drawer-head"><div class="mobile-menu-brand"><div class="brand-mark" style="width:42px;height:42px">★</div><div><strong>Stage Starz</strong><div style="color:var(--muted);font-size:.78rem">Command Center</div></div></div><button class="close" id="closeMenu">×</button></div><nav class="mobile-menu-links"><a href="/admin">◈ Dashboard</a><a href="#website-management">🌐 Website Management</a><a href="#studio-operations">🩰 Studio Operations</a><a href="#recital-competition">🎭 Recital & Competition</a><a href="#store-orders">🛍 Store & Orders</a><a href="#communication">🔔 Communication</a><a href="#portals">🔐 Portals</a><a href="#system-tools">⚙ System & Security</a><div class="break"></div><a href="/admin/search">⌕ Global Search</a><a href="/" target="_blank">↗ Open Website</a><a href="/admin/logout">↪ Log Out</a></nav></aside></div>
+
+<nav class="mobile-dock"><a href="/admin"><b>◈</b>Home</a><a href="/admin/search"><b>⌕</b>Search</a><button type="button" id="dockNotifications"><b>🔔</b>Alerts</button><button type="button" id="dockMenu"><b>☰</b>Menu</button></nav>
 
 <script>
-const drawer=document.getElementById('notificationDrawer');
-document.getElementById('notificationButton').addEventListener('click',()=>drawer.classList.add('open'));
-document.getElementById('closeDrawer').addEventListener('click',()=>drawer.classList.remove('open'));
-drawer.addEventListener('click',e=>{if(e.target===drawer)drawer.classList.remove('open')});
+(function(){
+  const notifications=document.getElementById('notificationDrawer');
+  const menu=document.getElementById('mobileMenu');
+  const openNotifications=()=>notifications.classList.add('open');
+  const closeNotifications=()=>notifications.classList.remove('open');
+  const openMenu=()=>menu.classList.add('open');
+  const closeMenu=()=>menu.classList.remove('open');
+  document.getElementById('notificationButton').addEventListener('click',openNotifications);
+  document.getElementById('dockNotifications').addEventListener('click',openNotifications);
+  document.getElementById('closeNotifications').addEventListener('click',closeNotifications);
+  document.getElementById('menuButton').addEventListener('click',openMenu);
+  document.getElementById('dockMenu').addEventListener('click',openMenu);
+  document.getElementById('closeMenu').addEventListener('click',closeMenu);
+  notifications.addEventListener('click',e=>{if(e.target===notifications)closeNotifications()});
+  menu.addEventListener('click',e=>{if(e.target===menu)closeMenu()});
+  menu.querySelectorAll('a[href^="#"]').forEach(link=>link.addEventListener('click',closeMenu));
+})();
 </script>
 </body>
 </html>
