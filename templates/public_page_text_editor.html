@@ -19,7 +19,7 @@
 
   <section class="intro">
     <h2>Edit public website wording</h2>
-    <p>These changes are saved in the Stage Starz database, so they remain in place through Railway deployments. This editor changes wording only; it does not alter the page layout, photos, buttons, or destination links.</p>
+    <p>These changes are saved in the Stage Starz database, so they remain in place through Railway deployments. This editor changes website wording, including supported button and link labels, while keeping the page layout, photos, and destination links protected.</p>
     <div class="tabs">
       {% for key,info in pages.items() %}<a class="tab {% if key==page_key %}active{% endif %}" href="/admin/website/page-text?page={{ key }}">{{ info.label }}</a>{% endfor %}
     </div>
@@ -55,7 +55,7 @@
     <div class="actions"><button class="btn danger" type="submit">Restore Built-in Text</button></div>
   </form>
 
-  <div class="note"><strong>Safe editing:</strong> Use this screen for wording and date/time changes. The page design and links remain protected from accidental editing.</div>
+  <div class="note"><strong>Safe editing:</strong> Use this screen for wording and date/time changes. The page design and destination links remain protected from accidental editing.</div>
 </main>
 </body>
 </html>
