@@ -25,6 +25,7 @@ from program_hero_panels import register_program_hero_panels
 from public_page_text_editor import register_public_page_text_editor
 from public_page_text_extras import install_public_page_text_extras
 from public_video_routes import register_public_video_routes
+from studio_workspace_polish import register_studio_workspace_polish
 from teen_image_asset import register_teen_image_asset
 from video_admin_nav import register_video_admin_nav
 from video_player_polish import register_video_player_polish
@@ -94,5 +95,9 @@ register_command_center_mobile_polish(app)
 
 # Give all Website Management tools one shared desktop/mobile workspace shell.
 register_website_workspace_polish(app)
+
+# Keep family, student, class, attendance, billing and costume screens inside one
+# consistent Studio Operations workspace, including their detail/edit pages.
+register_studio_workspace_polish(app)
 
 __all__ = ["app"]
