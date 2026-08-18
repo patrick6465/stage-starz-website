@@ -92,13 +92,14 @@ body{
 }
 body > header:not(#ss-studio-workspace){display:none!important}
 #ss-studio-workspace{
+  display:block!important;width:100%!important;box-sizing:border-box!important;
   position:sticky;top:0;z-index:1000;background:rgba(9,5,16,.96);
   border-bottom:1px solid var(--ss-line);backdrop-filter:blur(22px);
   box-shadow:0 10px 34px rgba(0,0,0,.22)
 }
 .ss-studio-top{
-  min-height:72px;padding:12px clamp(14px,4vw,44px);display:flex;align-items:center;
-  justify-content:space-between;gap:18px
+  width:100%;box-sizing:border-box;min-height:72px;padding:12px clamp(14px,4vw,44px);
+  display:flex!important;align-items:center;justify-content:space-between;gap:18px
 }
 .ss-studio-brand{display:flex;align-items:center;gap:12px;min-width:0}
 .ss-studio-back{
@@ -119,8 +120,8 @@ body > header:not(#ss-studio-workspace){display:none!important}
 }
 .ss-studio-action:hover{border-color:rgba(80,214,208,.42);background:rgba(80,214,208,.07)}
 .ss-studio-tabs{
-  display:flex;gap:7px;overflow-x:auto;padding:0 clamp(14px,4vw,44px) 11px;
-  scrollbar-width:none;-webkit-overflow-scrolling:touch
+  width:100%;box-sizing:border-box;display:flex!important;gap:7px;overflow-x:auto;
+  padding:0 clamp(14px,4vw,44px) 11px;scrollbar-width:none;-webkit-overflow-scrolling:touch
 }
 .ss-studio-tabs::-webkit-scrollbar{display:none}
 .ss-studio-tab{
@@ -164,11 +165,15 @@ body a{color:inherit}
 .ss-studio-mobile-dock{display:none}
 @media(max-width:760px){
   body{padding-bottom:112px!important}
-  .ss-studio-top{min-height:66px;padding:10px 12px;gap:10px}
+  #ss-studio-workspace{display:block!important;width:100%!important}
+  .ss-studio-top{width:100%!important;min-height:66px;padding:10px 12px;gap:10px}
+  .ss-studio-brand{flex:1 1 auto;min-width:0}
   .ss-studio-back{width:40px;height:40px;flex-basis:40px}
   .ss-studio-heading p{display:none}
-  .ss-studio-action{padding:8px 10px}
-  .ss-studio-tabs{padding:0 12px 10px;gap:6px}
+  .ss-studio-actions{flex:0 0 auto}
+  .ss-studio-actions .ss-studio-action:first-child{display:none!important}
+  .ss-studio-action{padding:8px 10px;min-width:40px}
+  .ss-studio-tabs{display:flex!important;width:100%!important;padding:0 12px 10px;gap:6px}
   .ss-studio-tab{padding:8px 10px;font-size:.73rem}
   body .wrap{margin-top:14px!important}
   body .card,body .panel,body .section,body .table-wrap{border-radius:18px!important}
