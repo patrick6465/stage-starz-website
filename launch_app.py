@@ -21,6 +21,7 @@ from persistent_media import (
 from persistent_videos import register_persistent_videos
 from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
+from public_page_text_editor import register_public_page_text_editor
 from public_video_routes import register_public_video_routes
 from teen_image_asset import register_teen_image_asset
 from video_admin_nav import register_video_admin_nav
@@ -52,6 +53,10 @@ register_website_video_manager(app, permission_required, log_activity)
 register_public_video_routes(app)
 register_video_player_polish(app)
 register_video_admin_nav(app)
+
+# Parent Hub, Dancer Portal and the public Recital page keep their editable copy
+# in the database so wording changes survive Railway deployments.
+register_public_page_text_editor(app, permission_required, log_activity)
 
 # Serve the sharp built-in image assets from cache-busting routes.
 register_teen_image_asset(app)
