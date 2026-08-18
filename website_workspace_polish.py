@@ -64,9 +64,10 @@ body{
 }
 body > header:not(#ss-website-workspace){display:none!important}
 #ss-website-workspace{
-  position:sticky;top:0;z-index:1000;background:rgba(9,5,16,.96);
-  border-bottom:1px solid var(--ss-line);backdrop-filter:blur(22px);
-  box-shadow:0 10px 34px rgba(0,0,0,.22)
+  display:block!important;width:100%!important;margin:0!important;padding:0!important;
+  position:sticky;top:0;z-index:1000;background:rgba(9,5,16,.96)!important;
+  border-bottom:1px solid var(--ss-line)!important;backdrop-filter:blur(22px);
+  box-shadow:0 10px 34px rgba(0,0,0,.22);color:#fff!important
 }
 .ss-workspace-top{
   min-height:72px;padding:12px clamp(14px,4vw,44px);display:flex;align-items:center;
