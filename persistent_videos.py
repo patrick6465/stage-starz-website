@@ -3,8 +3,14 @@ from __future__ import annotations
 import mimetypes
 from pathlib import Path
 
+from flask import request
+
 from database import get_db
+import website_video_manager as video_manager
 from website_video_manager import MAX_VIDEO_BYTES, VIDEO_EXTENSIONS, VIDEO_FOLDER
+
+
+VIDEO_URL_PREFIX = "/media/videos/"
 
 
 def ensure_video_asset_schema() -> None:
@@ -43,6 +49,30 @@ def _stored_video_sizes() -> dict[str, int]:
             filename, size_bytes = row[0], row[1]
         sizes[str(filename)] = int(size_bytes or 0)
     return sizes
+
+
+def _stored_video_metadata() -> list[dict[str, object]]:
+    """Return video names and sizes without loading any large BLOB data."""
+    ensure_video_asset_schema()
+    connection = get_db()
+    rows = connection.execute(
+        "SELECT filename, size_bytes FROM website_video_assets ORDER BY filename"
+    ).fetchall()
+    connection.close()
+
+    videos: list[dict[str, object]] = []
+    for row in rows:
+        try:
+            filename, size_bytes = row["filename"], row["size_bytes"]
+        except (TypeError, KeyError, IndexError):
+            filename, size_bytes = row[0], row[1]
+        clean = Path(str(filename)).name
+        if not clean or clean != str(filename):
+            continue
+        if Path(clean).suffix.lower().lstrip(".") not in VIDEO_EXTENSIONS:
+            continue
+        videos.append({"filename": clean, "size_bytes": int(size_bytes or 0)})
+    return videos
 
 
 def _store_video(path: Path) -> bool:
@@ -112,52 +142,69 @@ def backup_video_folder() -> int:
     return backed_up
 
 
-def restore_persistent_videos() -> int:
-    """Restore database-backed videos to the Railway filesystem after a deploy/restart."""
+def restore_persistent_video(filename: str) -> bool:
+    """Restore one requested video instead of loading the full library at startup."""
+    clean = Path(str(filename)).name
+    if not clean or clean != str(filename):
+        return False
+    if Path(clean).suffix.lower().lstrip(".") not in VIDEO_EXTENSIONS:
+        return False
+
+    target = VIDEO_FOLDER / clean
+    stored_sizes = _stored_video_sizes()
+    expected = int(stored_sizes.get(clean, 0) or 0)
+    if expected <= 0:
+        return False
+
+    try:
+        if target.exists() and target.is_file() and target.stat().st_size == expected:
+            return True
+    except OSError:
+        pass
+
     ensure_video_asset_schema()
-    VIDEO_FOLDER.mkdir(parents=True, exist_ok=True)
-
-    # If a real Railway volume is mounted, import anything already present before
-    # restoring the database copy. This also safely migrates legacy disk-only files.
-    backup_video_folder()
-
     connection = get_db()
-    rows = connection.execute(
-        "SELECT filename, data, size_bytes FROM website_video_assets ORDER BY created_at"
-    ).fetchall()
+    row = connection.execute(
+        "SELECT data, size_bytes FROM website_video_assets WHERE filename=?",
+        (clean,),
+    ).fetchone()
     connection.close()
+    if not row:
+        return False
 
+    try:
+        data = row["data"]
+        size_bytes = row["size_bytes"]
+    except (TypeError, KeyError, IndexError):
+        data, size_bytes = row[0], row[1]
+
+    try:
+        expected = int(size_bytes or 0)
+        if expected <= 0 or expected > MAX_VIDEO_BYTES:
+            return False
+        VIDEO_FOLDER.mkdir(parents=True, exist_ok=True)
+        payload = bytes(data)
+        if len(payload) != expected:
+            return False
+        target.write_bytes(payload)
+        return True
+    except Exception:
+        return False
+
+
+def restore_persistent_videos() -> int:
+    """Compatibility helper: restore videos one at a time when explicitly requested."""
     restored = 0
-    for row in rows:
-        try:
-            filename, data, size_bytes = row["filename"], row["data"], row["size_bytes"]
-        except (TypeError, KeyError, IndexError):
-            filename, data, size_bytes = row[0], row[1], row[2]
-
-        clean = Path(str(filename)).name
-        if not clean or clean != str(filename):
-            continue
-        if Path(clean).suffix.lower().lstrip(".") not in VIDEO_EXTENSIONS:
-            continue
-
-        target = VIDEO_FOLDER / clean
-        try:
-            expected = int(size_bytes or 0)
-            if target.exists() and target.is_file() and target.stat().st_size == expected:
-                restored += 1
-                continue
-            target.write_bytes(bytes(data))
+    for item in _stored_video_metadata():
+        if restore_persistent_video(str(item["filename"])):
             restored += 1
-        except Exception:
-            continue
     return restored
 
 
 def delete_persistent_video(video_url: str) -> None:
-    prefix = "/media/videos/"
-    if not video_url.startswith(prefix):
+    if not video_url.startswith(VIDEO_URL_PREFIX):
         return
-    filename = Path(video_url[len(prefix):]).name
+    filename = Path(video_url[len(VIDEO_URL_PREFIX):]).name
     if not filename:
         return
 
@@ -171,13 +218,81 @@ def delete_persistent_video(video_url: str) -> None:
     connection.close()
 
 
+def _persistent_valid_video_url(video_url: str) -> str:
+    if not video_url.startswith(VIDEO_URL_PREFIX):
+        return ""
+    filename = Path(video_url[len(VIDEO_URL_PREFIX):]).name
+    if not filename or filename != video_url[len(VIDEO_URL_PREFIX):]:
+        return ""
+    if Path(filename).suffix.lower().lstrip(".") not in VIDEO_EXTENSIONS:
+        return ""
+
+    target = VIDEO_FOLDER / filename
+    if target.exists() and target.is_file():
+        return f"{VIDEO_URL_PREFIX}{filename}"
+    if filename in _stored_video_sizes():
+        return f"{VIDEO_URL_PREFIX}{filename}"
+    return ""
+
+
+def _persistent_video_list() -> list[dict[str, str]]:
+    """List the library from lightweight DB metadata plus any current disk files."""
+    indexed: dict[str, int] = {}
+    for item in _stored_video_metadata():
+        indexed[str(item["filename"])] = int(item["size_bytes"] or 0)
+
+    if VIDEO_FOLDER.exists():
+        for path in VIDEO_FOLDER.iterdir():
+            if not path.is_file() or path.suffix.lower().lstrip(".") not in VIDEO_EXTENSIONS:
+                continue
+            try:
+                indexed[path.name] = path.stat().st_size
+            except OSError:
+                continue
+
+    videos = [
+        {
+            "name": filename,
+            "url": f"{VIDEO_URL_PREFIX}{filename}",
+            "size_mb": f"{size / (1024 * 1024):.1f}",
+        }
+        for filename, size in indexed.items()
+        if size > 0
+    ]
+    return sorted(videos, key=lambda item: item["name"].lower())
+
+
 def register_persistent_videos(app) -> None:
-    """Keep website video uploads through Railway deploys and restarts."""
-    restored = restore_persistent_videos()
+    """Keep website videos persistent without blocking Railway startup."""
+    ensure_video_asset_schema()
+    VIDEO_FOLDER.mkdir(parents=True, exist_ok=True)
+
+    # The public/editor helpers should recognize database-backed videos even when
+    # the new Railway container has not materialized those large files to disk yet.
+    video_manager._valid_video_url = _persistent_valid_video_url
+    video_manager._list_videos = _persistent_video_list
+
     app.logger.info(
-        "Persistent website videos ready; restored %s video(s)",
-        restored,
+        "Persistent website video storage ready; large files restore lazily on request"
     )
+
+    @app.before_request
+    def materialize_requested_video():
+        try:
+            if request.method == "GET" and request.path.startswith(VIDEO_URL_PREFIX):
+                filename = request.path[len(VIDEO_URL_PREFIX):]
+                target = VIDEO_FOLDER / Path(filename).name
+                if not target.exists() or not target.is_file():
+                    restore_persistent_video(filename)
+            elif request.method == "POST" and request.path == "/admin/website/videos/delete":
+                video_url = request.form.get("video_url", "").strip()
+                if video_url.startswith(VIDEO_URL_PREFIX):
+                    filename = video_url[len(VIDEO_URL_PREFIX):]
+                    target = VIDEO_FOLDER / Path(filename).name
+                    if not target.exists() or not target.is_file():
+                        restore_persistent_video(filename)
+        except Exception:
+            app.logger.exception("Could not lazily restore persistent website video")
 
     @app.after_request
     def persist_website_video_changes(response):
@@ -190,8 +305,6 @@ def register_persistent_videos(app) -> None:
                         backed_up,
                     )
             elif request_path_is_video_delete(response):
-                from flask import request
-
                 delete_persistent_video(request.form.get("video_url", "").strip())
         except Exception:
             app.logger.exception("Could not synchronize persistent website video storage")
@@ -199,8 +312,6 @@ def register_persistent_videos(app) -> None:
 
 
 def request_path_is_video_save(response) -> bool:
-    from flask import request
-
     return (
         request.method == "POST"
         and request.path == "/admin/website/videos/save"
@@ -209,8 +320,6 @@ def request_path_is_video_save(response) -> bool:
 
 
 def request_path_is_video_delete(response) -> bool:
-    from flask import request
-
     return (
         request.method == "POST"
         and request.path == "/admin/website/videos/delete"
