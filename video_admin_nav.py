@@ -29,6 +29,11 @@ def register_video_admin_nav(app) -> None:
             body = response.get_data(as_text=True)
             changed = False
 
+            # Command Center 3 groups these destinations natively. Do not let the
+            # older link injector crowd its sidebar or mobile navigation again.
+            if request.path == "/admin" and 'id="command-center-v3"' in body:
+                return response
+
             if request.path == "/admin":
                 homepage = '<a href="/admin/website/homepage">🏠 Homepage Editor</a>'
                 if VIDEO_LINK not in body and homepage in body:
