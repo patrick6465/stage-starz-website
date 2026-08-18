@@ -29,6 +29,7 @@ from teen_image_asset import register_teen_image_asset
 from video_admin_nav import register_video_admin_nav
 from video_player_polish import register_video_player_polish
 from website_video_manager import register_website_video_manager
+from website_workspace_polish import register_website_workspace_polish
 
 # Keep existing bundled assets available for older references.
 install_bundled_assets()
@@ -90,5 +91,8 @@ register_admin_editor_fixes(app, UPLOAD_FOLDER, save_persistent_image, log_activ
 
 # Keep mobile Command Center work areas compact without changing backend routes.
 register_command_center_mobile_polish(app)
+
+# Give all Website Management tools one shared desktop/mobile workspace shell.
+register_website_workspace_polish(app)
 
 __all__ = ["app"]
