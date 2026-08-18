@@ -98,6 +98,8 @@ register_website_workspace_polish(app)
 
 # Keep family, student, class, attendance, billing and costume screens inside one
 # consistent Studio Operations workspace, including their detail/edit pages.
+# This registration is intentionally last so its response shell is the first
+# admin workspace layer applied by Flask's reverse after_request order.
 register_studio_workspace_polish(app)
 
 __all__ = ["app"]
