@@ -14,6 +14,7 @@ from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
 from launch_foundation import register_launch_foundation
+from performance_workspace_polish import register_performance_workspace_polish
 from persistent_media import (
     delete_persistent_image,
     register_persistent_media,
@@ -106,8 +107,10 @@ register_studio_detail_title_polish(app)
 
 # Keep family, student, class, attendance, billing and costume screens inside one
 # consistent Studio Operations workspace, including their detail/edit pages.
-# This registration is intentionally last so its response shell is the first
-# admin workspace layer applied by Flask's reverse after_request order.
 register_studio_workspace_polish(app)
+
+# Keep competition, recital, production and reserved-ticketing screens in one
+# shared performance workspace, including event/show/routine/order detail pages.
+register_performance_workspace_polish(app)
 
 __all__ = ["app"]
