@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from flask import request
+import html
+
+from studio_gallery_manager import published_gallery_settings
 
 
 STUDIO_PHOTO_STYLE = r"""
@@ -87,7 +89,61 @@ STUDIO_PHOTO_STYLE = r"""
 </style>
 """
 
-HOME_SECTION = r"""
+
+HOME_PHOTOS = (
+    (
+        "class_in_progress",
+        "featured",
+        "Stage Starz dancers participating in class inside the studio",
+        "Classes in action",
+    ),
+    (
+        "room_wide",
+        "room",
+        "Stage Starz dance room with professional floor, mirrors and ballet barres",
+        "Bright, spacious dance rooms",
+    ),
+    (
+        "parent_viewing",
+        "parents",
+        "Stage Starz parent waiting and viewing area",
+        "A comfortable parent viewing area",
+    ),
+    (
+        "awards_wall",
+        "awards",
+        "Competition awards displayed above a ballet barre at Stage Starz",
+        "A studio built on growth and achievement",
+    ),
+    (
+        "first_day_dancers",
+        "first-day",
+        "Current Stage Starz dancers celebrating their first day of dance",
+        "A welcoming place to begin",
+    ),
+)
+
+
+def _home_section(values: dict[str, str]) -> str:
+    figures: list[str] = []
+    for slot, css_class, alt_text, caption in HOME_PHOTOS:
+        image_url = values.get(slot, "")
+        if not image_url:
+            continue
+        figures.append(
+            f'<figure class="ss-studio-photo {css_class}">'
+            f'<img src="{html.escape(image_url, quote=True)}" alt="{html.escape(alt_text, quote=True)}" '
+            'loading="lazy" decoding="async">'
+            f'<figcaption>{html.escape(caption)}</figcaption>'
+            '</figure>'
+        )
+
+    # Do not publish an empty or half-broken gallery. The section appears as soon
+    # as at least one persistent Studio Gallery photo is available.
+    if not figures:
+        return ""
+
+    return f"""
 <section class="ss-studio-story" id="inside-stage-starz" aria-labelledby="inside-stage-starz-title">
   <div class="ss-studio-story-inner">
     <div class="ss-studio-story-head">
@@ -95,28 +151,7 @@ HOME_SECTION = r"""
       <h2 id="inside-stage-starz-title">A place to learn, grow &amp; perform.</h2>
       <p class="ss-lead">Take a look inside the real spaces where Stage Starz dancers build confidence, technique, friendships and a love of performing.</p>
     </div>
-    <div class="ss-studio-gallery">
-      <figure class="ss-studio-photo featured">
-        <img src="/assets/images/studio/studio-class-in-progress.webp" alt="Stage Starz dancers participating in class inside the studio" loading="lazy" decoding="async">
-        <figcaption>Classes in action</figcaption>
-      </figure>
-      <figure class="ss-studio-photo room">
-        <img src="/assets/images/studio/studio-room-wide.webp" alt="Stage Starz dance room with professional floor, mirrors and ballet barres" loading="lazy" decoding="async">
-        <figcaption>Bright, spacious dance rooms</figcaption>
-      </figure>
-      <figure class="ss-studio-photo parents">
-        <img src="/assets/images/studio/studio-parent-viewing-area.webp" alt="Stage Starz parent waiting and viewing area" loading="lazy" decoding="async">
-        <figcaption>A comfortable parent viewing area</figcaption>
-      </figure>
-      <figure class="ss-studio-photo awards">
-        <img src="/assets/images/studio/studio-awards-wall.webp" alt="Competition awards displayed above a ballet barre at Stage Starz" loading="lazy" decoding="async">
-        <figcaption>A studio built on growth and achievement</figcaption>
-      </figure>
-      <figure class="ss-studio-photo first-day">
-        <img src="/assets/images/studio/studio-first-day-dancers.webp" alt="Current Stage Starz dancers celebrating their first day of dance" loading="lazy" decoding="async">
-        <figcaption>A welcoming place to begin</figcaption>
-      </figure>
-    </div>
+    <div class="ss-studio-gallery">{''.join(figures)}</div>
     <div class="ss-studio-story-actions">
       <a class="primary" href="classes.html">Find Your Child's Class →</a>
       <a class="secondary" href="contact.html">Contact the Studio</a>
@@ -125,10 +160,15 @@ HOME_SECTION = r"""
 </section>
 """
 
-ABOUT_SECTION = r"""
+
+def _about_section(image_url: str) -> str:
+    if not image_url:
+        return ""
+    safe_url = html.escape(image_url, quote=True)
+    return f"""
 <section class="ss-page-photo-panel" id="meet-stage-starz-team" aria-labelledby="meet-stage-starz-team-title">
   <div>
-    <img src="/assets/images/studio/studio-staff-first-day.webp" alt="Stage Starz staff celebrating the first day of dance" loading="lazy" decoding="async">
+    <img src="{safe_url}" alt="Stage Starz staff celebrating the first day of dance" loading="lazy" decoding="async">
   </div>
   <div class="ss-page-photo-copy">
     <p class="ss-eyebrow">The people behind the studio</p>
@@ -138,7 +178,12 @@ ABOUT_SECTION = r"""
 </section>
 """
 
-CONTACT_SECTION = r"""
+
+def _contact_section(image_url: str) -> str:
+    if not image_url:
+        return ""
+    safe_url = html.escape(image_url, quote=True)
+    return f"""
 <section class="ss-page-photo-panel reverse" id="find-stage-starz" aria-labelledby="find-stage-starz-title">
   <div class="ss-page-photo-copy">
     <p class="ss-eyebrow">Find Stage Starz</p>
@@ -147,7 +192,7 @@ CONTACT_SECTION = r"""
     <p class="ss-small">The studio entrance is located in the Academy of Dance storefront shown here.</p>
   </div>
   <div>
-    <img src="/assets/images/studio/studio-exterior.webp" alt="Exterior of Stage Starz Academy of Dance at 6800 Lewis Avenue in Temperance Michigan" loading="lazy" decoding="async">
+    <img src="{safe_url}" alt="Exterior of Stage Starz Academy of Dance at 6800 Lewis Avenue in Temperance Michigan" loading="lazy" decoding="async">
   </div>
 </section>
 """
@@ -163,6 +208,19 @@ def _decorate(app, response, page: str):
         if not body:
             return response
 
+        values = published_gallery_settings()
+        if page == "home":
+            section = _home_section(values)
+        elif page == "about":
+            section = _about_section(values.get("staff_first_day", ""))
+        elif page == "contact":
+            section = _contact_section(values.get("exterior", ""))
+        else:
+            section = ""
+
+        if not section:
+            return response
+
         changed = False
         if 'id="ss-studio-photo-style"' not in body and "</head>" in body:
             body = body.replace("</head>", STUDIO_PHOTO_STYLE + "</head>", 1)
@@ -171,22 +229,22 @@ def _decorate(app, response, page: str):
         if page == "home" and 'id="inside-stage-starz"' not in body:
             marker = '<section class="approved-why"'
             if marker in body:
-                body = body.replace(marker, HOME_SECTION + "\n" + marker, 1)
+                body = body.replace(marker, section + "\n" + marker, 1)
             elif "</main>" in body:
-                body = body.replace("</main>", HOME_SECTION + "\n</main>", 1)
+                body = body.replace("</main>", section + "\n</main>", 1)
             changed = True
 
         elif page == "about" and 'id="meet-stage-starz-team"' not in body:
             if "</main>" in body:
-                body = body.replace("</main>", ABOUT_SECTION + "\n</main>", 1)
+                body = body.replace("</main>", section + "\n</main>", 1)
                 changed = True
 
         elif page == "contact" and 'id="find-stage-starz"' not in body:
             marker = '<section class="section grid two">'
             if marker in body:
-                body = body.replace(marker, CONTACT_SECTION + "\n" + marker, 1)
+                body = body.replace(marker, section + "\n" + marker, 1)
             elif "</main>" in body:
-                body = body.replace("</main>", CONTACT_SECTION + "\n</main>", 1)
+                body = body.replace("</main>", section + "\n</main>", 1)
             changed = True
 
         if changed:
@@ -195,12 +253,12 @@ def _decorate(app, response, page: str):
             response.headers.pop("ETag", None)
             response.headers.pop("Last-Modified", None)
     except Exception:
-        app.logger.exception("Could not decorate public pages with studio photography")
+        app.logger.exception("Could not decorate public pages with Studio Gallery photography")
     return response
 
 
 def register_public_studio_gallery(app) -> None:
-    """Add real Stage Starz studio photography to prospect-facing public pages."""
+    """Add persistent real Stage Starz photography to prospect-facing public pages."""
 
     home_endpoint = "website_home"
     file_endpoint = "website_file"
