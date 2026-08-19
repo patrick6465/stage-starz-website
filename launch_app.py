@@ -29,6 +29,7 @@ from public_studio_gallery import register_public_studio_gallery
 from public_video_routes import register_public_video_routes
 from studio_active_tab_polish import register_studio_active_tab_polish
 from studio_detail_title_polish import register_studio_detail_title_polish
+from studio_gallery_admin_nav import register_studio_gallery_admin_nav
 from studio_gallery_manager import register_studio_gallery_manager
 from studio_workspace_polish import register_studio_workspace_polish
 from teen_image_asset import register_teen_image_asset
@@ -103,6 +104,11 @@ register_admin_editor_fixes(app, UPLOAD_FOLDER, save_persistent_image, log_activ
 
 # Keep mobile Command Center work areas compact without changing backend routes.
 register_command_center_mobile_polish(app)
+
+# Add Studio Gallery to the shared Website Management navigation. Register this
+# before the workspace shell because Flask runs after_request handlers in reverse;
+# the shell is built first and this hook can then append the Gallery tab.
+register_studio_gallery_admin_nav(app)
 
 # Give all Website Management tools one shared desktop/mobile workspace shell.
 register_website_workspace_polish(app)
