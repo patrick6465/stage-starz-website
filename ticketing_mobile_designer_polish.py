@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from flask import request
 
+from app import get_db
+
 
 MOBILE_STYLE = r"""
 <style id="ss-ticketing-mobile-designer-polish">
@@ -198,6 +200,38 @@ MOBILE_SCRIPT = r"""
 
 def register_ticketing_mobile_designer_polish(app) -> None:
     """Make reserved-ticketing venue and show canvases practical on touch screens."""
+
+    @app.context_processor
+    def inject_ticket_delivery_settings():
+        """Supply the digital-ticket settings expected by ticket_show.html."""
+        settings = {}
+        path = request.path.rstrip("/") or "/"
+        parts = path.split("/")
+        show_page = (
+            len(parts) == 5
+            and parts[:4] == ["", "admin", "ticketing", "shows"]
+            and parts[4].isdigit()
+        )
+        if not show_page:
+            return {"delivery_settings": settings}
+
+        connection = None
+        try:
+            show_id = int(parts[4])
+            connection = get_db()
+            row = connection.execute(
+                "SELECT * FROM ticket_delivery_settings WHERE recital_show_id=?",
+                (show_id,),
+            ).fetchone()
+            if row:
+                settings = dict(row)
+        except Exception:
+            app.logger.exception("Could not load ticket delivery settings for show page")
+        finally:
+            if connection is not None:
+                connection.close()
+
+        return {"delivery_settings": settings}
 
     @app.after_request
     def polish_ticketing_mobile(response):
