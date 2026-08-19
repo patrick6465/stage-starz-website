@@ -36,6 +36,7 @@ from studio_gallery_admin_nav import register_studio_gallery_admin_nav
 from studio_gallery_manager import register_studio_gallery_manager
 from studio_workspace_polish import register_studio_workspace_polish
 from teen_image_asset import register_teen_image_asset
+from ticketing_mobile_designer_polish import register_ticketing_mobile_designer_polish
 from video_admin_nav import register_video_admin_nav
 from video_player_polish import register_video_player_polish
 from website_video_manager import register_website_video_manager
@@ -133,6 +134,10 @@ register_studio_detail_title_polish(app)
 # Keep family, student, class, attendance, billing and costume screens inside one
 # consistent Studio Operations workspace, including their detail/edit pages.
 register_studio_workspace_polish(app)
+
+# Add touch-friendly panning and mobile instructions to the large reserved-
+# ticketing venue canvas without changing the desktop coordinate designer.
+register_ticketing_mobile_designer_polish(app)
 
 # Register the Recital & Competition mobile finisher before the shared shell.
 # Flask executes after_request handlers in reverse order, so the shell is injected
