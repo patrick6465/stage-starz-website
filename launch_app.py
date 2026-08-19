@@ -37,6 +37,7 @@ from studio_gallery_manager import register_studio_gallery_manager
 from studio_workspace_polish import register_studio_workspace_polish
 from teen_image_asset import register_teen_image_asset
 from ticketing_mobile_designer_polish import register_ticketing_mobile_designer_polish
+from ticketing_operations_mobile_polish import register_ticketing_operations_mobile_polish
 from video_admin_nav import register_video_admin_nav
 from video_player_polish import register_video_player_polish
 from website_video_manager import register_website_video_manager
@@ -134,6 +135,10 @@ register_studio_detail_title_polish(app)
 # Keep family, student, class, attendance, billing and costume screens inside one
 # consistent Studio Operations workspace, including their detail/edit pages.
 register_studio_workspace_polish(app)
+
+# Make door check-in, ticket-order and seat-hold detail screens practical on
+# phones while preserving the existing ticketing workflows and database logic.
+register_ticketing_operations_mobile_polish(app)
 
 # Add touch-friendly panning and mobile instructions to the large reserved-
 # ticketing venue canvas without changing the desktop coordinate designer.
