@@ -6,6 +6,27 @@ from flask import request
 MOBILE_GALLERY_STYLE = r"""
 <style id="ss-home-gallery-mobile-polish-style">
 @media(max-width:640px){
+  /* The base gallery used fixed grid rows while the featured card had a larger
+     min-height, which let the following photo visually climb over it. Give each
+     mobile card its own intrinsic row and a predictable photo ratio instead. */
+  .ss-studio-gallery{
+    grid-auto-rows:auto!important;
+  }
+  .ss-studio-photo,
+  .ss-studio-photo.featured{
+    position:relative!important;
+    height:auto!important;
+    min-height:0!important;
+    aspect-ratio:4/3!important;
+  }
+  .ss-studio-photo img{
+    position:absolute!important;
+    inset:0!important;
+    width:100%!important;
+    height:100%!important;
+    object-fit:cover!important;
+  }
+
   .ss-mobile-cta{
     bottom:max(10px, env(safe-area-inset-bottom))!important;
     transition:transform .24s ease,opacity .20s ease!important;
@@ -22,7 +43,7 @@ MOBILE_GALLERY_STYLE = r"""
     will-change:transform,opacity;
   }
   body.ss-gallery-mode .ss-public-admin-pill{
-    transform:translateY(24px)!important;
+    transform:translateY(calc(100% + 34px))!important;
     opacity:0!important;
     pointer-events:none!important;
   }
