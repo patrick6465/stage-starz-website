@@ -15,6 +15,7 @@ from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
 from homepage_mobile_gallery_polish import register_homepage_mobile_gallery_polish
 from launch_foundation import register_launch_foundation
+from performance_mobile_polish import register_performance_mobile_polish
 from performance_workspace_polish import register_performance_workspace_polish
 from persistent_media import (
     delete_persistent_image,
@@ -132,6 +133,11 @@ register_studio_detail_title_polish(app)
 # Keep family, student, class, attendance, billing and costume screens inside one
 # consistent Studio Operations workspace, including their detail/edit pages.
 register_studio_workspace_polish(app)
+
+# Register the Recital & Competition mobile finisher before the shared shell.
+# Flask executes after_request handlers in reverse order, so the shell is injected
+# first and this pass can then refine its dock and older page layouts safely.
+register_performance_mobile_polish(app)
 
 # Keep competition, recital, production and reserved-ticketing screens in one
 # shared performance workspace, including event/show/routine/order detail pages.
