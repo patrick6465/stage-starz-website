@@ -1,14 +1,6 @@
 from __future__ import annotations
 
-from flask import request
-
-from website_video_manager import (
-    PUBLIC_VIDEO_STYLE,
-    _inject_competition_video,
-    _inject_homepage_video,
-    _settings,
-    _valid_video_url,
-)
+import website_video_manager as video_manager
 
 
 def _decorate_public_html(app, response, page: str):
@@ -26,13 +18,18 @@ def _decorate_public_html(app, response, page: str):
         if not body:
             return response
 
-        values = _settings()
+        values = video_manager._settings()
         changed = False
 
         if page == "home":
-            video_url = _valid_video_url(values.get("home_performance", ""))
+            # Resolve through the module at request time. persistent_videos patches
+            # this helper so database-backed videos stay valid after a Railway
+            # restart even before the large file has been materialized to disk.
+            video_url = video_manager._valid_video_url(
+                values.get("home_performance", "")
+            )
             if video_url:
-                updated = _inject_homepage_video(body, video_url)
+                updated = video_manager._inject_homepage_video(body, video_url)
                 if updated != body:
                     body = updated
                     changed = True
@@ -41,10 +38,10 @@ def _decorate_public_html(app, response, page: str):
             # The Competition spotlight is part of the page even before a video
             # is assigned. Passing an empty URL intentionally renders the
             # Musical Theater placeholder.
-            video_url = _valid_video_url(
+            video_url = video_manager._valid_video_url(
                 values.get("competition_musical_theater", "")
             )
-            updated = _inject_competition_video(body, video_url)
+            updated = video_manager._inject_competition_video(body, video_url)
             if updated != body:
                 body = updated
                 changed = True
@@ -54,7 +51,11 @@ def _decorate_public_html(app, response, page: str):
             and 'id="ss-public-video-style"' not in body
             and "</head>" in body
         ):
-            body = body.replace("</head>", PUBLIC_VIDEO_STYLE + "</head>", 1)
+            body = body.replace(
+                "</head>",
+                video_manager.PUBLIC_VIDEO_STYLE + "</head>",
+                1,
+            )
             changed = True
 
         if changed:
