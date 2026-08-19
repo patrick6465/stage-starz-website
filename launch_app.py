@@ -13,6 +13,7 @@ from command_center_mobile_polish import register_command_center_mobile_polish
 from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
+from homepage_mobile_gallery_polish import register_homepage_mobile_gallery_polish
 from launch_foundation import register_launch_foundation
 from performance_workspace_polish import register_performance_workspace_polish
 from persistent_media import (
@@ -75,6 +76,10 @@ register_public_page_text_editor(app, permission_required, log_activity)
 # broken static binary assets from leaving blank cards after a deployment.
 register_studio_gallery_manager(app, permission_required, log_activity)
 register_public_studio_gallery(app)
+
+# On phones, temporarily slide the homepage quick-action bar away while the
+# Studio Gallery is in view so captions and photos are never covered.
+register_homepage_mobile_gallery_polish(app)
 
 # Serve the sharp built-in image assets from cache-busting routes.
 register_teen_image_asset(app)
