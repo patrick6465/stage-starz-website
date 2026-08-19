@@ -65,6 +65,7 @@ STUDIO_PHOTO_STYLE = r"""
 }
 .ss-page-photo-panel.reverse{grid-template-columns:minmax(300px,.9fr) minmax(0,1.1fr)}
 .ss-page-photo-panel img{width:100%;height:100%;min-height:340px;object-fit:cover;border-radius:21px}
+#meet-stage-starz-team img{object-position:center top}
 .ss-page-photo-copy{padding:14px 12px}
 .ss-page-photo-copy h2{margin:0 0 13px;color:#7e32ff;font-size:clamp(1.8rem,4vw,3rem);line-height:1.05}
 .ss-page-photo-copy p{margin:0;color:#6f6780;font-size:1.04rem}
@@ -76,6 +77,10 @@ STUDIO_PHOTO_STYLE = r"""
   .ss-studio-photo.featured{grid-column:1/-1;min-height:300px}
   .ss-page-photo-panel,.ss-page-photo-panel.reverse{grid-template-columns:1fr}
   .ss-page-photo-panel img{min-height:0;aspect-ratio:4/3}
+  #meet-stage-starz-team img{
+    display:block;width:100%;height:auto;min-height:0;aspect-ratio:auto;
+    object-fit:contain;object-position:center top
+  }
 }
 @media(max-width:560px){
   .ss-studio-story{padding:62px 14px}
@@ -138,8 +143,6 @@ def _home_section(values: dict[str, str]) -> str:
             '</figure>'
         )
 
-    # Do not publish an empty or half-broken gallery. The section appears as soon
-    # as at least one persistent Studio Gallery photo is available.
     if not figures:
         return ""
 
