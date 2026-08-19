@@ -32,3 +32,5 @@ Open `index.html` to preview locally.
 - Junior Team: `cat1=competition fall&cat2=junior`
 - Teen/Senior Team: `cat1=competition fall&cat2=teen`
 - Juniorettes: `cat1=competition fall&cat2=petite`
+
+<!-- Railway redeploy requested 2026-08-18 for Recital & Competition workspace -->
