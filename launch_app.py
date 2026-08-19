@@ -29,6 +29,7 @@ from public_studio_gallery import register_public_studio_gallery
 from public_video_routes import register_public_video_routes
 from studio_active_tab_polish import register_studio_active_tab_polish
 from studio_detail_title_polish import register_studio_detail_title_polish
+from studio_gallery_manager import register_studio_gallery_manager
 from studio_workspace_polish import register_studio_workspace_polish
 from teen_image_asset import register_teen_image_asset
 from video_admin_nav import register_video_admin_nav
@@ -68,9 +69,10 @@ register_video_admin_nav(app)
 install_public_page_text_extras()
 register_public_page_text_editor(app, permission_required, log_activity)
 
-# Add current studio photography to the public homepage, About, and Contact pages.
-# This wrapper is registered after the video/page-text layers so it decorates their
-# final HTML response instead of competing with the underlying static page routes.
+# Studio Gallery photos use the same persistent image store as the other website
+# editors. Only valid DB-backed files are rendered on the public pages, preventing
+# broken static binary assets from leaving blank cards after a deployment.
+register_studio_gallery_manager(app, permission_required, log_activity)
 register_public_studio_gallery(app)
 
 # Serve the sharp built-in image assets from cache-busting routes.
