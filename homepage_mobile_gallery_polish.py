@@ -18,10 +18,13 @@ MOBILE_GALLERY_STYLE = r"""
   }
   .ss-public-admin-pill{
     bottom:max(84px, calc(env(safe-area-inset-bottom) + 76px))!important;
-    transition:bottom .24s ease!important;
+    transition:bottom .24s ease,transform .24s ease,opacity .20s ease!important;
+    will-change:transform,opacity;
   }
   body.ss-gallery-mode .ss-public-admin-pill{
-    bottom:max(10px, env(safe-area-inset-bottom))!important;
+    transform:translateY(24px)!important;
+    opacity:0!important;
+    pointer-events:none!important;
   }
 }
 </style>
