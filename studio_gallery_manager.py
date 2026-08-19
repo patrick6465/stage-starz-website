@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from flask import flash, redirect, render_template, request
 
+from config import UPLOAD_FOLDER
 from database import get_db
 from persistent_media import delete_persistent_image, save_persistent_image
 
@@ -79,6 +82,25 @@ def gallery_settings() -> dict[str, str]:
     return values
 
 
+def _valid_persistent_image(image_url: str) -> str:
+    prefix = "/uploads/"
+    if not image_url.startswith(prefix):
+        return ""
+    filename = Path(image_url[len(prefix):]).name
+    if not filename:
+        return ""
+    target = UPLOAD_FOLDER / filename
+    if not target.exists() or not target.is_file():
+        return ""
+    return f"/uploads/{filename}"
+
+
+def published_gallery_settings() -> dict[str, str]:
+    """Return only DB-backed images that are currently available on disk."""
+    values = gallery_settings()
+    return {slot: _valid_persistent_image(url) for slot, url in values.items()}
+
+
 def _set_gallery_slot(slot: str, image_url: str) -> None:
     ensure_gallery_schema()
     connection = get_db()
@@ -103,7 +125,7 @@ def register_studio_gallery_manager(app, permission_required, log_activity=None)
     @app.route("/admin/website/studio-gallery")
     @permission_required("website")
     def studio_gallery_editor():
-        current = gallery_settings()
+        current = published_gallery_settings()
         slots = []
         for key, info in GALLERY_SLOTS.items():
             slots.append(
