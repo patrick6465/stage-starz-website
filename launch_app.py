@@ -24,6 +24,7 @@ from persistent_media import (
 from persistent_videos import register_persistent_videos
 from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
+from public_logo_polish import register_public_logo_polish
 from public_page_text_editor import register_public_page_text_editor
 from public_page_text_extras import install_public_page_text_extras
 from public_studio_gallery import register_public_studio_gallery
@@ -80,6 +81,10 @@ register_public_studio_gallery(app)
 # On phones, temporarily slide the homepage quick-action bar away while the
 # Studio Gallery is in view so captions and photos are never covered.
 register_homepage_mobile_gallery_polish(app)
+
+# Replace any legacy generic star badge in public-page headers with the actual
+# Stage Starz logo so older static pages stay consistent with the homepage.
+register_public_logo_polish(app)
 
 # Serve the sharp built-in image assets from cache-busting routes.
 register_teen_image_asset(app)
