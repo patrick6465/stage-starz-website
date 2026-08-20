@@ -30,6 +30,7 @@ from public_page_text_editor import register_public_page_text_editor
 from public_page_text_extras import install_public_page_text_extras
 from public_studio_gallery import register_public_studio_gallery
 from public_video_routes import register_public_video_routes
+from store_workspace_polish import register_store_workspace_polish
 from studio_active_tab_polish import register_studio_active_tab_polish
 from studio_detail_title_polish import register_studio_detail_title_polish
 from studio_gallery_admin_nav import register_studio_gallery_admin_nav
@@ -152,5 +153,9 @@ register_performance_mobile_polish(app)
 # Keep competition, recital, production and reserved-ticketing screens in one
 # shared performance workspace, including event/show/routine/order detail pages.
 register_performance_workspace_polish(app)
+
+# Keep product, order, inventory, fulfillment and store-report screens inside one
+# shared Store & Orders workspace while leaving the public storefront untouched.
+register_store_workspace_polish(app)
 
 __all__ = ["app"]
