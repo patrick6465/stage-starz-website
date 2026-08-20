@@ -14,9 +14,19 @@ PERFORMANCE_PREFIXES = (
 PERFORMANCE_MOBILE_STYLE = r"""
 <style id="ss-performance-mobile-polish-style">
 @media(max-width:760px){
+  body{
+    padding-bottom:160px!important;
+    scroll-padding-bottom:145px!important;
+  }
   body .wrap{
     width:calc(100% - 20px)!important;
     max-width:none!important;
+    padding-bottom:170px!important;
+  }
+  html body.ss-ticket-checkin-mobile .wrap,
+  html body.ss-ticket-order-mobile .wrap,
+  html body.ss-ticket-hold-mobile .wrap{
+    padding-bottom:170px!important;
   }
   body .card,
   body .panel,
@@ -74,14 +84,37 @@ PERFORMANCE_MOBILE_STYLE = r"""
   body .btn{
     max-width:100%!important;
     white-space:normal!important;
+    scroll-margin-bottom:120px!important;
+  }
+  body input,
+  body textarea,
+  body select,
+  body .ticket,
+  body .item{
+    scroll-margin-bottom:120px!important;
   }
   .ss-performance-mobile-dock{
     grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    bottom:max(8px,env(safe-area-inset-bottom))!important;
+    padding:4px!important;
+    border-radius:15px!important;
   }
   .ss-performance-mobile-dock a{
     min-width:0!important;
+    min-height:48px!important;
+    padding:3px 1px!important;
     border-radius:12px!important;
     transition:background .18s ease,color .18s ease!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    line-height:1.05!important;
+  }
+  .ss-performance-mobile-dock b{
+    font-size:.95rem!important;
+    line-height:1!important;
+    margin-bottom:2px!important;
   }
   .ss-performance-mobile-dock a.active{
     color:#fff!important;
@@ -92,8 +125,36 @@ PERFORMANCE_MOBILE_STYLE = r"""
   }
 }
 @media(max-width:430px){
-  .ss-performance-mobile-dock a{font-size:.54rem!important;padding:5px 1px!important}
-  .ss-performance-mobile-dock b{font-size:1rem!important}
+  .ss-performance-tabs{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    width:100%!important;
+    gap:4px!important;
+    overflow-x:hidden!important;
+    padding:0 7px 9px!important;
+  }
+  .ss-performance-tab{
+    width:auto!important;
+    min-width:0!important;
+    padding:7px 3px!important;
+    gap:3px!important;
+    justify-content:center!important;
+    font-size:.61rem!important;
+    line-height:1.05!important;
+    letter-spacing:-.01em!important;
+  }
+  .ss-performance-tab span:first-child{
+    flex:0 0 auto!important;
+    font-size:.86rem!important;
+    line-height:1!important;
+  }
+  .ss-performance-tab span:last-child{
+    min-width:0!important;
+    overflow:hidden!important;
+    text-overflow:clip!important;
+  }
+  .ss-performance-mobile-dock a{font-size:.54rem!important;padding:3px 1px!important}
+  .ss-performance-mobile-dock b{font-size:.92rem!important}
 }
 </style>
 """
@@ -113,11 +174,21 @@ PERFORMANCE_MOBILE_SCRIPT = r"""
       else{link.removeAttribute('aria-current');}
     });
   }
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',markActiveDock,{once:true});
-  }else{
-    markActiveDock();
+  function alignTabs(){
+    if(window.innerWidth>430){return;}
+    var nav=document.querySelector('.ss-performance-tabs');
+    if(nav){nav.scrollLeft=0;}
   }
+  function finishMobileNav(){
+    markActiveDock();
+    alignTabs();
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',finishMobileNav,{once:true});
+  }else{
+    finishMobileNav();
+  }
+  window.addEventListener('resize',alignTabs);
 })();
 </script>
 """
