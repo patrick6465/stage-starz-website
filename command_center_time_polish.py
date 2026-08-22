@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 
 from flask import request
 
+from communication_time_polish import register_communication_time_polish
 from workflow_counter_fix import register_workflow_counter_fix
 
 
@@ -45,6 +46,10 @@ def register_command_center_time_polish(app) -> None:
     # active admin accounts. Keep that card aligned with Notification Center by
     # showing only unread notifications owned by the currently logged-in admin.
     register_workflow_counter_fix(app)
+
+    # Communication pages historically displayed Railway/PostgreSQL UTC values
+    # verbatim, including microseconds. Format them for the studio's local time.
+    register_communication_time_polish(app)
 
     @app.after_request
     def polish_command_center_time(response):
