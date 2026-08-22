@@ -107,7 +107,7 @@ th{color:#cfc3da;font-size:.74rem;text-transform:uppercase;letter-spacing:.06em}
         {% for day in recent_sales %}
         <div class="bar-wrap">
           <div class="bar-value">${{ "%.0f"|format(day.revenue or 0) }}</div>
-          <div class="bar" style="height:{{ [((day.revenue or 0) / max_daily_revenue * 190)|round, 3]|max }}px"></div>
+          <div class="bar" style="height:{{ [((((day.revenue or 0)|float) / (max_daily_revenue or 1)) * 190)|round, 3]|max }}px"></div>
           <div class="bar-label">{{ (day.order_date|string)[5:] }}</div>
         </div>
         {% endfor %}
