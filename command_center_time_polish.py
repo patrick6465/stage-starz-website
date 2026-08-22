@@ -8,6 +8,8 @@ from zoneinfo import ZoneInfo
 
 from flask import request
 
+from workflow_counter_fix import register_workflow_counter_fix
+
 
 STUDIO_TZ = ZoneInfo("America/New_York")
 
@@ -38,6 +40,11 @@ def _format_activity_timestamp(raw: str) -> str:
 
 def register_command_center_time_polish(app) -> None:
     """Use America/New_York time on the Command Center without changing DB storage."""
+
+    # The workflow summary historically counted unread notifications across all
+    # active admin accounts. Keep that card aligned with Notification Center by
+    # showing only unread notifications owned by the currently logged-in admin.
+    register_workflow_counter_fix(app)
 
     @app.after_request
     def polish_command_center_time(response):
