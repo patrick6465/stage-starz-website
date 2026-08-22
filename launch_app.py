@@ -10,6 +10,7 @@ from class_content_editor import CLASS_PAGES, register_class_content_editor
 from classes_hero_asset import register_classes_hero_asset
 from classes_hero_layout import register_classes_hero_layout
 from command_center_mobile_polish import register_command_center_mobile_polish
+from command_center_time_polish import register_command_center_time_polish
 from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
@@ -144,6 +145,10 @@ register_reports_never_500(app)
 
 # Keep mobile Command Center work areas compact without changing backend routes.
 register_command_center_mobile_polish(app)
+
+# Show greetings and activity history in the studio's Eastern time zone rather
+# than Railway server UTC, and hide raw database microseconds from the dashboard.
+register_command_center_time_polish(app)
 
 # Add Studio Gallery to the shared Website Management navigation. Register this
 # before the workspace shell because Flask runs after_request handlers in reverse;
