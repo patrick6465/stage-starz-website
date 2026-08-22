@@ -137,8 +137,11 @@ def register_reports_postgres_fix(app, permission_required):
             for row in status_rows
         ]
 
+        # Prefer full line-item revenue. Some older live databases may not yet
+        # contain every fee column, so fall back to the universally available
+        # product_name + quantity fields used by packing slips.
         seller_rows = query_all(
-            "best sellers",
+            "best sellers with revenue",
             """
             SELECT
                 oi.product_name,
@@ -161,6 +164,21 @@ def register_reports_postgres_fix(app, permission_required):
             LIMIT 10
             """,
         )
+        if not seller_rows:
+            seller_rows = query_all(
+                "best sellers fallback",
+                """
+                SELECT
+                    product_name,
+                    COALESCE(SUM(quantity), 0) AS units,
+                    0 AS revenue
+                FROM order_items
+                GROUP BY product_name
+                ORDER BY units DESC, product_name
+                LIMIT 10
+                """,
+            )
+
         best_sellers = [
             {
                 "product_name": row.get("product_name") or "Unknown product",
