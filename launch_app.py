@@ -31,6 +31,7 @@ from public_page_text_editor import register_public_page_text_editor
 from public_page_text_extras import install_public_page_text_extras
 from public_studio_gallery import register_public_studio_gallery
 from public_video_routes import register_public_video_routes
+from reports_never_500 import register_reports_never_500
 from reports_postgres_fix import register_reports_postgres_fix
 from routes_inventory import register_inventory_routes
 from routes_packing import register_packing_routes
@@ -135,6 +136,11 @@ register_packing_routes(app)
 # Replace the legacy Reports endpoint with a PostgreSQL-safe implementation that
 # normalizes database dates and numeric values before rendering the dashboard.
 register_reports_postgres_fix(app, permission_required)
+
+# Final containment for Reports: an unexpected live-schema edge case must never
+# take down the page with the global 500 handler. It will render a controlled
+# safe-mode Reports page and preserve the full exception in Railway logs.
+register_reports_never_500(app)
 
 # Keep mobile Command Center work areas compact without changing backend routes.
 register_command_center_mobile_polish(app)
