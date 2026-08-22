@@ -137,12 +137,11 @@ def register_reports_postgres_fix(app, permission_required):
             for row in status_rows
         ]
 
-        # Use the historical line-item amounts whenever they exist. A few early
-        # test orders stored zero line prices even though the order total was
-        # correct, so only those rows fall back to the matching catalog price and
-        # fulfillment fee. New orders remain historically accurate.
+        # First try true historical line-item revenue. Older production schemas
+        # may not contain all of these newer amount columns, so this query is
+        # intentionally isolated and allowed to fail without breaking Reports.
         seller_rows = query_all(
-            "best sellers with legacy price fallback",
+            "best sellers historical revenue",
             """
             SELECT
                 oi.product_name,
@@ -150,33 +149,55 @@ def register_reports_postgres_fix(app, permission_required):
                 COALESCE(
                     SUM(
                         (
-                            CASE
-                                WHEN COALESCE(oi.item_price, 0) > 0
-                                    THEN oi.item_price
-                                ELSE COALESCE(p.sale_price, p.price, 0)
-                            END
+                            COALESCE(oi.item_price, 0)
                             + COALESCE(oi.name_fee, 0)
-                            + CASE
-                                WHEN COALESCE(oi.fulfillment_fee, 0) > 0
-                                    THEN oi.fulfillment_fee
-                                ELSE COALESCE(p.fulfillment_fee, 0)
-                              END
+                            + COALESCE(oi.fulfillment_fee, 0)
                         ) * COALESCE(oi.quantity, 0)
                     ),
                     0
                 ) AS revenue
             FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
-            LEFT JOIN products p ON p.name = oi.product_name
             WHERE o.status != 'Cancelled'
             GROUP BY oi.product_name
             ORDER BY units DESC, revenue DESC
             LIMIT 10
             """,
         )
+
+        # Early test orders either predate the amount columns or saved zeros in
+        # them. If historical revenue is unavailable/zero, use the matching
+        # catalog sale price (or regular price) for those legacy rows. The
+        # inventory report already proves price/sale_price exist on the live DB.
+        if not seller_rows or sum(_as_float(row.get("revenue")) for row in seller_rows) <= 0:
+            seller_rows = query_all(
+                "best sellers catalog fallback",
+                """
+                SELECT
+                    oi.product_name,
+                    COALESCE(SUM(oi.quantity), 0) AS units,
+                    COALESCE(
+                        SUM(
+                            COALESCE(p.sale_price, p.price, 0)
+                            * COALESCE(oi.quantity, 0)
+                        ),
+                        0
+                    ) AS revenue
+                FROM order_items oi
+                JOIN orders o ON o.id = oi.order_id
+                LEFT JOIN products p ON p.name = oi.product_name
+                WHERE o.status != 'Cancelled'
+                GROUP BY oi.product_name
+                ORDER BY units DESC, revenue DESC
+                LIMIT 10
+                """,
+            )
+
+        # Final structural fallback keeps product/unit reporting available even if
+        # a very old database cannot match catalog records by product name.
         if not seller_rows:
             seller_rows = query_all(
-                "best sellers fallback",
+                "best sellers units fallback",
                 """
                 SELECT
                     product_name,
