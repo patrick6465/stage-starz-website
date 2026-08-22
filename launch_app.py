@@ -31,6 +31,7 @@ from public_page_text_editor import register_public_page_text_editor
 from public_page_text_extras import install_public_page_text_extras
 from public_studio_gallery import register_public_studio_gallery
 from public_video_routes import register_public_video_routes
+from reports_postgres_fix import register_reports_postgres_fix
 from routes_inventory import register_inventory_routes
 from routes_packing import register_packing_routes
 from routes_variants import register_variant_routes
@@ -130,6 +131,10 @@ register_order_status_fix(app)
 register_inventory_routes(app)
 register_variant_routes(app)
 register_packing_routes(app)
+
+# Replace the legacy Reports endpoint with a PostgreSQL-safe implementation that
+# normalizes database dates and numeric values before rendering the dashboard.
+register_reports_postgres_fix(app, permission_required)
 
 # Keep mobile Command Center work areas compact without changing backend routes.
 register_command_center_mobile_polish(app)
