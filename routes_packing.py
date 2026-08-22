@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+
 from flask import abort, render_template
 
 from database import get_db
 from services import get_settings, login_required
+
+
+def _display_date(value) -> str:
+    """Return a template-safe date string for SQLite or PostgreSQL values."""
+    if value is None or value == "":
+        return ""
+    if isinstance(value, (datetime, date)):
+        return value.strftime("%Y-%m-%d")
+    return str(value)[:10]
 
 
 def _load_order(connection, order_id: int):
@@ -11,6 +22,7 @@ def _load_order(connection, order_id: int):
     if not row:
         return None
     order = dict(row)
+    order["created_at"] = _display_date(order.get("created_at"))
     order["items"] = [
         dict(item)
         for item in connection.execute(
@@ -36,6 +48,8 @@ def register_packing_routes(app):
             ).fetchall()
         ]
         connection.close()
+        for order in orders:
+            order["created_at"] = _display_date(order.get("created_at"))
         return render_template("packing_slips.html", orders=orders)
 
     @app.route("/admin/order/<int:order_id>/packing-slip")
