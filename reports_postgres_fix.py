@@ -137,11 +137,12 @@ def register_reports_postgres_fix(app, permission_required):
             for row in status_rows
         ]
 
-        # Prefer full line-item revenue. Some older live databases may not yet
-        # contain every fee column, so fall back to the universally available
-        # product_name + quantity fields used by packing slips.
+        # Use the historical line-item amounts whenever they exist. A few early
+        # test orders stored zero line prices even though the order total was
+        # correct, so only those rows fall back to the matching catalog price and
+        # fulfillment fee. New orders remain historically accurate.
         seller_rows = query_all(
-            "best sellers with revenue",
+            "best sellers with legacy price fallback",
             """
             SELECT
                 oi.product_name,
@@ -149,15 +150,24 @@ def register_reports_postgres_fix(app, permission_required):
                 COALESCE(
                     SUM(
                         (
-                            COALESCE(oi.item_price, 0)
+                            CASE
+                                WHEN COALESCE(oi.item_price, 0) > 0
+                                    THEN oi.item_price
+                                ELSE COALESCE(p.sale_price, p.price, 0)
+                            END
                             + COALESCE(oi.name_fee, 0)
-                            + COALESCE(oi.fulfillment_fee, 0)
+                            + CASE
+                                WHEN COALESCE(oi.fulfillment_fee, 0) > 0
+                                    THEN oi.fulfillment_fee
+                                ELSE COALESCE(p.fulfillment_fee, 0)
+                              END
                         ) * COALESCE(oi.quantity, 0)
                     ),
                     0
                 ) AS revenue
             FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
+            LEFT JOIN products p ON p.name = oi.product_name
             WHERE o.status != 'Cancelled'
             GROUP BY oi.product_name
             ORDER BY units DESC, revenue DESC
