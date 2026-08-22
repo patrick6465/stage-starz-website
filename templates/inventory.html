@@ -5,16 +5,111 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Inventory Management</title>
 <style>
-:root{--purple:#6f35c5;--teal:#16a4b8;--ink:#202234;--muted:#6d7180;--bg:#f4f2f7;--border:#ded7e8;--danger:#be3144;--warning:#b66b08;--success:#16815d}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}header{padding:16px 24px;background:linear-gradient(115deg,#4d1f91,var(--purple),var(--teal));color:#fff;display:flex;justify-content:space-between;align-items:center;gap:16px}header a{color:#fff;text-decoration:none;font-weight:900}.shell{width:min(1300px,calc(100% - 28px));margin:24px auto 50px}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}.head h1{margin:0}.small{color:var(--muted);font-size:.86rem}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}.metric,.card{background:#fff;border:1px solid var(--border);border-radius:15px;padding:16px}.metric strong{display:block;font-size:1.8rem;margin-top:5px}.table-wrap{overflow:auto}.inventory-table{width:100%;border-collapse:collapse}.inventory-table th,.inventory-table td{padding:11px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle}.inventory-table th{font-size:.76rem;text-transform:uppercase;color:var(--muted)}.badge{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:.74rem;font-weight:900}.healthy{background:#e3f5ed;color:var(--success)}.low{background:#fff2d8;color:var(--warning)}.out{background:#fde5e8;color:var(--danger)}.adjust{display:flex;gap:7px;min-width:390px}.adjust input{padding:9px;border:1px solid #cbc3d6;border-radius:9px}.adjust input[type=number]{width:90px}.adjust input[type=text]{min-width:190px}.adjust button{border:0;border-radius:9px;padding:9px 12px;background:var(--purple);color:#fff;font-weight:900}.history{margin-top:18px}.change.plus{color:var(--success);font-weight:900}.change.minus{color:var(--danger);font-weight:900}@media(max-width:800px){.metrics{grid-template-columns:1fr 1fr}.head{flex-direction:column}.adjust{min-width:0;flex-wrap:wrap}.adjust input[type=text]{min-width:150px;flex:1}}@media(max-width:520px){.metrics{grid-template-columns:1fr}}
+:root{--panel:#17102a;--panel2:#100a1d;--line:rgba(255,255,255,.13);--muted:#b8adca;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--success:#62e6aa;--warn:#ffc867;--danger:#ff788d}*{box-sizing:border-box}body{margin:0}.wrap{width:min(1180px,calc(100% - 32px));margin:22px auto 56px}.overview,.inventory-panel,.activity-panel{background:rgba(23,16,42,.94);border:1px solid var(--line);border-radius:22px;padding:24px;margin-bottom:18px;box-shadow:0 18px 50px rgba(0,0,0,.16)}.overview-head,.section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.overview h2,.inventory-panel h2,.activity-panel h2{margin:0;color:#fff}.muted,.small{color:var(--muted)}.small{font-size:.82rem}.threshold{padding:8px 12px;border-radius:999px;border:1px solid rgba(80,214,208,.25);background:rgba(80,214,208,.08);color:var(--teal);font-size:.78rem;font-weight:850;white-space:nowrap}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}.metric{min-height:112px;padding:18px;border:1px solid var(--line);border-radius:18px;background:rgba(16,10,29,.82)}.metric span{display:block;color:var(--muted);font-size:.84rem}.metric strong{display:block;color:#fff;font-size:2rem;line-height:1;margin-top:9px}.toolbar{display:flex;gap:10px;align-items:center;margin:18px 0}.search{flex:1;min-width:0;padding:12px 14px!important}.variant-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border-radius:12px;text-decoration:none!important;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));color:#fff!important;white-space:nowrap}.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.filter-btn{border:1px solid var(--line);background:rgba(255,255,255,.055);color:#ddd4e8;border-radius:999px;padding:8px 13px;font:inherit;font-size:.82rem;font-weight:850;cursor:pointer}.filter-btn.active{color:#fff;background:linear-gradient(110deg,rgba(239,61,152,.35),rgba(155,77,204,.38),rgba(80,214,208,.22));border-color:rgba(80,214,208,.32)}.inventory-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.stock-card{border:1px solid var(--line);border-radius:18px;padding:18px;background:rgba(16,10,29,.76);min-width:0}.stock-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.stock-title{min-width:0}.stock-title h3{margin:0 0 4px;font-size:1.05rem}.stock-count{text-align:right;flex:0 0 auto}.stock-count strong{display:block;font-size:1.85rem;line-height:1;color:#fff}.stock-count span{font-size:.72rem;color:var(--muted)}.stock-meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:12px 0 15px}.badge{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;font-size:.72rem;font-weight:900}.healthy{background:rgba(98,230,170,.13);color:var(--success)}.low{background:rgba(255,200,103,.13);color:var(--warn)}.out{background:rgba(255,120,141,.13);color:var(--danger)}.hidden{background:rgba(255,255,255,.07);color:var(--muted)}.variant{background:rgba(80,214,208,.10);color:var(--teal)}.adjust{display:grid;grid-template-columns:112px 1fr auto;gap:8px;align-items:end}.field label{display:block;color:#ddd4e8;font-size:.7rem;font-weight:850;text-transform:uppercase;letter-spacing:.05em;margin:0 0 5px}.adjust input{width:100%;min-height:43px;padding:10px 11px!important}.adjust button{min-height:43px;border:0;border-radius:11px;padding:10px 15px;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));color:#fff;font-weight:900;cursor:pointer}.variant-manage{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid rgba(80,214,208,.18);border-radius:13px;background:rgba(80,214,208,.05)}.variant-manage a{flex:0 0 auto;color:var(--teal)!important;font-weight:900;text-decoration:none}.empty{padding:24px;text-align:center;border:1px dashed var(--line);border-radius:16px;color:var(--muted)}.activity-list{display:grid;gap:10px;margin-top:16px}.activity{display:grid;grid-template-columns:minmax(0,1.5fr) auto minmax(0,1fr);gap:14px;align-items:center;padding:14px 15px;border:1px solid var(--line);border-radius:15px;background:rgba(16,10,29,.66)}.activity-product strong{display:block}.activity-product span,.activity-note{color:var(--muted);font-size:.78rem}.change{font-size:1rem;font-weight:950;text-align:center}.change.plus{color:var(--success)}.change.minus{color:var(--danger)}.activity-note{text-align:right}.activity-note strong{display:block;color:#fff;font-size:.78rem;margin-bottom:2px}.no-results{display:none;margin-top:12px;padding:18px;text-align:center;border:1px dashed var(--line);border-radius:15px;color:var(--muted)}
+@media(max-width:800px){.wrap{width:calc(100% - 28px);margin-top:14px}.overview,.inventory-panel,.activity-panel{padding:18px;border-radius:19px}.metrics{grid-template-columns:1fr 1fr}.inventory-list{grid-template-columns:1fr}.overview-head,.section-head{align-items:flex-start}.toolbar{align-items:stretch}.adjust{grid-template-columns:105px 1fr}.adjust button{grid-column:1/-1;width:100%}.activity{grid-template-columns:1fr auto}.activity-note{grid-column:1/-1;text-align:left;padding-top:7px;border-top:1px solid rgba(255,255,255,.07)}}
+@media(max-width:520px){.overview-head,.section-head{flex-direction:column}.threshold{white-space:normal}.toolbar{flex-direction:column}.variant-link{width:100%}.metrics{grid-template-columns:1fr 1fr}.metric{min-height:96px;padding:15px}.metric strong{font-size:1.7rem}.stock-top{gap:8px}.stock-card{padding:16px}.adjust{grid-template-columns:1fr}.adjust button{grid-column:auto}.variant-manage{align-items:flex-start;flex-direction:column}.variant-manage a{display:block;width:100%;padding:10px 12px;text-align:center;border-radius:10px;background:rgba(80,214,208,.10)}}
 </style>
 </head>
 <body>
-<header><div>★ Stage Starz Inventory</div><nav><a href="/admin">Store Manager</a> &nbsp; <a href="/admin/orders">Orders</a> &nbsp; <a href="/store" target="_blank">View Store</a></nav></header>
-<div class="shell">
-<div class="head"><div><h1>Inventory Management</h1><p class="small">Adjust stock, monitor low inventory, and review the most recent 100 inventory changes.</p></div><div class="small">Low-stock threshold: {{ threshold }} units</div></div>
-<section class="metrics"><div class="metric"><span class="small">Products</span><strong>{{ summary.products }}</strong></div><div class="metric"><span class="small">Units in stock</span><strong>{{ summary.units }}</strong></div><div class="metric"><span class="small">Low stock</span><strong>{{ summary.low_stock }}</strong></div><div class="metric"><span class="small">Out of stock</span><strong>{{ summary.out_of_stock }}</strong></div></section>
-<section class="card"><h2>Current Inventory</h2><div class="table-wrap"><table class="inventory-table"><thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Status</th><th>Adjustment</th></tr></thead><tbody>{% for p in products %}<tr><td><strong>{{ p.name }}</strong>{% if not p.active %}<div class="small">Hidden from store</div>{% endif %}</td><td>{{ p.category }}</td><td><strong>{{ p.stock }}</strong></td><td><span class="badge {% if p.inventory_status == 'Healthy' %}healthy{% elif p.inventory_status == 'Low stock' %}low{% else %}out{% endif %}">{{ p.inventory_status }}</span></td><td><form class="adjust" method="post" action="/admin/inventory/{{ p.id }}/adjust"><input name="change_quantity" type="number" required placeholder="+ / −" title="Use a positive number to add stock or a negative number to remove stock"><input name="note" type="text" maxlength="250" placeholder="Reason or note"><button>Update</button></form></td></tr>{% endfor %}</tbody></table></div></section>
-<section class="card history"><h2>Recent Inventory Activity</h2><div class="table-wrap"><table class="inventory-table"><thead><tr><th>Date</th><th>Product</th><th>Change</th><th>New stock</th><th>Reason</th><th>Reference / note</th></tr></thead><tbody>{% for m in movements %}<tr><td>{{ m.created_at[:19].replace('T',' ') }}</td><td>{{ m.product_name }}</td><td class="change {% if m.change_quantity >= 0 %}plus{% else %}minus{% endif %}">{% if m.change_quantity > 0 %}+{% endif %}{{ m.change_quantity }}</td><td>{{ m.quantity_after }}</td><td>{{ m.reason }}</td><td>{{ m.reference }}{% if m.reference and m.note %} · {% endif %}{{ m.note }}</td></tr>{% endfor %}{% if not movements %}<tr><td colspan="6" class="small">No inventory changes have been recorded yet.</td></tr>{% endif %}</tbody></table></div></section>
-</div>
+<main class="wrap">
+<section class="overview">
+  <div class="overview-head">
+    <div><h2>Stock Overview</h2><p class="muted">See what is available, catch low stock quickly, and make inventory adjustments without leaving this screen.</p></div>
+    <div class="threshold">Low stock: {{ threshold }} units or fewer</div>
+  </div>
+  <div class="metrics">
+    <div class="metric"><span>Products</span><strong>{{ summary.products }}</strong></div>
+    <div class="metric"><span>Units in stock</span><strong>{{ summary.units }}</strong></div>
+    <div class="metric"><span>Low stock</span><strong>{{ summary.low_stock }}</strong></div>
+    <div class="metric"><span>Out of stock</span><strong>{{ summary.out_of_stock }}</strong></div>
+  </div>
+</section>
+
+<section class="inventory-panel">
+  <div class="section-head"><div><h2>Current Inventory</h2><p class="small">Use a positive number to add stock or a negative number to remove stock.</p></div></div>
+  <div class="toolbar">
+    <input id="inventory-search" class="search" type="search" placeholder="Search products or categories" autocomplete="off">
+    <a class="variant-link" href="/admin/variants">📦 Manage Size &amp; Color Stock</a>
+  </div>
+  <div class="filters" aria-label="Inventory filters">
+    <button class="filter-btn active" type="button" data-filter="all">All</button>
+    <button class="filter-btn" type="button" data-filter="low">Low stock</button>
+    <button class="filter-btn" type="button" data-filter="out">Out of stock</button>
+  </div>
+  <div id="inventory-list" class="inventory-list">
+  {% for p in products %}
+    {% set status_key = 'healthy' if p.inventory_status == 'Healthy' else ('low' if p.inventory_status == 'Low stock' else 'out') %}
+    <article class="stock-card" data-name="{{ (p.name ~ ' ' ~ p.category)|lower }}" data-status="{{ status_key }}">
+      <div class="stock-top">
+        <div class="stock-title"><h3>{{ p.name }}</h3><div class="small">{{ p.category }}</div></div>
+        <div class="stock-count"><strong>{{ p.stock }}</strong><span>units</span></div>
+      </div>
+      <div class="stock-meta">
+        <span class="badge {{ status_key }}">{{ p.inventory_status }}</span>
+        {% if not p.active %}<span class="badge hidden">Hidden from store</span>{% endif %}
+        {% if p.track_variants %}<span class="badge variant">Size/color tracking</span>{% endif %}
+      </div>
+      {% if p.track_variants %}
+      <div class="variant-manage">
+        <div><strong>Stock is managed by variant</strong><div class="small">Update quantities for each size and color combination.</div></div>
+        <a href="/admin/variants">Manage variants →</a>
+      </div>
+      {% else %}
+      <form class="adjust" method="post" action="/admin/inventory/{{ p.id }}/adjust">
+        <div class="field"><label>Change</label><input name="change_quantity" type="number" required inputmode="numeric" placeholder="+5 or -2" title="Use a positive number to add stock or a negative number to remove stock"></div>
+        <div class="field"><label>Note</label><input name="note" type="text" maxlength="250" placeholder="Restock, correction, damaged…"></div>
+        <button type="submit">Update Stock</button>
+      </form>
+      {% endif %}
+    </article>
+  {% endfor %}
+  {% if not products %}<div class="empty">No products are available to track yet.</div>{% endif %}
+  </div>
+  <div id="inventory-no-results" class="no-results">No inventory items match that search or filter.</div>
+</section>
+
+<section class="activity-panel">
+  <div class="section-head"><div><h2>Recent Inventory Activity</h2><p class="small">The latest stock movements are kept here as an audit trail.</p></div></div>
+  <div class="activity-list">
+  {% for m in movements %}
+    <div class="activity">
+      <div class="activity-product"><strong>{{ m.product_name }}</strong><span>{{ m.created_at[:19].replace('T',' ') }}</span></div>
+      <div class="change {{ 'plus' if m.change_quantity >= 0 else 'minus' }}">{% if m.change_quantity > 0 %}+{% endif %}{{ m.change_quantity }} → {{ m.quantity_after }}</div>
+      <div class="activity-note"><strong>{{ m.reason }}</strong><span>{{ m.reference }}{% if m.reference and m.note %} · {% endif %}{{ m.note }}</span></div>
+    </div>
+  {% endfor %}
+  {% if not movements %}<div class="empty">No inventory changes have been recorded yet.</div>{% endif %}
+  </div>
+</section>
+</main>
+<script>
+(function(){
+  const search=document.getElementById('inventory-search');
+  const cards=[...document.querySelectorAll('.stock-card')];
+  const buttons=[...document.querySelectorAll('.filter-btn')];
+  const empty=document.getElementById('inventory-no-results');
+  let filter='all';
+  function apply(){
+    const term=(search?.value||'').trim().toLowerCase();
+    let shown=0;
+    cards.forEach(card=>{
+      const text=card.dataset.name||'';
+      const status=card.dataset.status||'';
+      const statusMatch=filter==='all'||status===filter;
+      const textMatch=!term||text.includes(term);
+      const visible=statusMatch&&textMatch;
+      card.style.display=visible?'':'none';
+      if(visible) shown++;
+    });
+    if(empty) empty.style.display=cards.length&&shown===0?'block':'none';
+  }
+  buttons.forEach(btn=>btn.addEventListener('click',()=>{
+    filter=btn.dataset.filter||'all';
+    buttons.forEach(b=>b.classList.toggle('active',b===btn));
+    apply();
+  }));
+  if(search) search.addEventListener('input',apply);
+})();
+</script>
 </body>
 </html>
