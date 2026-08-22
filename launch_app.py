@@ -15,6 +15,7 @@ from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
 from homepage_mobile_gallery_polish import register_homepage_mobile_gallery_polish
 from launch_foundation import register_launch_foundation
+from order_status_fix import register_order_status_fix
 from performance_mobile_polish import register_performance_mobile_polish
 from performance_workspace_polish import register_performance_workspace_polish
 from persistent_media import (
@@ -115,6 +116,10 @@ register_program_hero_finalizer(app)
 register_program_hero_panels(app)
 
 register_admin_editor_fixes(app, UPLOAD_FOLDER, save_persistent_image, log_activity)
+
+# Replace the legacy order-status handler so a successful status commit is never
+# turned into a 500 page by optional CRM/family synchronization or audit logging.
+register_order_status_fix(app)
 
 # Keep mobile Command Center work areas compact without changing backend routes.
 register_command_center_mobile_polish(app)
