@@ -5,27 +5,56 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Variant Inventory</title>
 <style>
-:root{--purple:#6f35c5;--teal:#16a4b8;--ink:#202234;--muted:#6d7180;--bg:#f4f2f7;--border:#ded7e8;--danger:#be3144;--warning:#b66b08;--success:#16815d}*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--ink)}header{padding:15px 24px;background:linear-gradient(115deg,#4d1f91,var(--purple),var(--teal));color:#fff;display:flex;justify-content:space-between;align-items:center;gap:15px}header a{color:#fff;font-weight:900;text-decoration:none}.shell{width:min(1250px,calc(100% - 28px));margin:24px auto 50px}.intro,.product{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px}.intro h1,.product h2{margin:0 0 6px}.muted{color:var(--muted)}.product-head{display:flex;justify-content:space-between;gap:15px;align-items:flex-start}.badge{padding:6px 9px;border-radius:999px;font-size:.75rem;font-weight:900}.on{background:#e2f7ef;color:var(--success)}.off{background:#eeeaf3;color:#655b70}.switch-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:13px;border:1px solid var(--border);border-radius:12px;margin:14px 0}.variants{width:100%;border-collapse:collapse;margin-top:14px}.variants th,.variants td{padding:10px;border-bottom:1px solid var(--border);text-align:left}.variants th{font-size:.76rem;text-transform:uppercase;color:var(--muted)}input[type=number],input[type=text]{padding:9px;border:1px solid #cbc3d6;border-radius:8px}.stock{width:100px}.status{font-weight:900;font-size:.82rem}.low{color:var(--warning)}.out{color:var(--danger)}.healthy{color:var(--success)}.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}.btn{border:0;border-radius:10px;padding:11px 15px;font-weight:900;cursor:pointer;background:var(--purple);color:#fff}.note{min-width:260px;flex:1}.help{font-size:.82rem;color:var(--muted)}@media(max-width:700px){.product-head,.switch-row{flex-direction:column}.variants{display:block;overflow-x:auto}.note{min-width:100%}}
+:root{--panel:#17102a;--panel2:#100a1d;--line:rgba(255,255,255,.13);--muted:#b8adca;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--success:#62e6aa;--warn:#ffc867;--danger:#ff788d}*{box-sizing:border-box}body{margin:0}.wrap{width:min(1120px,calc(100% - 32px));margin:22px auto 58px}.intro,.product{background:rgba(23,16,42,.94);border:1px solid var(--line);border-radius:22px;padding:24px;margin-bottom:18px;box-shadow:0 18px 50px rgba(0,0,0,.16)}.intro-top,.product-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}.intro h2,.product h2{margin:0 0 5px}.muted,.help{color:var(--muted)}.help{font-size:.8rem;line-height:1.45}.back-stock{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:9px 13px;border:1px solid rgba(80,214,208,.25);border-radius:11px;background:rgba(80,214,208,.08);color:var(--teal)!important;text-decoration:none!important;font-size:.8rem;font-weight:900;white-space:nowrap}.badge{display:inline-flex;padding:6px 10px;border-radius:999px;font-size:.72rem;font-weight:900}.on{background:rgba(98,230,170,.13);color:var(--success)}.off{background:rgba(255,255,255,.07);color:var(--muted)}.switch-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px;border:1px solid var(--line);border-radius:14px;margin:16px 0;background:rgba(16,10,29,.62)}.switch-row label{display:flex;align-items:center;gap:8px;white-space:nowrap}.switch-row input[type=checkbox]{width:20px;height:20px}.total{display:flex;align-items:center;gap:12px}.stock{width:110px;min-height:42px;padding:9px 11px!important}.variant-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}.variant-row{display:grid;grid-template-columns:minmax(0,1fr) 112px;gap:10px;align-items:center;padding:13px;border:1px solid var(--line);border-radius:14px;background:rgba(16,10,29,.64)}.variant-name{min-width:0}.variant-name strong{display:block}.variant-name span{display:block;color:var(--muted);font-size:.78rem;margin-top:3px}.quantity label{display:block;color:#ddd4e8;font-size:.68rem;font-weight:850;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}.quantity input{width:100%;min-height:42px;padding:9px 10px!important}.status{display:inline-flex;margin-top:5px;font-size:.72rem;font-weight:900}.status.healthy{color:var(--success)}.status.low{color:var(--warn)}.status.out{color:var(--danger)}.actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin-top:16px}.note-wrap label{display:block;color:#ddd4e8;font-size:.68rem;font-weight:850;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}.note{width:100%;min-height:44px;padding:10px 12px!important}.btn{min-height:44px;border:0;border-radius:11px;padding:10px 17px;font-weight:900;cursor:pointer;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));color:#fff}.product-total{font-size:.82rem;color:var(--muted);margin-top:4px}.product-total strong{color:#fff}.empty{padding:24px;text-align:center;border:1px dashed var(--line);border-radius:16px;color:var(--muted)}
+@media(max-width:800px){.wrap{width:calc(100% - 28px);margin-top:14px}.intro,.product{padding:18px;border-radius:19px}.variant-grid{grid-template-columns:1fr}}
+@media(max-width:560px){.intro-top,.product-head,.switch-row{flex-direction:column;align-items:stretch}.back-stock{width:100%}.product-head .badge{align-self:flex-start}.switch-row label{justify-content:space-between;padding:7px 0}.total{justify-content:space-between;width:100%}.stock{width:130px}.variant-row{grid-template-columns:minmax(0,1fr) 100px}.actions{grid-template-columns:1fr}.btn{width:100%}}
 </style>
 </head>
 <body>
-<header><div>★ Stage Starz Variant Inventory</div><nav><a href="/admin">Products</a> &nbsp; <a href="/admin/inventory">Inventory</a> &nbsp; <a href="/store" target="_blank">View Store</a></nav></header>
-<main class="shell">
-<section class="intro"><h1>Inventory by Size and Color</h1><p class="muted">Enable variant tracking only for products that need separate quantities. Existing product totals remain unchanged until you enable and save a product.</p></section>
+<main class="wrap">
+<section class="intro">
+  <div class="intro-top">
+    <div><h2>Stock by Size &amp; Color</h2><p class="muted">Use variant tracking when a product needs separate quantities for each size and color. Product totals automatically follow the variant quantities.</p></div>
+    <a class="back-stock" href="/admin/inventory">← Stock Overview</a>
+  </div>
+</section>
+
 {% for p in products %}
 <form class="product" method="post" action="/admin/variants/{{ p.id }}/save">
-<div class="product-head"><div><h2>{{ p.name }}</h2><div class="muted">{{ p.category }} · Current total stock: <strong>{{ p.stock }}</strong></div></div><span class="badge {{ 'on' if p.track_variants else 'off' }}">{{ 'Variant tracking on' if p.track_variants else 'Product total only' }}</span></div>
-<div class="switch-row"><div><strong>Track stock separately by size and color</strong><div class="help">Combinations come from the sizes and colors saved in the Product Manager.</div></div><label><input type="checkbox" name="track_variants" {% if p.track_variants %}checked{% endif %}> Enable</label></div>
-{% if p.track_variants %}
-<table class="variants"><thead><tr><th>Size</th><th>Color</th><th>Quantity</th><th>Status</th></tr></thead><tbody>
-{% for v in p.variants %}<tr><td>{{ v.size }}</td><td>{{ v.color }}</td><td><input class="stock" type="number" min="0" name="stock_{{ v.id }}" value="{{ v.stock }}"></td><td class="status {{ 'out' if v.stock<=0 else ('low' if v.stock<=threshold else 'healthy') }}">{{ v.status }}</td></tr>{% endfor %}
-</tbody></table>
-{% else %}
-<div class="switch-row"><div><strong>Current product stock</strong><div class="help">This remains the active stock value while variant tracking is off.</div></div><input class="stock" type="number" min="0" name="product_stock" value="{{ p.stock }}"></div>
-{% endif %}
-<div class="actions"><input class="note" type="text" name="note" maxlength="250" placeholder="Optional inventory note"><button class="btn" type="submit">Save Inventory</button></div>
+  <div class="product-head">
+    <div><h2>{{ p.name }}</h2><div class="product-total">{{ p.category }} · Total stock: <strong>{{ p.stock }}</strong></div></div>
+    <span class="badge {{ 'on' if p.track_variants else 'off' }}">{{ 'Size/color tracking on' if p.track_variants else 'Product total only' }}</span>
+  </div>
+
+  <div class="switch-row">
+    <div><strong>Track stock separately by size and color</strong><div class="help">The combinations come from the sizes and colors saved in Products.</div></div>
+    <label><span>Enable</span><input type="checkbox" name="track_variants" {% if p.track_variants %}checked{% endif %}></label>
+  </div>
+
+  {% if p.track_variants %}
+  <div class="variant-grid">
+    {% for v in p.variants %}
+    <div class="variant-row">
+      <div class="variant-name"><strong>{{ v.size }}</strong><span>{{ v.color }}</span><span class="status {{ 'out' if v.stock<=0 else ('low' if v.stock<=threshold else 'healthy') }}">{{ v.status }}</span></div>
+      <div class="quantity"><label>Quantity</label><input type="number" min="0" inputmode="numeric" name="stock_{{ v.id }}" value="{{ v.stock }}"></div>
+    </div>
+    {% endfor %}
+    {% if not p.variants %}<div class="empty">No size/color combinations are available for this product yet.</div>{% endif %}
+  </div>
+  {% else %}
+  <div class="switch-row">
+    <div><strong>Current product stock</strong><div class="help">This is the active stock quantity while size/color tracking is off.</div></div>
+    <div class="total"><span class="help">Units</span><input class="stock" type="number" min="0" inputmode="numeric" name="product_stock" value="{{ p.stock }}"></div>
+  </div>
+  {% endif %}
+
+  <div class="actions">
+    <div class="note-wrap"><label>Inventory note</label><input class="note" type="text" name="note" maxlength="250" placeholder="Optional note about this stock update"></div>
+    <button class="btn" type="submit">Save Inventory</button>
+  </div>
 </form>
 {% endfor %}
+{% if not products %}<div class="empty">No products are available to manage yet.</div>{% endif %}
 </main>
 </body>
 </html>
