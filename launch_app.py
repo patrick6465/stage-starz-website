@@ -31,6 +31,9 @@ from public_page_text_editor import register_public_page_text_editor
 from public_page_text_extras import install_public_page_text_extras
 from public_studio_gallery import register_public_studio_gallery
 from public_video_routes import register_public_video_routes
+from routes_inventory import register_inventory_routes
+from routes_packing import register_packing_routes
+from routes_variants import register_variant_routes
 from store_workspace_polish import register_store_workspace_polish
 from studio_active_tab_polish import register_studio_active_tab_polish
 from studio_detail_title_polish import register_studio_detail_title_polish
@@ -120,6 +123,13 @@ register_admin_editor_fixes(app, UPLOAD_FOLDER, save_persistent_image, log_activ
 # Replace the legacy order-status handler so a successful status commit is never
 # turned into a 500 page by optional CRM/family synchronization or audit logging.
 register_order_status_fix(app)
+
+# Register Store & Orders routes that live in modular route files. The shared
+# workspace links to these pages, so they must be attached to the Railway app
+# before the workspace shell is applied.
+register_inventory_routes(app)
+register_variant_routes(app)
+register_packing_routes(app)
 
 # Keep mobile Command Center work areas compact without changing backend routes.
 register_command_center_mobile_polish(app)
