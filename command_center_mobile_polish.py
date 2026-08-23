@@ -115,6 +115,17 @@ MOBILE_POLISH = r"""
 """
 
 
+STAFF_PORTAL_POLISH = r"""
+<style id="ss-staff-portal-polish">
+a.item{display:block!important}
+@media(max-width:850px){
+  .side nav{-ms-overflow-style:none!important;scrollbar-width:none!important}
+  .side nav::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+}
+</style>
+"""
+
+
 LEGACY_PORTAL_LINKS = (
     '<a class="tool-link external" href="/parent-hub.html" target="_blank"><span class="tool-icon">↗</span><span>Open Parent Hub</span></a>',
     '<a class="tool-link external" href="/portal.html" target="_blank"><span class="tool-icon">↗</span><span>Open Dancer Portal</span></a>',
@@ -122,31 +133,40 @@ LEGACY_PORTAL_LINKS = (
 
 
 def register_command_center_mobile_polish(app) -> None:
-    """Keep the Command Center compact on phones and hide retired portal shortcuts."""
+    """Polish Command Center mobile cards and Staff Portal mobile navigation."""
 
     @app.after_request
     def polish_command_center_mobile(response):
-        if request.path != "/admin" or response.mimetype != "text/html":
+        if response.mimetype != "text/html":
             return response
         try:
             body = response.get_data(as_text=True)
-            if 'id="command-center-v3"' not in body:
-                return response
-
             changed = False
-            for legacy_link in LEGACY_PORTAL_LINKS:
-                if legacy_link in body:
-                    body = body.replace(legacy_link, "")
+
+            if request.path.startswith("/staff"):
+                if 'id="ss-staff-portal-polish"' not in body and "</head>" in body:
+                    body = body.replace("</head>", STAFF_PORTAL_POLISH + "</head>", 1)
                     changed = True
 
-            if 'id="ss-command-center-mobile-polish"' not in body and "</body>" in body:
-                body = body.replace("</body>", MOBILE_POLISH + "</body>", 1)
-                changed = True
+            elif request.path == "/admin":
+                if 'id="command-center-v3"' not in body:
+                    return response
+
+                for legacy_link in LEGACY_PORTAL_LINKS:
+                    if legacy_link in body:
+                        body = body.replace(legacy_link, "")
+                        changed = True
+
+                if 'id="ss-command-center-mobile-polish"' not in body and "</body>" in body:
+                    body = body.replace("</body>", MOBILE_POLISH + "</body>", 1)
+                    changed = True
+            else:
+                return response
 
             if changed:
                 response.set_data(body)
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 response.headers.pop("ETag", None)
         except Exception:
-            app.logger.exception("Could not add mobile Command Center polish")
+            app.logger.exception("Could not apply Command Center or Staff Portal polish")
         return response
