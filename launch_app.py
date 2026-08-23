@@ -125,7 +125,7 @@ CLASS_PAGES["teen_competition"] = {
     "audience": "Ages 14+ • Int2–Advanced",
     "built_in_hero_image": "/assets/images/teen-competition-team-sharp.webp",
 }
-install_competition_editor_support()
+install_competition_editor_support(app)
 
 register_launch_foundation(app, permission_required, log_activity)
 register_class_content_editor(app, permission_required, log_activity)
