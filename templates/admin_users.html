@@ -59,7 +59,7 @@ table{width:100%;min-width:560px;border-collapse:collapse}th,td{padding:10px;bor
 </section>
 <section>
 <div class="card"><h2>Accounts</h2>{% for user in users %}<div class="user"><div class="head"><div><strong>{{ user.display_name }}</strong><div class="muted">{{ user.username }} · {{ user.email or 'No email' }}</div></div><span class="badge">{{ roles.get(user.role,{}).get('label',user.role) }}</span></div><p class="muted">Last login: {% if user.last_login_at %}<span class="local-time" data-utc="{{ user.last_login_at }}">{{ user.last_login_at }}</span>{% else %}Never{% endif %} · {{ 'Active' if user.active else 'Inactive' }}</p><details><summary>Edit</summary><form method="post" action="/admin/system/users/save"><input type="hidden" name="id" value="{{ user.id }}"><div class="fields"><div><label>Username</label><input name="username" value="{{ user.username }}"></div><div><label>Display name</label><input name="display_name" value="{{ user.display_name }}"></div><div><label>Email</label><input name="email" value="{{ user.email }}"></div><div><label>Role</label><select name="role">{% for key,role in roles.items() %}<option value="{{ key }}" {% if user.role==key %}selected{% endif %}>{{ role.label }}</option>{% endfor %}</select></div><div class="full"><label>New password</label><input name="password" type="password"></div><div class="full check"><input id="a{{ user.id }}" name="active" type="checkbox" {% if user.active %}checked{% endif %}><label for="a{{ user.id }}">Active</label></div></div><p><button>Save Changes</button></p></form></details>{% if user.id != current_user_id %}<form method="post" action="/admin/system/users/{{ user.id }}/toggle"><button>{{ 'Deactivate' if user.active else 'Activate' }}</button></form>{% endif %}</div>{% endfor %}</div>
-<div class="card"><h2>Recent Login Activity</h2><div class="table-scroll"><table class="login-table"><tr class="login-head"><th>User</th><th>Result</th><th>IP</th><th>Date</th></tr>{% for item in login_history %}<tr><td data-label="User">{{ item.username }}</td><td data-label="Result">{{ 'Success' if item.success else 'Failed' }}</td><td data-label="IP">{{ item.ip_address }}</td><td data-label="Date"><span class="local-time" data-utc="{{ item.created_at }}">{{ item.created_at }}</span></td></tr>{% endfor %}</table></div></div>
+<div class="card"><h2>Recent Login Activity</h2><div class="table-scroll"><table class="login-table"><tr class="login-head"><th>User</th><th>Result</th><th>IP</th><th>Date</th></tr>{% for item in login_history %}<tr><td data-label="User">{{ item.username }}</td><td data-label="Result">{{ 'Success' if item.success else 'Failed' }}</td><td data-label="IP">{{ item.ip_address.split(',')[0].strip() if item.ip_address else 'Unknown' }}</td><td data-label="Date"><span class="local-time" data-utc="{{ item.created_at }}">{{ item.created_at }}</span></td></tr>{% endfor %}</table></div></div>
 </section>
 </div>
 </main>
@@ -71,7 +71,7 @@ table{width:100%;min-width:560px;border-collapse:collapse}th,td{padding:10px;bor
    let normalized=raw.replace(' ','T').replace(/(\.\d{3})\d+$/,'$1');
    if(!/[zZ]|[+-]\d\d:?\d\d$/.test(normalized)) normalized+='Z';
    const dt=new Date(normalized); if(Number.isNaN(dt.getTime()))return;
-   el.textContent=formatter.format(dt).replace(', ',' · ');
+   el.textContent=formatter.format(dt).replace(/, (?=\d{1,2}:)/,' · ');
  });
 })();
 </script>
