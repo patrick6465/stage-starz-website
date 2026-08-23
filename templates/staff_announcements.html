@@ -11,4 +11,19 @@
 <a href="/staff/documents">Documents</a>
 <a href="/staff/profile">My Profile</a>
 <a href="/staff/logout">Log Out</a>
-</nav></aside><main class="main"><div class="wrap"><section class="card"><h1>Staff Announcements</h1>{% for a in announcements %}<div class="item"><strong>{{ a.title }}</strong><div class="muted">{{ a.created_at }} · {{ a.audience }}</div><p style="white-space:pre-wrap">{{ a.message }}</p></div>{% else %}<p class="muted">No active announcements.</p>{% endfor %}</section></div></main></div></body></html>
+</nav></aside><main class="main"><div class="wrap"><section class="card"><h1>Staff Announcements</h1>{% for a in announcements %}<div class="item"><strong>{{ a.title }}</strong><div class="muted"><span class="portal-time" data-utc="{{ a.created_at }}">{{ a.created_at }}</span> · {{ a.audience }}</div><p style="white-space:pre-wrap">{{ a.message }}</p></div>{% else %}<p class="muted">No active announcements.</p>{% endfor %}</section></div></main></div><script>
+(function(){
+  function eastern(raw){
+    if(!raw)return raw;
+    var normalized=String(raw).trim().replace(' ','T').replace(/(\.\d{3})\d+$/,'$1');
+    if(!/[zZ]|[+-]\d\d:?\d\d$/.test(normalized))normalized+='Z';
+    var value=new Date(normalized);
+    if(isNaN(value.getTime()))return raw;
+    var parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).formatToParts(value);
+    var map={};
+    parts.forEach(function(p){if(p.type!=='literal')map[p.type]=p.value;});
+    return map.month+' '+map.day+', '+map.year+' · '+map.hour+':'+map.minute+' '+map.dayPeriod;
+  }
+  document.querySelectorAll('.portal-time').forEach(function(el){el.textContent=eastern(el.getAttribute('data-utc'));});
+})();
+</script></body></html>
