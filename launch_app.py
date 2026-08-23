@@ -39,6 +39,7 @@ from reports_postgres_fix import register_reports_postgres_fix
 from routes_inventory import register_inventory_routes
 from routes_packing import register_packing_routes
 from routes_variants import register_variant_routes
+from store_mobile_delete_safety import register_store_mobile_delete_safety
 from store_workspace_polish import register_store_workspace_polish
 from studio_active_tab_polish import register_studio_active_tab_polish
 from studio_detail_title_polish import register_studio_detail_title_polish
@@ -86,6 +87,10 @@ register_product_media_gallery(
 # Photos 2–4 are flexible gallery positions. Each one can carry an editable
 # customer-facing caption such as Size Chart, Back View, or Sleeve Detail.
 install_product_media_captions(app)
+
+# Keep destructive Store Manager actions visually separated on phones and replace
+# the generic delete prompt with a product-specific irreversible-action warning.
+register_store_mobile_delete_safety(app)
 
 # Render assigned videos directly while the public HTML page is being served.
 # This is especially important for competition.html, which otherwise comes from
