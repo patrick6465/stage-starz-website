@@ -62,6 +62,55 @@ def ensure_media_schema() -> None:
     connection.close()
 
 
+def _has_alpha(image) -> bool:
+    return image.mode in {"RGBA", "LA"} or (
+        image.mode == "P" and "transparency" in image.info
+    )
+
+
+def _trim_transparent_margins(image):
+    """Crop oversized transparent canvases while preserving a small safe border.
+
+    Printful and other print-on-demand mockups are often exported on a large
+    transparent canvas. Without trimming, the actual product can render as a tiny
+    strip inside a storefront card even though the browser is sizing the image
+    correctly. Opaque JPG/HEIC photos are intentionally left untouched.
+    """
+    if not _has_alpha(image):
+        return image
+
+    rgba = image.convert("RGBA")
+    alpha = rgba.getchannel("A")
+    bbox = alpha.getbbox()
+    if not bbox:
+        return rgba
+
+    width, height = rgba.size
+    left, top, right, bottom = bbox
+    content_width = max(1, right - left)
+    content_height = max(1, bottom - top)
+
+    # If transparency is only a negligible edge, keep the original framing.
+    if content_width >= width * 0.97 and content_height >= height * 0.97:
+        return rgba
+
+    # Preserve a modest visual border around the detected product so anti-aliased
+    # edges, shadows, and embroidery details are not cropped too tightly.
+    padding = max(8, int(max(content_width, content_height) * 0.04))
+    crop_box = (
+        max(0, left - padding),
+        max(0, top - padding),
+        min(width, right + padding),
+        min(height, bottom + padding),
+    )
+
+    cropped_width = crop_box[2] - crop_box[0]
+    cropped_height = crop_box[3] - crop_box[1]
+    if cropped_width <= 0 or cropped_height <= 0:
+        return rgba
+    return rgba.crop(crop_box)
+
+
 def _normalize_image(raw: bytes) -> tuple[bytes, str]:
     if Image is None:
         raise ValueError("Image processing is temporarily unavailable. Please try again shortly.")
@@ -125,12 +174,14 @@ def _normalize_image(raw: bytes) -> tuple[bytes, str]:
     finally:
         Image.MAX_IMAGE_PIXELS = previous_pixel_limit
 
+    # Transparent print-on-demand mockups frequently include a large empty canvas.
+    # Trim only transparency; regular opaque product photos keep their framing.
+    image = _trim_transparent_margins(image)
+
     if max(image.size) > MAX_IMAGE_DIMENSION:
         image.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.Resampling.LANCZOS)
 
-    has_alpha = image.mode in {"RGBA", "LA"} or (
-        image.mode == "P" and "transparency" in image.info
-    )
+    has_alpha = _has_alpha(image)
     image = image.convert("RGBA" if has_alpha else "RGB")
 
     output = io.BytesIO()
