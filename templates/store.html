@@ -18,7 +18,7 @@
     .card{background:var(--card);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:0 10px 25px rgba(50,30,90,.08)}
     .media{height:210px;display:grid;place-items:center;font-size:4.5rem;background:linear-gradient(145deg,#efe8ff,#e7fbff)}
     .media img{width:100%;height:100%;object-fit:cover}
-    .body{padding:18px}.category{text-transform:uppercase;font-size:.78rem;font-weight:800;color:var(--teal)}h3{margin:8px 0}.desc{color:var(--muted);line-height:1.5}
+    .body{padding:18px}.category{text-transform:uppercase;font-size:.78rem;font-weight:800;color:var(--teal)}h3{margin:8px 0}.desc{color:var(--muted);line-height:1.5;margin:0}.desc.collapsed{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.desc-toggle{border:0;background:transparent;color:var(--purple);font-weight:900;padding:5px 0 0;font-size:.84rem}.desc-toggle:hover{text-decoration:underline}.desc-wrap{margin:0 0 14px}
     .price{font-size:1.25rem;font-weight:900}.old{text-decoration:line-through;color:var(--muted);font-size:.9rem;margin-left:6px}
     .field{margin-top:10px}.field label{display:block;font-size:.82rem;font-weight:800;margin-bottom:4px}.field select,.field input{width:100%;padding:10px;border:1px solid #d3ccdd;border-radius:9px}
     .name-wrap{display:none}.add{width:100%;margin-top:14px;border:0;border-radius:10px;padding:12px;font-weight:900;color:white;background:linear-gradient(110deg,var(--purple),var(--teal))}
@@ -126,7 +126,10 @@ function render(){
       <div class="body">
         <div class="category">${p.category}</div>
         <h3>${p.name}</h3>
-        <p class="desc">${p.description}</p>
+        <div class="desc-wrap">
+          <p class="desc collapsed" id="desc-${p.id}">${p.description}</p>
+          ${(p.description||'').length>120?`<button type="button" class="desc-toggle" aria-expanded="false" onclick="toggleDescription(${p.id},this)">More</button>`:''}
+        </div>
         <div><span class="price">${money(p.sale_price??p.price)}</span>${p.sale_price?`<span class="old">${money(p.price)}</span>`:''}</div>
         <p class="meta">Fulfillment fee: ${money(p.fulfillment_fee)} per item<br>Stock: ${p.stock}</p>
         <div class="field"><label>Size</label><select id="size-${p.id}">${p.sizes.map(x=>`<option>${x}</option>`).join('')}</select></div>
@@ -139,6 +142,15 @@ function render(){
         <button class="add" onclick="addToCart(${p.id})">Add to Cart</button>
       </div>
     </article>`).join('');
+}
+
+function toggleDescription(id,button){
+  const description=document.getElementById(`desc-${id}`);
+  if(!description)return;
+  const expanding=description.classList.contains('collapsed');
+  description.classList.toggle('collapsed',!expanding);
+  button.textContent=expanding?'Less':'More';
+  button.setAttribute('aria-expanded',String(expanding));
 }
 
 function toggleName(id){
