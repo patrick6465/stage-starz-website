@@ -14,4 +14,14 @@
 <a href="/parent/documents">Documents</a>
 <a href="/parent/profile">Family Profile</a>
 <a href="/parent/logout">Log Out</a>
-</nav></aside><main class="main"><div class="wrap"><section class="card"><a href="/parent/messages">← Messages</a><h1>{{ message.subject or message.name }}</h1><p class="muted">{{ message.category }} · {{ message.created_at }}</p><div style="white-space:pre-wrap">{{ message.body_text }}</div></section></div></main></div></body></html>
+</nav></aside><main class="main"><div class="wrap"><section class="card"><a href="/parent/messages">← Messages</a><h1>{{ message.subject or message.name }}</h1><p class="muted">{{ message.category }} · <span class="js-datetime" data-datetime="{{ message.created_at }}">{{ message.created_at }}</span></p><div style="white-space:pre-wrap">{{ message.body_text }}</div></section></div></main></div><script>
+(function(){
+  document.querySelectorAll('.js-datetime').forEach(function(el){
+    var raw=(el.dataset.datetime||'').trim();
+    var m=raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+    if(!m)return;
+    var d=new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]),Number(m[5]));
+    el.textContent=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  });
+})();
+</script></body></html>
