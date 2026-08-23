@@ -5,7 +5,7 @@
 @media(max-width:700px){.wrap{margin:22px auto}.top{flex-direction:column;align-items:flex-start;gap:8px}.top h1{margin-bottom:8px}.top p{margin-top:0;line-height:1.45}.top a{white-space:nowrap;display:inline-block}.search{flex-direction:column}.search input{width:100%;padding:15px}.search button{width:100%;padding:14px 18px}.card{padding:16px}.grid{grid-template-columns:1fr}}
 </style></head><body>
 <main class="wrap"><div class="top"><div><h1>Global Search</h1><p>Search customers, orders, products, website pages, and media.</p></div><a href="/admin">← Command Center</a></div>
-<form class="search"><input name="q" value="{{ query }}" placeholder="Customer, order number, product, page…" autofocus><button>Search</button></form>
+<form class="search" id="global-search-form"><input name="q" value="{{ query }}" placeholder="Customer, email, phone, order, product, page…" autofocus><button>Search</button></form>
 {% if query %}
 <section class="card"><h2>Customers</h2><div class="grid" id="customer-grid">{% for c in customer_results %}<a class="result" href="/admin/customers/{{ c.id }}"><strong>{{ c.name }}</strong><small>{{ c.email }}{% if c.phone %} · {{ c.phone }}{% endif %}</small><span class="badge">{{ c.order_count }} orders · ${{ "%.2f"|format(c.lifetime_value or 0) }}</span></a>{% else %}<p class="empty">No customer matches.</p>{% endfor %}</div></section>
 <section class="card"><h2>Orders</h2><div class="grid" id="order-grid">{% for o in order_results %}<a class="result" href="/admin/orders/{{ o.id }}"><strong>{{ o.order_number }}</strong><small>{{ o.customer_name }} · {{ o.status }}</small><span class="badge">${{ "%.2f"|format(o.total or 0) }}</span></a>{% else %}<p class="empty">No order matches.</p>{% endfor %}</div></section>
@@ -13,6 +13,20 @@
 <section class="card"><h2>Website Pages</h2><div class="grid">{% for page in page_results %}<a class="result" href="{{ page.url }}" target="_blank"><strong>{{ page.title }}</strong><small>{{ page.url }}</small></a>{% else %}<p class="empty">No page matches.</p>{% endfor %}</div></section>
 <section class="card"><h2>Media</h2><div class="grid">{% for media in media_results %}<a class="result" href="{{ media.url }}" target="_blank"><img class="image" src="{{ media.url }}" alt=""><strong>{{ media.name }}</strong></a>{% else %}<p class="empty">No media matches.</p>{% endfor %}</div></section>
 {% endif %}</main>
+<script>
+(function(){
+  const form=document.getElementById('global-search-form');
+  if(!form)return;
+  const input=form.querySelector('input[name="q"]');
+  form.addEventListener('submit',function(){
+    const raw=input.value.trim();
+    if(/^[\d\s()+.\-]+$/.test(raw)){
+      const digits=raw.replace(/\D/g,'');
+      if(digits.length>=7)input.value=digits;
+    }
+  });
+})();
+</script>
 {% if query %}<script>
 (async function(){
   const raw={{ query|tojson }};
