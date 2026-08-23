@@ -123,6 +123,33 @@ a.item{display:block!important}
   .side nav::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 }
 </style>
+<script id="ss-staff-portal-time-polish">
+document.addEventListener('DOMContentLoaded',function(){
+  function toTwelve(hour,minute){
+    var h=parseInt(hour,10);
+    var suffix=h>=12?'PM':'AM';
+    var display=h%12||12;
+    return display+':'+minute+' '+suffix;
+  }
+
+  var root=document.querySelector('main');
+  if(!root)return;
+  var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+  var nodes=[];
+  while(walker.nextNode())nodes.push(walker.currentNode);
+
+  var timePattern=/(^|[^0-9:])([01]?\d|2[0-3]):([0-5]\d)(?!:)(?!\s*(?:AM|PM)\b)/gi;
+  nodes.forEach(function(node){
+    var parent=node.parentElement;
+    if(!parent||parent.closest('script,style,input,textarea,select,option'))return;
+    var original=node.nodeValue;
+    var updated=original.replace(timePattern,function(match,prefix,hour,minute){
+      return prefix+toTwelve(hour,minute);
+    });
+    if(updated!==original)node.nodeValue=updated;
+  });
+});
+</script>
 """
 
 
@@ -133,7 +160,7 @@ LEGACY_PORTAL_LINKS = (
 
 
 def register_command_center_mobile_polish(app) -> None:
-    """Polish Command Center mobile cards and Staff Portal mobile navigation."""
+    """Polish Command Center mobile cards and Staff Portal presentation."""
 
     @app.after_request
     def polish_command_center_mobile(response):
