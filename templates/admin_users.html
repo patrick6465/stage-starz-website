@@ -1,3 +1,72 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Users & Roles | Stage Starz</title><style>
-body{margin:0;background:#0c0717;color:#fff;font-family:Inter,system-ui,sans-serif}a{color:inherit;text-decoration:none}header{padding:18px 4vw;display:flex;justify-content:space-between;border-bottom:1px solid #38294a}.wrap{width:min(1200px,calc(100% - 28px));margin:24px auto}.grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:17px}.card{background:#17102a;border:1px solid #38294a;border-radius:20px;padding:20px;margin-bottom:17px}.muted{color:#aa9db8}.fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.full{grid-column:1/-1}label{display:block;font-size:.8rem;font-weight:850;margin-bottom:5px}input,select{width:100%;box-sizing:border-box;padding:11px;border:1px solid #38294a;border-radius:9px;background:#100a1d;color:#fff}.check{display:flex;gap:8px;align-items:center}.check input{width:auto}.check label{margin:0}button{padding:11px 14px;border:0;border-radius:10px;color:#fff;font-weight:900;background:linear-gradient(110deg,#ef3d98,#9b4dcc,#50d6d0)}.user{padding:14px;border:1px solid #38294a;border-radius:15px;margin:11px 0}.head{display:flex;justify-content:space-between;gap:12px}.badge{padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.13);color:#50d6d0;font-size:.72rem;font-weight:900}table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid #38294a;text-align:left}@media(max-width:800px){.grid,.fields{grid-template-columns:1fr}.full{grid-column:auto}}
-</style></head><body><header><strong>🔐 Users & Roles</strong><a href="/admin">Command Center</a></header><main class="wrap"><div class="grid"><section><div class="card"><h2>Create User</h2><form method="post" action="/admin/system/users/save"><div class="fields"><div><label>Username</label><input name="username" required></div><div><label>Display name</label><input name="display_name" required></div><div><label>Email</label><input name="email" type="email"></div><div><label>Role</label><select name="role">{% for key,role in roles.items() %}<option value="{{ key }}">{{ role.label }}</option>{% endfor %}</select></div><div class="full"><label>Password</label><input name="password" type="password" required></div><div class="full check"><input id="active" name="active" type="checkbox" checked><label for="active">Active</label></div></div><p><button>Create User</button></p></form></div><div class="card"><h2>Roles</h2>{% for key,role in roles.items() %}<p><strong>{{ role.label }}</strong><br><span class="muted">{{ role.description }}</span></p>{% endfor %}</div></section><section><div class="card"><h2>Accounts</h2>{% for user in users %}<div class="user"><div class="head"><div><strong>{{ user.display_name }}</strong><div class="muted">{{ user.username }} · {{ user.email or 'No email' }}</div></div><span class="badge">{{ roles.get(user.role,{}).get('label',user.role) }}</span></div><p class="muted">Last login: {{ user.last_login_at or 'Never' }} · {{ 'Active' if user.active else 'Inactive' }}</p><details><summary>Edit</summary><form method="post" action="/admin/system/users/save"><input type="hidden" name="id" value="{{ user.id }}"><div class="fields"><div><label>Username</label><input name="username" value="{{ user.username }}"></div><div><label>Display name</label><input name="display_name" value="{{ user.display_name }}"></div><div><label>Email</label><input name="email" value="{{ user.email }}"></div><div><label>Role</label><select name="role">{% for key,role in roles.items() %}<option value="{{ key }}" {% if user.role==key %}selected{% endif %}>{{ role.label }}</option>{% endfor %}</select></div><div class="full"><label>New password</label><input name="password" type="password"></div><div class="full check"><input id="a{{ user.id }}" name="active" type="checkbox" {% if user.active %}checked{% endif %}><label for="a{{ user.id }}">Active</label></div></div><p><button>Save Changes</button></p></form></details>{% if user.id != current_user_id %}<form method="post" action="/admin/system/users/{{ user.id }}/toggle"><button>{{ 'Deactivate' if user.active else 'Activate' }}</button></form>{% endif %}</div>{% endfor %}</div><div class="card"><h2>Recent Login Activity</h2><div style="overflow:auto"><table><tr><th>User</th><th>Result</th><th>IP</th><th>Date</th></tr>{% for item in login_history %}<tr><td>{{ item.username }}</td><td>{{ 'Success' if item.success else 'Failed' }}</td><td>{{ item.ip_address }}</td><td>{{ item.created_at }}</td></tr>{% endfor %}</table></div></div></section></div></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Users & Roles | Stage Starz</title>
+<style>
+:root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--success:#62e6aa;--danger:#ff6c7d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#fff;font-family:Inter,system-ui,sans-serif;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+header{padding:18px 4vw;display:flex;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line)}
+.wrap{width:min(1200px,calc(100% - 28px));margin:24px auto}
+.grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:17px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:20px;margin-bottom:17px;min-width:0}
+.muted{color:var(--muted)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:11px}.full{grid-column:1/-1}
+label{display:block;font-size:.8rem;font-weight:850;margin-bottom:5px}
+input,select{width:100%;min-width:0;padding:11px;border:1px solid var(--line);border-radius:9px;background:#100a1d;color:#fff}
+.check{display:flex;gap:8px;align-items:center}.check input{width:auto}.check label{margin:0}
+button{padding:11px 14px;border:0;border-radius:10px;color:#fff;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));cursor:pointer}
+.user{padding:14px;border:1px solid var(--line);border-radius:15px;margin:11px 0;min-width:0;overflow:hidden}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;min-width:0}.head>div{min-width:0}
+.user .muted,.role-copy{overflow-wrap:anywhere;word-break:normal}
+.badge{padding:6px 9px;border-radius:999px;background:rgba(80,214,208,.13);color:var(--teal);font-size:.72rem;font-weight:900;white-space:nowrap;flex:0 0 auto}
+.flash{margin:0 0 17px;padding:13px 15px;border-radius:13px;font-weight:850;border:1px solid var(--teal);background:rgba(80,214,208,.10);color:#a6f4ef}
+.flash.error{border-color:var(--danger);background:rgba(255,108,125,.10);color:#ffb8c0}
+table{width:100%;min-width:560px;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:800px){
+ .grid,.fields{grid-template-columns:1fr}.full{grid-column:auto}
+ header{padding:15px 4vw;align-items:center}
+ .card{padding:18px}
+ .head{display:block}
+ .badge{display:inline-block;margin-top:9px}
+ .user p{line-height:1.45}
+ .role-copy{display:inline-block;max-width:100%;line-height:1.45}
+}
+@media(max-width:480px){header strong{white-space:nowrap}header a{white-space:nowrap}.wrap{width:min(100% - 24px,1200px)}}
+</style>
+</head>
+<body>
+<header><strong>🔐 Users & Roles</strong><a href="/admin">Command Center</a></header>
+<main class="wrap">
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}<div class="flash {% if category == 'error' %}error{% endif %}">{{ message }}</div>{% endfor %}
+{% endwith %}
+<div class="grid">
+<section>
+<div class="card"><h2>Create User</h2><form method="post" action="/admin/system/users/save"><div class="fields"><div><label>Username</label><input name="username" required></div><div><label>Display name</label><input name="display_name" required></div><div><label>Email</label><input name="email" type="email"></div><div><label>Role</label><select name="role">{% for key,role in roles.items() %}<option value="{{ key }}">{{ role.label }}</option>{% endfor %}</select></div><div class="full"><label>Password</label><input name="password" type="password" required></div><div class="full check"><input id="active" name="active" type="checkbox" checked><label for="active">Active</label></div></div><p><button>Create User</button></p></form></div>
+<div class="card"><h2>Roles</h2>{% for key,role in roles.items() %}<p><strong>{{ role.label }}</strong><br><span class="muted role-copy">{{ role.description }}</span></p>{% endfor %}</div>
+</section>
+<section>
+<div class="card"><h2>Accounts</h2>{% for user in users %}<div class="user"><div class="head"><div><strong>{{ user.display_name }}</strong><div class="muted">{{ user.username }} · {{ user.email or 'No email' }}</div></div><span class="badge">{{ roles.get(user.role,{}).get('label',user.role) }}</span></div><p class="muted">Last login: {% if user.last_login_at %}<span class="local-time" data-utc="{{ user.last_login_at }}">{{ user.last_login_at }}</span>{% else %}Never{% endif %} · {{ 'Active' if user.active else 'Inactive' }}</p><details><summary>Edit</summary><form method="post" action="/admin/system/users/save"><input type="hidden" name="id" value="{{ user.id }}"><div class="fields"><div><label>Username</label><input name="username" value="{{ user.username }}"></div><div><label>Display name</label><input name="display_name" value="{{ user.display_name }}"></div><div><label>Email</label><input name="email" value="{{ user.email }}"></div><div><label>Role</label><select name="role">{% for key,role in roles.items() %}<option value="{{ key }}" {% if user.role==key %}selected{% endif %}>{{ role.label }}</option>{% endfor %}</select></div><div class="full"><label>New password</label><input name="password" type="password"></div><div class="full check"><input id="a{{ user.id }}" name="active" type="checkbox" {% if user.active %}checked{% endif %}><label for="a{{ user.id }}">Active</label></div></div><p><button>Save Changes</button></p></form></details>{% if user.id != current_user_id %}<form method="post" action="/admin/system/users/{{ user.id }}/toggle"><button>{{ 'Deactivate' if user.active else 'Activate' }}</button></form>{% endif %}</div>{% endfor %}</div>
+<div class="card"><h2>Recent Login Activity</h2><div class="table-scroll"><table><tr><th>User</th><th>Result</th><th>IP</th><th>Date</th></tr>{% for item in login_history %}<tr><td>{{ item.username }}</td><td>{{ 'Success' if item.success else 'Failed' }}</td><td>{{ item.ip_address }}</td><td><span class="local-time" data-utc="{{ item.created_at }}">{{ item.created_at }}</span></td></tr>{% endfor %}</table></div></div>
+</section>
+</div>
+</main>
+<script>
+(function(){
+ const formatter=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+ document.querySelectorAll('.local-time').forEach(function(el){
+   const raw=(el.dataset.utc||'').trim(); if(!raw)return;
+   let normalized=raw.replace(' ','T').replace(/(\.\d{3})\d+$/,'$1');
+   if(!/[zZ]|[+-]\d\d:?\d\d$/.test(normalized)) normalized+='Z';
+   const dt=new Date(normalized); if(Number.isNaN(dt.getTime()))return;
+   el.textContent=formatter.format(dt).replace(', ',' · ');
+ });
+})();
+</script>
+</body>
+</html>
