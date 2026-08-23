@@ -90,7 +90,7 @@ body .size-picker .size-picker-title,body .size-picker .size-help,body .size-pic
         <div><label>Sale price</label><input name="sale_price" type="number" step="0.01"></div>
         <div><label>Fulfillment fee per item</label><input name="fulfillment_fee" type="number" step="0.01" value="0"></div>
         <div><label>Stock quantity</label><input name="stock" type="number" value="0"></div>
-        {{ size_picker(['One Size']) }}
+        {{ size_picker([]) }}
         <div><label>Colors</label><input name="colors" value="Default"></div>
         <div><label>Product photo</label><input name="product_image" type="file" accept="image/*"></div>
         <div><label>Fallback emoji</label><input name="emoji" value="⭐"></div>
@@ -182,7 +182,7 @@ body .size-picker .size-picker-title,body .size-picker .size-help,body .size-pic
       if(event.key==='Enter'){event.preventDefault();addCustomSize(picker);}
     });
     const form=picker.closest('form');
-    if(form)form.addEventListener('submit',function(){syncPicker(picker,true);});
+    if(form)form.addEventListener('submit',function(){syncPicker(picker,false);});
     syncPicker(picker,false);
   });
 })();
