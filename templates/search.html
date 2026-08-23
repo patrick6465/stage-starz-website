@@ -7,9 +7,43 @@
 <main class="wrap"><div class="top"><div><h1>Global Search</h1><p>Search customers, orders, products, website pages, and media.</p></div><a href="/admin">← Command Center</a></div>
 <form class="search"><input name="q" value="{{ query }}" placeholder="Customer, order number, product, page…" autofocus><button>Search</button></form>
 {% if query %}
-<section class="card"><h2>Customers</h2><div class="grid">{% for c in customer_results %}<a class="result" href="/admin/customers/{{ c.id }}"><strong>{{ c.name }}</strong><small>{{ c.email }}{% if c.phone %} · {{ c.phone }}{% endif %}</small><span class="badge">{{ c.order_count }} orders · ${{ "%.2f"|format(c.lifetime_value or 0) }}</span></a>{% else %}<p class="empty">No customer matches.</p>{% endfor %}</div></section>
-<section class="card"><h2>Orders</h2><div class="grid">{% for o in order_results %}<a class="result" href="/admin/orders/{{ o.id }}"><strong>{{ o.order_number }}</strong><small>{{ o.customer_name }} · {{ o.status }}</small><span class="badge">${{ "%.2f"|format(o.total or 0) }}</span></a>{% else %}<p class="empty">No order matches.</p>{% endfor %}</div></section>
+<section class="card"><h2>Customers</h2><div class="grid" id="customer-grid">{% for c in customer_results %}<a class="result" href="/admin/customers/{{ c.id }}"><strong>{{ c.name }}</strong><small>{{ c.email }}{% if c.phone %} · {{ c.phone }}{% endif %}</small><span class="badge">{{ c.order_count }} orders · ${{ "%.2f"|format(c.lifetime_value or 0) }}</span></a>{% else %}<p class="empty">No customer matches.</p>{% endfor %}</div></section>
+<section class="card"><h2>Orders</h2><div class="grid" id="order-grid">{% for o in order_results %}<a class="result" href="/admin/orders/{{ o.id }}"><strong>{{ o.order_number }}</strong><small>{{ o.customer_name }} · {{ o.status }}</small><span class="badge">${{ "%.2f"|format(o.total or 0) }}</span></a>{% else %}<p class="empty">No order matches.</p>{% endfor %}</div></section>
 <section class="card"><h2>Products</h2><div class="grid">{% for p in product_results %}<a class="result" href="/admin/store"><strong>{{ p.name }}</strong><small>{{ p.category }} · ${{ "%.2f"|format(p.sale_price if p.sale_price is not none else p.price) }}</small></a>{% else %}<p class="empty">No product matches.</p>{% endfor %}</div></section>
 <section class="card"><h2>Website Pages</h2><div class="grid">{% for page in page_results %}<a class="result" href="{{ page.url }}" target="_blank"><strong>{{ page.title }}</strong><small>{{ page.url }}</small></a>{% else %}<p class="empty">No page matches.</p>{% endfor %}</div></section>
 <section class="card"><h2>Media</h2><div class="grid">{% for media in media_results %}<a class="result" href="{{ media.url }}" target="_blank"><img class="image" src="{{ media.url }}" alt=""><strong>{{ media.name }}</strong></a>{% else %}<p class="empty">No media matches.</p>{% endfor %}</div></section>
-{% endif %}</main></body></html>
+{% endif %}</main>
+{% if query %}<script>
+(async function(){
+  const raw={{ query|tojson }};
+  const terms=raw.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if(terms.length<2)return;
+  const customerGrid=document.getElementById('customer-grid');
+  const orderGrid=document.getElementById('order-grid');
+  const needsCustomers=customerGrid&&!customerGrid.querySelector('.result');
+  const needsOrders=orderGrid&&!orderGrid.querySelector('.result');
+  if(!needsCustomers&&!needsOrders)return;
+  try{
+    const response=await fetch('/admin/search?q='+encodeURIComponent(terms[0]),{credentials:'same-origin'});
+    if(!response.ok)return;
+    const html=await response.text();
+    const doc=new DOMParser().parseFromString(html,'text/html');
+    function fillMatches(id){
+      const current=document.getElementById(id);
+      const source=doc.getElementById(id);
+      if(!current||!source||current.querySelector('.result'))return;
+      const matches=[...source.querySelectorAll('.result')].filter(function(item){
+        const text=item.textContent.toLowerCase();
+        return terms.every(function(term){return text.includes(term);});
+      });
+      if(matches.length){
+        current.innerHTML='';
+        matches.forEach(function(item){current.appendChild(item.cloneNode(true));});
+      }
+    }
+    if(needsCustomers)fillMatches('customer-grid');
+    if(needsOrders)fillMatches('order-grid');
+  }catch(_error){}
+})();
+</script>{% endif %}
+</body></html>
