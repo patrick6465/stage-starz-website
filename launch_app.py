@@ -25,6 +25,7 @@ from persistent_media import (
     save_persistent_image,
 )
 from persistent_videos import register_persistent_videos
+from product_media_caption_support import install_product_media_captions
 from product_media_gallery import register_product_media_gallery
 from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
@@ -82,6 +83,10 @@ register_product_media_gallery(
     log_activity,
 )
 
+# Photos 2–4 are flexible gallery positions. Each one can carry an editable
+# customer-facing caption such as Size Chart, Back View, or Sleeve Detail.
+install_product_media_captions(app)
+
 # Render assigned videos directly while the public HTML page is being served.
 # This is especially important for competition.html, which otherwise comes from
 # send_from_directory as a streaming response that is unreliable to rewrite later.
@@ -120,7 +125,7 @@ CLASS_PAGES["teen_competition"] = {
     "audience": "Ages 14+ • Int2–Advanced",
     "built_in_hero_image": "/assets/images/teen-competition-team-sharp.webp",
 }
-install_competition_editor_support(app)
+install_competition_editor_support()
 
 register_launch_foundation(app, permission_required, log_activity)
 register_class_content_editor(app, permission_required, log_activity)
