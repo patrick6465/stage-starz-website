@@ -22,12 +22,37 @@ PRODUCT_IMAGE_FIT_STYLE = r"""
 }
 #grid .card .media > img{
   display:block!important;
+  width:auto!important;
+  height:auto!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+}
+
+/* Give every gallery image the same viewing canvas.  Images with smaller native
+   dimensions are allowed to scale up, while object-fit keeps the whole product
+   visible without cropping. */
+.ss-product-media-stage{
+  height:min(68vh,600px)!important;
+  min-height:440px!important;
+  display:grid!important;
+  place-items:center!important;
+}
+.ss-product-media-stage > img{
+  display:block!important;
   width:100%!important;
   height:100%!important;
   max-width:100%!important;
   max-height:100%!important;
   object-fit:contain!important;
   object-position:center!important;
+}
+@media(max-width:700px){
+  .ss-product-media-stage{
+    height:min(58vh,480px)!important;
+    min-height:300px!important;
+  }
 }
 </style>
 """
@@ -37,6 +62,20 @@ PRODUCT_IMAGE_FIT_SCRIPT = r"""
 (function(){
   function fitStoreImages(){
     document.querySelectorAll('#grid .card .media img').forEach(function(img){
+      /* Constrain by both dimensions instead of stretching to the card box. This
+         does not depend on object-fit, so later legacy CSS cannot crop the image. */
+      img.style.setProperty('display','block','important');
+      img.style.setProperty('width','auto','important');
+      img.style.setProperty('height','auto','important');
+      img.style.setProperty('max-width','100%','important');
+      img.style.setProperty('max-height','100%','important');
+      img.style.setProperty('object-fit','contain','important');
+      img.style.setProperty('object-position','center','important');
+    });
+  }
+
+  function fitGalleryImages(){
+    document.querySelectorAll('.ss-product-media-stage img').forEach(function(img){
       img.style.setProperty('display','block','important');
       img.style.setProperty('width','100%','important');
       img.style.setProperty('height','100%','important');
@@ -47,14 +86,20 @@ PRODUCT_IMAGE_FIT_SCRIPT = r"""
     });
   }
 
+  function fitAll(){fitStoreImages();fitGalleryImages();}
+
   document.addEventListener('DOMContentLoaded',function(){
-    fitStoreImages();
+    fitAll();
     var grid=document.getElementById('grid');
     if(grid){
       new MutationObserver(fitStoreImages).observe(grid,{childList:true,subtree:true});
     }
+    var modal=document.getElementById('ssProductMediaModal');
+    if(modal){
+      new MutationObserver(fitGalleryImages).observe(modal,{childList:true,subtree:true});
+    }
   });
-  window.addEventListener('load',fitStoreImages);
+  window.addEventListener('load',fitAll);
 })();
 </script>
 """
