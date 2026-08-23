@@ -12,9 +12,52 @@ label{display:block;font-size:.85rem;font-weight:800;margin-bottom:5px}input,tex
 .check{display:flex;align-items:center;gap:8px}.check input{width:auto}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text-decoration:none;cursor:pointer}.primary{background:var(--purple);color:white}.secondary{background:#ece8f2;color:#222}.danger{background:#be3144;color:white}
 .product{border-top:1px solid var(--border);padding-top:20px;margin-top:20px}.small{color:#6d7180;font-size:.9rem}
-@media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+.size-picker{grid-column:1/-1;border:1px solid var(--border);border-radius:14px;padding:15px;background:#faf8fd}
+.size-picker-title{font-size:.85rem;font-weight:900;margin-bottom:4px}.size-help{color:#6d7180;font-size:.8rem;line-height:1.45;margin-bottom:12px}
+.size-groups{display:grid;grid-template-columns:.72fr 1fr 1.3fr;gap:12px}.size-group{border:1px solid #e4ddeb;border-radius:11px;padding:11px;background:#fff}.size-group-title{font-size:.75rem;font-weight:900;color:#63566f;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.size-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:7px}.size-option{display:flex;align-items:center;gap:7px;margin:0;padding:9px 10px;border:1px solid #ddd4e7;border-radius:9px;background:#fff;cursor:pointer;font-size:.8rem;font-weight:800;min-width:0}.size-option:hover{border-color:#9b78ca;background:#faf7ff}.size-option input{width:18px;height:18px;margin:0;flex:0 0 auto;accent-color:var(--purple)}.size-option span{overflow-wrap:anywhere}.custom-size-options:empty{display:none}.custom-size-options{margin-top:8px}
+.custom-size-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:12px;align-items:end}.custom-size-row label{margin:0}.custom-size-row input{margin-top:5px}.add-size{min-height:39px;background:#ece8f2;color:#2c2335;white-space:nowrap}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.full{grid-column:auto}.size-picker{grid-column:auto}.size-groups{grid-template-columns:1fr}.custom-size-row{grid-template-columns:1fr}.add-size{width:100%}header{align-items:flex-start;flex-direction:column}header>div:last-child{line-height:1.9}}
 </style></head>
 <body>
+{% set general_sizes = ['One Size'] %}
+{% set youth_sizes = ['YOUTH 4','YOUTH 6','YXS','YS','YM','YL'] %}
+{% set adult_sizes = ['ADULT XS','ADULT S','ADULT M','ADULT L','ADULT XL','ADULT XXL','ADULT XXXL'] %}
+{% set common_sizes = general_sizes + youth_sizes + adult_sizes %}
+{% macro size_picker(selected_sizes) -%}
+  <div class="size-picker" data-size-picker>
+    <div class="size-picker-title">Sizes</div>
+    <div class="size-help">Check every size offered for this product. Use Custom Size for anything not listed.</div>
+    <input type="hidden" name="sizes" value="{{ selected_sizes|join(',') }}" data-size-hidden>
+    <div class="size-groups">
+      <div class="size-group">
+        <div class="size-group-title">General</div>
+        <div class="size-options">
+          {% for size in general_sizes %}<label class="size-option"><input type="checkbox" data-size-value="{{ size }}" {% if size in selected_sizes %}checked{% endif %}><span>{{ size }}</span></label>{% endfor %}
+        </div>
+      </div>
+      <div class="size-group">
+        <div class="size-group-title">Youth</div>
+        <div class="size-options">
+          {% for size in youth_sizes %}<label class="size-option"><input type="checkbox" data-size-value="{{ size }}" {% if size in selected_sizes %}checked{% endif %}><span>{{ size }}</span></label>{% endfor %}
+        </div>
+      </div>
+      <div class="size-group">
+        <div class="size-group-title">Adult</div>
+        <div class="size-options">
+          {% for size in adult_sizes %}<label class="size-option"><input type="checkbox" data-size-value="{{ size }}" {% if size in selected_sizes %}checked{% endif %}><span>{{ size }}</span></label>{% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="size-options custom-size-options" data-custom-options>
+      {% for size in selected_sizes %}{% if size not in common_sizes %}<label class="size-option"><input type="checkbox" data-size-value="{{ size }}" checked><span>{{ size }}</span></label>{% endif %}{% endfor %}
+    </div>
+    <div class="custom-size-row">
+      <label><span>Custom Size</span><input type="text" maxlength="40" placeholder="Example: Youth 8 or Adult 4XL" data-custom-size></label>
+      <button type="button" class="add-size" data-add-size>+ Add Size</button>
+    </div>
+  </div>
+{%- endmacro %}
 <header><div><strong>Stage Starz Store Manager</strong></div><div><a href="/admin">Command Center</a> &nbsp; <a href="/store" target="_blank">View Store</a> &nbsp; <a href="/admin/media">Media Library</a> &nbsp; <a href="/admin/logout">Log Out</a></div></header>
 <div class="wrap">
   {% with messages = get_flashed_messages(with_categories=true) %}{% for category, message in messages %}<div class="card">{{ message }}</div>{% endfor %}{% endwith %}
@@ -36,7 +79,7 @@ button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text
 
   <section class="card" id="new-product">
     <h2>Add New Product</h2>
-    <p class="small">Use commas between sizes and colors. Uncheck “Offer color selection” for pre-designed products that do not need a customer color choice.</p>
+    <p class="small">Check the sizes you want to offer. Colors can still be entered with commas. Uncheck “Offer color selection” for pre-designed products that do not need a customer color choice.</p>
     <form method="post" action="/admin/product/save" enctype="multipart/form-data">
       <div class="grid">
         <div><label>Product name</label><input name="name" required></div>
@@ -46,7 +89,7 @@ button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text
         <div><label>Sale price</label><input name="sale_price" type="number" step="0.01"></div>
         <div><label>Fulfillment fee per item</label><input name="fulfillment_fee" type="number" step="0.01" value="0"></div>
         <div><label>Stock quantity</label><input name="stock" type="number" value="0"></div>
-        <div><label>Sizes</label><input name="sizes" value="One Size"></div>
+        {{ size_picker(['One Size']) }}
         <div><label>Colors</label><input name="colors" value="Default"></div>
         <div><label>Product photo</label><input name="product_image" type="file" accept="image/*"></div>
         <div><label>Fallback emoji</label><input name="emoji" value="⭐"></div>
@@ -73,7 +116,7 @@ button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text
         <div><label>Sale price</label><input name="sale_price" type="number" step="0.01" value="{{ p.sale_price or '' }}"></div>
         <div><label>Fulfillment fee per item</label><input name="fulfillment_fee" type="number" step="0.01" value="{{ p.fulfillment_fee }}"></div>
         <div><label>Stock quantity</label><input name="stock" type="number" value="{{ p.stock }}"></div>
-        <div><label>Sizes</label><input name="sizes" value="{{ p.sizes|join(',') }}"></div>
+        {{ size_picker(p.sizes) }}
         <div><label>Colors</label><input name="colors" value="{{ p.colors|join(',') }}"></div>
         <div><label>Replace product photo</label><input name="product_image" type="file" accept="image/*"></div>
         <div class="check"><input name="remove_image" type="checkbox"><label>Remove current photo</label></div>
@@ -90,5 +133,58 @@ button,.button{border:0;border-radius:9px;padding:10px 14px;font-weight:900;text
     {% endfor %}
   </section>
 </div>
+<script>
+(function(){
+  const clean=value=>(value||'').trim().replace(/\s+/g,' ');
+  function syncPicker(picker,ensureSize){
+    const values=[];
+    picker.querySelectorAll('input[type="checkbox"][data-size-value]:checked').forEach(function(box){
+      const value=clean(box.dataset.sizeValue);
+      if(value&&!values.some(x=>x.toLowerCase()===value.toLowerCase())) values.push(value);
+    });
+    if(ensureSize&&values.length===0){
+      const oneSize=picker.querySelector('input[data-size-value="One Size"]');
+      if(oneSize){oneSize.checked=true;values.push('One Size');}
+    }
+    picker.querySelector('[data-size-hidden]').value=values.join(',');
+  }
+  function addCustomSize(picker){
+    const input=picker.querySelector('[data-custom-size]');
+    const value=clean(input.value);
+    if(!value)return;
+    const boxes=Array.from(picker.querySelectorAll('input[data-size-value]'));
+    const existing=boxes.find(box=>clean(box.dataset.sizeValue).toLowerCase()===value.toLowerCase());
+    if(existing){
+      existing.checked=true;
+    }else{
+      const label=document.createElement('label');
+      label.className='size-option';
+      const box=document.createElement('input');
+      box.type='checkbox';
+      box.checked=true;
+      box.dataset.sizeValue=value;
+      const text=document.createElement('span');
+      text.textContent=value;
+      label.appendChild(box);
+      label.appendChild(text);
+      picker.querySelector('[data-custom-options]').appendChild(label);
+    }
+    input.value='';
+    syncPicker(picker,false);
+  }
+  document.querySelectorAll('[data-size-picker]').forEach(function(picker){
+    picker.addEventListener('change',function(event){
+      if(event.target.matches('input[data-size-value]'))syncPicker(picker,false);
+    });
+    picker.querySelector('[data-add-size]').addEventListener('click',function(){addCustomSize(picker);});
+    picker.querySelector('[data-custom-size]').addEventListener('keydown',function(event){
+      if(event.key==='Enter'){event.preventDefault();addCustomSize(picker);}
+    });
+    const form=picker.closest('form');
+    if(form)form.addEventListener('submit',function(){syncPicker(picker,true);});
+    syncPicker(picker,false);
+  });
+})();
+</script>
 </body>
 </html>
