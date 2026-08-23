@@ -27,7 +27,7 @@ button{padding:11px 15px;border:0;border-radius:11px;color:#fff;font-weight:900;
 .badge.attention{background:rgba(255,108,125,.13);color:var(--danger)}
 .details{margin-top:13px;padding-top:13px;border-top:1px solid var(--line);font-size:.86rem;color:#ddd}
 .details code{display:block;margin-top:7px;padding:9px;border-radius:9px;background:#0b0613;color:#ffc867;white-space:pre-wrap}
-.section-head{display:flex;justify-content:space-between;align-items:center;margin:24px 0 12px}.section-head h2{margin:0}
+.section-head{display:flex;justify-content:space-between;align-items:center;margin:24px 0 12px;gap:14px}.section-head h2{margin:0}
 .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:18px}
 table{width:100%;min-width:800px;border-collapse:collapse;background:var(--panel)}
 th,td{text-align:left;padding:12px;border-bottom:1px solid var(--line)}
@@ -35,6 +35,14 @@ th{font-size:.72rem;text-transform:uppercase;color:#cec3d9}
 small,.muted{color:var(--muted)}
 .columns{font-size:.75rem;line-height:1.6;color:#cfc5d8}
 @media(max-width:850px){.stats{grid-template-columns:1fr 1fr}.hero{display:block}.hero form{margin-top:15px}}
+@media(max-width:700px){
+ header{flex-direction:column;align-items:flex-start;padding:15px 4vw;gap:10px}
+ header nav{width:100%;gap:16px;flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;scrollbar-width:none;-ms-overflow-style:none}
+ header nav::-webkit-scrollbar{display:none}
+ .section-head{display:block}
+ .section-head .muted{display:block;margin-top:6px}
+ .migration-head{gap:10px}
+}
 </style>
 </head>
 <body>
@@ -64,7 +72,7 @@ small,.muted{color:var(--muted)}
 </div>
 <div class="details">
 {% if migration.history %}
-<div>Recorded: {{ migration.history.applied_at }} · Status: {{ migration.history.status }}</div>
+<div>Recorded: <span class="recorded-time" data-utc="{{ migration.history.applied_at }}">{{ migration.history.applied_at }}</span> · Status: {{ migration.history.status|title }}</div>
 {% else %}
 <div>Not yet recorded in migration history.</div>
 {% endif %}
@@ -99,5 +107,21 @@ small,.muted{color:var(--muted)}
 </table>
 </div>
 </main>
+<script>
+(function(){
+  const formatter=new Intl.DateTimeFormat('en-US',{
+    timeZone:'America/New_York',month:'short',day:'numeric',year:'numeric',
+    hour:'numeric',minute:'2-digit',hour12:true
+  });
+  document.querySelectorAll('.recorded-time').forEach(function(el){
+    const raw=(el.dataset.utc||'').trim();
+    if(!raw)return;
+    const normalized=raw.replace(' ','T').replace(/(\.\d{3})\d+$/,'$1')+'Z';
+    const date=new Date(normalized);
+    if(Number.isNaN(date.getTime()))return;
+    el.textContent=formatter.format(date).replace(', ',' · ');
+  });
+})();
+</script>
 </body>
 </html>
