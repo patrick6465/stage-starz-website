@@ -16,9 +16,13 @@ a{color:inherit;text-decoration:none}
 header{padding:18px 4vw;display:flex;justify-content:space-between;gap:14px;align-items:center;border-bottom:1px solid var(--line);background:rgba(12,7,23,.94);position:sticky;top:0;z-index:5;backdrop-filter:blur(18px)}
 header nav{display:flex;gap:14px;flex-wrap:wrap}
 .wrap{width:min(1350px,calc(100% - 28px));margin:24px auto 60px}
+.flash{margin:0 0 18px;padding:14px 16px;border:1px solid var(--teal);border-radius:14px;background:rgba(80,214,208,.10);color:#8ff0eb;font-weight:850}
+.flash.error{border-color:var(--danger);background:rgba(255,108,125,.10);color:#ff9dab}
+.flash.warning{border-color:var(--gold);background:rgba(255,200,103,.10);color:#ffd997}
 .hero{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:23px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(120deg,rgba(239,61,152,.14),rgba(155,77,204,.17),rgba(80,214,208,.11));margin-bottom:18px}
 .hero h1{margin:0 0 7px}.hero p{margin:0;color:var(--muted)}
 button{padding:11px 15px;border:0;border-radius:11px;color:#fff;font-weight:900;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));cursor:pointer}
+button:disabled{opacity:.72;cursor:wait}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px}
 .card{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:19px;padding:19px}
 .value{font-size:2rem;font-weight:950}.label{color:var(--muted);font-size:.82rem}
@@ -51,9 +55,15 @@ small,.muted{color:var(--muted)}
 <nav><a href="/admin">Command Center</a><a href="/admin/system/database">Database Status</a><a href="/ready" target="_blank">Readiness</a></nav>
 </header>
 <main class="wrap">
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="flash {{ category }}" role="status">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
 <section class="hero">
 <div><h1>Database Migration Center</h1><p>Verify schema versions, migration history, required columns, and PostgreSQL health.</p></div>
-<form method="post" action="/admin/system/migrations/verify"><button>Run Verification</button></form>
+<form id="verification-form" method="post" action="/admin/system/migrations/verify"><button id="verification-button" type="submit">Run Verification</button></form>
 </section>
 
 <section class="stats">
@@ -121,6 +131,15 @@ small,.muted{color:var(--muted)}
     if(Number.isNaN(date.getTime()))return;
     el.textContent=formatter.format(date).replace(', ',' · ');
   });
+
+  const form=document.getElementById('verification-form');
+  const button=document.getElementById('verification-button');
+  if(form&&button){
+    form.addEventListener('submit',function(){
+      button.disabled=true;
+      button.textContent='Verifying…';
+    });
+  }
 })();
 </script>
 </body>
