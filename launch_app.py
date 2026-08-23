@@ -40,6 +40,7 @@ from routes_inventory import register_inventory_routes
 from routes_packing import register_packing_routes
 from routes_variants import register_variant_routes
 from store_mobile_delete_safety import register_store_mobile_delete_safety
+from store_two_shop_experience import register_two_shop_experience
 from store_workspace_polish import register_store_workspace_polish
 from studio_active_tab_polish import register_studio_active_tab_polish
 from studio_detail_title_polish import register_studio_detail_title_polish
@@ -91,6 +92,10 @@ install_product_media_captions(app)
 # Keep destructive Store Manager actions visually separated on phones and replace
 # the generic delete prompt with a product-specific irreversible-action warning.
 register_store_mobile_delete_safety(app)
+
+# Split the public store into seasonal Spirit Wear and year-round merchandise.
+# Existing products default to Spirit Wear so the current catalog stays intact.
+register_two_shop_experience(app, permission_required, log_activity)
 
 # Render assigned videos directly while the public HTML page is being served.
 # This is especially important for competition.html, which otherwise comes from
