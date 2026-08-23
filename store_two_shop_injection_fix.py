@@ -12,9 +12,29 @@ RESULTS_HEAD = """
   <div id="ssShopWindowBanner" class="ss-shop-window-banner"></div>
 """
 
+PRODUCT_IMAGE_FIT_STYLE = r"""
+<style id="ss-store-product-image-fit-fix">
+#grid .card .media{
+  position:relative!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+}
+#grid .card .media > img{
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:100%!important;
+  max-height:100%!important;
+  object-fit:contain!important;
+  object-position:center!important;
+}
+</style>
+"""
+
 
 def register_two_shop_injection_fix(app) -> None:
-    """Ensure the two-shop HTML panels render even when CSS class names are already present."""
+    """Ensure the two-shop HTML panels render and product photos stay inside their cards."""
 
     @app.after_request
     def two_shop_injection_fix(response):
@@ -27,6 +47,7 @@ def register_two_shop_injection_fix(app) -> None:
             return response
 
         try:
+            response.direct_passthrough = False
             body = response.get_data(as_text=True)
             values = _shop_settings()
 
@@ -36,6 +57,8 @@ def register_two_shop_injection_fix(app) -> None:
                     if marker in body:
                         body = body.replace(marker, _admin_panel(values) + "\n" + marker, 1)
             else:
+                if "ss-store-product-image-fit-fix" not in body:
+                    body = body.replace("</head>", PRODUCT_IMAGE_FIT_STYLE + "\n</head>", 1)
                 if 'aria-label="Choose a Stage Starz shop"' not in body:
                     body = re.sub(
                         r'<section class="hero">.*?</section>',
@@ -52,6 +75,8 @@ def register_two_shop_injection_fix(app) -> None:
                     )
 
             response.set_data(body)
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers.pop("ETag", None)
         except Exception:
             app.logger.exception("Could not apply two-shop HTML injection fix")
         return response
