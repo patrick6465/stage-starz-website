@@ -6,59 +6,48 @@ from flask import request
 MAIN_SHOP_URL = "https://www.stagestarzdance.net/shop"
 
 STYLE = r"""
-<style id="ss-mobile-main-shop-link-style">
-.ss-mobile-main-shop-link-wrap{display:none}
-@media(max-width:700px){
-  .ss-mobile-main-shop-link-wrap{
-    display:block;
-    padding:12px 18px 0;
-    background:#0b0712;
-  }
-  .ss-mobile-main-shop-link{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    width:100%;
-    min-height:46px;
-    padding:11px 14px;
-    border:1px solid rgba(83,215,210,.36);
-    border-radius:14px;
-    color:#fff!important;
-    background:linear-gradient(110deg,rgba(132,63,208,.28),rgba(25,159,171,.20));
-    text-decoration:none!important;
-    font-weight:900;
-    font-size:.92rem;
-    box-shadow:0 8px 24px rgba(0,0,0,.18);
-  }
-  .ss-mobile-main-shop-link:active{transform:translateY(1px)}
+<style id="ss-main-shop-manager-link-style">
+.ss-main-shop-manager-action{border-color:rgba(83,215,210,.36)!important}
+.ss-main-shop-manager-action:hover{border-color:rgba(83,215,210,.72)!important;background:rgba(83,215,210,.09)!important}
+@media(max-width:760px){
+  .ss-main-shop-manager-action{display:inline-flex!important}
 }
 </style>
 """
 
 LINK = f"""
-<div class="ss-mobile-main-shop-link-wrap" id="ssMobileMainShopLink">
-  <a class="ss-mobile-main-shop-link" href="{MAIN_SHOP_URL}">← Stage Starz Shop Main Page</a>
-</div>
+<a class="ss-store-action ss-main-shop-manager-action" href="{MAIN_SHOP_URL}" target="_blank" rel="noopener" title="Open the Stage Starz Shop page on the main website">↗ <span class="wide-label">Main Website Shop</span></a>
 """
 
 
 def register_store_mobile_main_shop_link(app) -> None:
+    """Keep the main-website shop shortcut inside Store Manager, not the public store."""
+
     @app.after_request
-    def store_mobile_main_shop_link(response):
+    def store_manager_main_shop_link(response):
         if (
             request.method != "GET"
-            or request.path != "/store"
+            or request.path != "/admin/store"
             or response.status_code != 200
             or response.mimetype != "text/html"
         ):
             return response
         try:
+            response.direct_passthrough = False
             body = response.get_data(as_text=True)
-            if "ss-mobile-main-shop-link-style" not in body:
+            if "ss-main-shop-manager-link-style" not in body:
                 body = body.replace("</head>", STYLE + "\n</head>", 1)
-            if 'id="ssMobileMainShopLink"' not in body:
-                body = body.replace("</header>", "</header>\n" + LINK, 1)
+            if "ss-main-shop-manager-action" not in body:
+                marker = '<a class="ss-store-action" href="/admin">◈ <span class="wide-label">Command Center</span></a>'
+                if marker in body:
+                    body = body.replace(marker, LINK + "\n      " + marker, 1)
+                else:
+                    actions = '<div class="ss-store-actions">'
+                    if actions in body:
+                        body = body.replace(actions, actions + "\n      " + LINK, 1)
             response.set_data(body)
+            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers.pop("ETag", None)
         except Exception:
-            app.logger.exception("Could not add mobile main-shop link")
+            app.logger.exception("Could not add main website Shop link to Store Manager")
         return response
