@@ -28,7 +28,15 @@
     .items{padding:10px 18px;overflow:auto;flex:1}.item{padding:14px 0;border-bottom:1px solid var(--border)}.item strong{display:block}.meta{color:var(--muted);font-size:.86rem;line-height:1.5;margin-top:5px}
     .row{display:flex;justify-content:space-between;gap:16px;margin:8px 0}.total{font-weight:900;font-size:1.15rem;border-top:1px solid var(--border);padding-top:12px}
     .checkout{width:100%;padding:12px;border:0;border-radius:10px;background:var(--purple);color:white;font-weight:900}
-    @media(max-width:700px){.toolbar{grid-template-columns:1fr}.hero{padding:28px}}
+    @media(max-width:700px){
+      header{display:block;padding:16px 18px}
+      header>div:first-child{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;line-height:1.2}
+      header>div:first-child>span:first-of-type{display:none}
+      #storeName{font-size:.96rem;white-space:nowrap;opacity:.92}
+      header>div:nth-child(2){margin-top:14px;justify-content:flex-start!important;gap:8px!important}
+      header>div:nth-child(2)>a{font-size:.92rem}
+      .toolbar{grid-template-columns:1fr}.hero{padding:28px}
+    }
   
     .checkout-modal{position:fixed;inset:0;display:none;place-items:center;padding:18px;background:rgba(0,0,0,.62);z-index:40}.checkout-modal.open{display:grid}
     .checkout-card{width:min(560px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:20px;padding:22px;box-shadow:0 25px 80px rgba(0,0,0,.3)}
@@ -183,7 +191,7 @@ function toggleCart(force){
 function cartTotals(){const subtotal=cart.reduce((s,x)=>s+x.price,0);const nameFees=cart.reduce((s,x)=>s+x.nameFee,0);const fulfillment=cart.reduce((s,x)=>s+x.fulfillmentFee,0);const tax=subtotal*Number(settings.sales_tax_rate||0);return{subtotal,nameFees,fulfillment,tax,shippingFee:0,total:subtotal+nameFees+fulfillment+tax}}
 function openCheckout(){if(!cart.length){alert('Your cart is empty.');return}document.getElementById('checkoutModal').classList.add('open')}
 function closeCheckout(){document.getElementById('checkoutModal').classList.remove('open')}
-async function submitOrder(){const name=document.getElementById('customerName').value.trim();const email=document.getElementById('customerEmail').value.trim();if(!name||!email){alert('Please enter your name and email.');return}const t=cartTotals();const response=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer:{name,email,phone:document.getElementById('customerPhone').value.trim(),payment_method:document.getElementById('paymentMethod').value,fulfillment_method:document.getElementById('fulfillmentMethod').value,notes:document.getElementById('orderNotes').value.trim()},items:cart,totals:{subtotal:t.subtotal,name_fees:t.nameFees,fulfillment_fees:t.fulfillment,shipping_fee:t.shippingFee,tax:t.tax,total:t.total}})});const result=await response.json();if(!response.ok){alert(result.error||'Order failed.');return}const instructions=document.getElementById('paymentMethod').value==='Venmo'?`Send ${money(t.total)} to ${settings.venmo_username}. Include ${result.order_number} in the note.`:`Pay ${money(t.total)} in cash at Stage Starz. Reference ${result.order_number}.`;alert(`Order ${result.order_number} submitted.\\n\\n${instructions}`);cart=[];renderCart();closeCheckout();toggleCart(false)}
+async function submitOrder(){const name=document.getElementById('customerName').value.trim();const email=document.getElementById('customerEmail').value.trim();if(!name||!email){alert('Please enter your name and email.');return}const t=cartTotals();const response=await fetch('/api/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customer:{name,email,phone:document.getElementById('customerPhone').value.trim(),payment_method:document.getElementById('paymentMethod').value,fulfillment_method:document.getElementById('fulfillmentMethod').value,notes:document.getElementById('orderNotes').value.trim()},items:cart,totals:{subtotal:t.subtotal,name_fees:t.nameFees,fulfillment_fees:t.fulfillment,shipping_fee:t.shippingFee,tax:t.tax,total:t.total}})});const result=await response.json();if(!response.ok){alert(result.error||'Order failed.');return}const instructions=document.getElementById('paymentMethod').value==='Venmo'?`Send ${money(t.total)} to ${settings.venmo_username}. Include ${result.order_number} in the note.`:`Pay ${money(t.total)} in cash at Stage Starz. Reference ${result.order_number}.`;alert(`Order ${result.order_number} submitted.\n\n${instructions}`);cart=[];renderCart();closeCheckout();toggleCart(false)}
 
 document.getElementById('search').addEventListener('input',render);
 document.getElementById('category').addEventListener('change',render);
