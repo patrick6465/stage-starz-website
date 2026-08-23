@@ -19,25 +19,28 @@ PRODUCT_IMAGE_FIT_STYLE = r"""
   overflow:hidden!important;
   display:grid!important;
   place-items:center!important;
+  background-size:contain!important;
+  background-position:center!important;
+  background-repeat:no-repeat!important;
 }
 #grid .card .media > img{
   display:block!important;
-  width:auto!important;
-  height:auto!important;
+  width:100%!important;
+  height:100%!important;
   max-width:100%!important;
   max-height:100%!important;
   object-fit:contain!important;
   object-position:center!important;
 }
 
-/* Give every gallery image the same viewing canvas.  Images with smaller native
-   dimensions are allowed to scale up, while object-fit keeps the whole product
-   visible without cropping. */
+/* Every gallery item gets one consistent viewing canvas. Smaller source images
+   can scale up to the canvas while the full product remains visible. */
 .ss-product-media-stage{
   height:min(68vh,600px)!important;
   min-height:440px!important;
   display:grid!important;
   place-items:center!important;
+  overflow:hidden!important;
 }
 .ss-product-media-stage > img{
   display:block!important;
@@ -62,15 +65,18 @@ PRODUCT_IMAGE_FIT_SCRIPT = r"""
 (function(){
   function fitStoreImages(){
     document.querySelectorAll('#grid .card .media img').forEach(function(img){
-      /* Constrain by both dimensions instead of stretching to the card box. This
-         does not depend on object-fit, so later legacy CSS cannot crop the image. */
-      img.style.setProperty('display','block','important');
-      img.style.setProperty('width','auto','important');
-      img.style.setProperty('height','auto','important');
-      img.style.setProperty('max-width','100%','important');
-      img.style.setProperty('max-height','100%','important');
-      img.style.setProperty('object-fit','contain','important');
-      img.style.setProperty('object-position','center','important');
+      var media=img.parentElement;
+      var source=img.currentSrc||img.getAttribute('src')||'';
+      if(media&&source){
+        /* Render the card photo as a contained background. This bypasses every
+           legacy object-fit/cover rule while retaining the real img for gallery
+           enhancement, accessibility text and product-media detection. */
+        media.style.setProperty('background-image','url("'+source+'")','important');
+        media.style.setProperty('background-size','contain','important');
+        media.style.setProperty('background-position','center','important');
+        media.style.setProperty('background-repeat','no-repeat','important');
+        img.style.setProperty('opacity','0','important');
+      }
     });
   }
 
