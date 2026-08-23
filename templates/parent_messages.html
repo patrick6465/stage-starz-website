@@ -14,4 +14,14 @@
 <a href="/parent/documents">Documents</a>
 <a href="/parent/profile">Family Profile</a>
 <a href="/parent/logout">Log Out</a>
-</nav></aside><main class="main"><div class="wrap"><section class="card"><h1>Messages</h1>{% for m in messages %}<a class="item" href="/parent/messages/{{ m.id }}"><div class="row"><div><strong>{{ m.subject or m.name }}</strong><div class="muted">{{ m.category }} · {{ m.created_at }}</div></div>{% if m.read_at %}<span class="badge">Read</span>{% else %}<span class="badge">New</span>{% endif %}</div></a>{% else %}<p class="muted">No studio messages yet.</p>{% endfor %}</section></div></main></div></body></html>
+</nav></aside><main class="main"><div class="wrap"><section class="card"><h1>Messages</h1>{% for m in messages %}<a class="item" href="/parent/messages/{{ m.id }}"><div class="row"><div><strong>{{ m.subject or m.name }}</strong><div class="muted">{{ m.category }} · <span class="js-datetime" data-datetime="{{ m.created_at }}">{{ m.created_at }}</span></div></div>{% if m.read_at %}<span class="badge">Read</span>{% else %}<span class="badge">New</span>{% endif %}</div></a>{% else %}<p class="muted">No studio messages yet.</p>{% endfor %}</section></div></main></div><script>
+(function(){
+  document.querySelectorAll('.js-datetime').forEach(function(el){
+    var raw=(el.dataset.datetime||'').trim();
+    var m=raw.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})/);
+    if(!m)return;
+    var d=new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),Number(m[4]),Number(m[5]));
+    el.textContent=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' · '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  });
+})();
+</script></body></html>
