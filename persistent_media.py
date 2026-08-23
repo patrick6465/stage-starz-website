@@ -31,6 +31,16 @@ if register_heif_opener is not None:
 
 MAX_SOURCE_BYTES = 25 * 1024 * 1024
 MAX_IMAGE_DIMENSION = 2400
+# Current flagship phones can create roughly 200 MP JPEGs. Pillow's default
+# decompression-bomb guard rejects those before we get a chance to resize them,
+# so we inspect the header under our own limit and use JPEG draft decoding to
+# reduce memory use before loading the pixels.
+MAX_SOURCE_PIXELS = 260_000_000
+MAX_DIRECT_DECODE_PIXELS = 40_000_000
+
+
+class _ImageDimensionsTooLarge(Exception):
+    pass
 
 
 def ensure_media_schema() -> None:
@@ -60,18 +70,60 @@ def _normalize_image(raw: bytes) -> tuple[bytes, str]:
     if len(raw) > MAX_SOURCE_BYTES:
         raise ValueError("That photo is too large. Please choose an image under 25 MB.")
 
+    previous_pixel_limit = getattr(Image, "MAX_IMAGE_PIXELS", None)
     try:
+        # Image.open performs Pillow's decompression-bomb size check while only
+        # reading the header. Temporarily disable that built-in threshold, then
+        # immediately enforce our own hard pixel ceiling before decoding.
+        Image.MAX_IMAGE_PIXELS = None
         with Image.open(io.BytesIO(raw)) as opened:
             try:
                 opened.seek(0)
             except Exception:
                 pass
+
+            width, height = opened.size
+            source_pixels = int(width or 0) * int(height or 0)
+            source_format = (opened.format or "").upper()
+
+            if width <= 0 or height <= 0 or source_pixels > MAX_SOURCE_PIXELS:
+                raise _ImageDimensionsTooLarge(
+                    "That photo has extremely large pixel dimensions. Please use a photo under about 260 megapixels."
+                )
+
+            # JPEG supports decoder-level downsampling. This is important for
+            # 100/200 MP phone photos because it prevents a several-hundred-MB
+            # full-resolution bitmap from being allocated just to make a web image.
+            if source_pixels > MAX_DIRECT_DECODE_PIXELS:
+                if source_format in {"JPEG", "JPG", "MPO"}:
+                    try:
+                        opened.draft(
+                            "RGB",
+                            (MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION),
+                        )
+                    except Exception:
+                        pass
+
+                    drafted_pixels = int(opened.size[0]) * int(opened.size[1])
+                    if drafted_pixels > MAX_DIRECT_DECODE_PIXELS:
+                        raise _ImageDimensionsTooLarge(
+                            "That photo is too large to process safely. Please resize it or use your phone's standard-resolution photo mode."
+                        )
+                else:
+                    raise _ImageDimensionsTooLarge(
+                        "That photo is too large to process safely in this format. Please resize it first or save it as a JPG."
+                    )
+
             image = ImageOps.exif_transpose(opened) if ImageOps is not None else opened.copy()
             image.load()
-    except (UnidentifiedImageError, OSError, ValueError):
+    except _ImageDimensionsTooLarge as error:
+        raise ValueError(str(error)) from error
+    except (UnidentifiedImageError, OSError, ValueError) as error:
         raise ValueError(
             "That photo format could not be read. Try JPG, PNG, WEBP, HEIC, or HEIF."
-        )
+        ) from error
+    finally:
+        Image.MAX_IMAGE_PIXELS = previous_pixel_limit
 
     if max(image.size) > MAX_IMAGE_DIMENSION:
         image.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), Image.Resampling.LANCZOS)
