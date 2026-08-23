@@ -115,8 +115,14 @@ MOBILE_POLISH = r"""
 """
 
 
+LEGACY_PORTAL_LINKS = (
+    '<a class="tool-link external" href="/parent-hub.html" target="_blank"><span class="tool-icon">↗</span><span>Open Parent Hub</span></a>',
+    '<a class="tool-link external" href="/portal.html" target="_blank"><span class="tool-icon">↗</span><span>Open Dancer Portal</span></a>',
+)
+
+
 def register_command_center_mobile_polish(app) -> None:
-    """Make Command Center work areas compact and easier to use on phones."""
+    """Keep the Command Center compact on phones and hide retired portal shortcuts."""
 
     @app.after_request
     def polish_command_center_mobile(response):
@@ -126,10 +132,18 @@ def register_command_center_mobile_polish(app) -> None:
             body = response.get_data(as_text=True)
             if 'id="command-center-v3"' not in body:
                 return response
-            if 'id="ss-command-center-mobile-polish"' in body:
-                return response
-            if "</body>" in body:
+
+            changed = False
+            for legacy_link in LEGACY_PORTAL_LINKS:
+                if legacy_link in body:
+                    body = body.replace(legacy_link, "")
+                    changed = True
+
+            if 'id="ss-command-center-mobile-polish"' not in body and "</body>" in body:
                 body = body.replace("</body>", MOBILE_POLISH + "</body>", 1)
+                changed = True
+
+            if changed:
                 response.set_data(body)
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 response.headers.pop("ETag", None)
