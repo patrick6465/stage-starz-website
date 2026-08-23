@@ -40,6 +40,7 @@ from routes_inventory import register_inventory_routes
 from routes_packing import register_packing_routes
 from routes_variants import register_variant_routes
 from store_mobile_delete_safety import register_store_mobile_delete_safety
+from store_mobile_main_shop_link import register_store_mobile_main_shop_link
 from store_two_shop_experience import register_two_shop_experience
 from store_two_shop_injection_fix import register_two_shop_injection_fix
 from store_workspace_polish import register_store_workspace_polish
@@ -101,6 +102,10 @@ register_two_shop_experience(app, permission_required, log_activity)
 # Ensure the Store Availability panel and two public shop-choice cards are added
 # even after the shared workspace CSS has already introduced their class names.
 register_two_shop_injection_fix(app)
+
+# Give phone shoppers a clear route back to the main Stage Starz website's Shop
+# page without changing the desktop storefront header or navigation.
+register_store_mobile_main_shop_link(app)
 
 # Render assigned videos directly while the public HTML page is being served.
 # This is especially important for competition.html, which otherwise comes from
