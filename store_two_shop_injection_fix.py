@@ -32,6 +32,33 @@ PRODUCT_IMAGE_FIT_STYLE = r"""
 </style>
 """
 
+PRODUCT_IMAGE_FIT_SCRIPT = r"""
+<script id="ss-store-product-image-fit-script">
+(function(){
+  function fitStoreImages(){
+    document.querySelectorAll('#grid .card .media img').forEach(function(img){
+      img.style.setProperty('display','block','important');
+      img.style.setProperty('width','100%','important');
+      img.style.setProperty('height','100%','important');
+      img.style.setProperty('max-width','100%','important');
+      img.style.setProperty('max-height','100%','important');
+      img.style.setProperty('object-fit','contain','important');
+      img.style.setProperty('object-position','center','important');
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    fitStoreImages();
+    var grid=document.getElementById('grid');
+    if(grid){
+      new MutationObserver(fitStoreImages).observe(grid,{childList:true,subtree:true});
+    }
+  });
+  window.addEventListener('load',fitStoreImages);
+})();
+</script>
+"""
+
 
 def register_two_shop_injection_fix(app) -> None:
     """Ensure the two-shop HTML panels render and product photos stay inside their cards."""
@@ -59,6 +86,8 @@ def register_two_shop_injection_fix(app) -> None:
             else:
                 if "ss-store-product-image-fit-fix" not in body:
                     body = body.replace("</head>", PRODUCT_IMAGE_FIT_STYLE + "\n</head>", 1)
+                if "ss-store-product-image-fit-script" not in body:
+                    body = body.replace("</body>", PRODUCT_IMAGE_FIT_SCRIPT + "\n</body>", 1)
                 if 'aria-label="Choose a Stage Starz shop"' not in body:
                     body = re.sub(
                         r'<section class="hero">.*?</section>',
