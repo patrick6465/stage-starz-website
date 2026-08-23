@@ -25,6 +25,7 @@ from persistent_media import (
     save_persistent_image,
 )
 from persistent_videos import register_persistent_videos
+from product_media_gallery import register_product_media_gallery
 from program_hero_finalizer import register_program_hero_finalizer
 from program_hero_panels import register_program_hero_panels
 from public_logo_polish import register_public_logo_polish
@@ -69,6 +70,17 @@ register_persistent_videos(app)
 # Website videos live in Railway media storage and can be assigned to the
 # homepage performance panel or the Musical Theater Competition spotlight.
 register_website_video_manager(app, permission_required, log_activity)
+
+# Store products can use a four-photo gallery plus one optional uploaded video.
+# The primary photo remains in products.image_url; extra media is kept in its own
+# persistent product_media table and reuses the existing image/video storage.
+register_product_media_gallery(
+    app,
+    permission_required,
+    save_persistent_image,
+    delete_persistent_image,
+    log_activity,
+)
 
 # Render assigned videos directly while the public HTML page is being served.
 # This is especially important for competition.html, which otherwise comes from
