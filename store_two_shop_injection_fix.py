@@ -147,6 +147,11 @@ def register_two_shop_injection_fix(app) -> None:
                         count=1,
                         flags=re.DOTALL,
                     )
+                body = body.replace(
+                    "<h2>Stage Starz Shop</h2>",
+                    "<h2>Stardust Ship-it-Shop</h2>",
+                    1,
+                )
                 if 'id="ssShopResultsTitle"' not in body:
                     body = body.replace(
                         '<section id="grid" class="grid"></section>',
