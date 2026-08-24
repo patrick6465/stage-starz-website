@@ -147,6 +147,12 @@ def register_homepage_mobile_gallery_polish(app) -> None:
                 return response
 
             changed = False
+            if "National competition opportunities" in body:
+                body = body.replace(
+                    "National competition opportunities",
+                    "Regional competition opportunities",
+                )
+                changed = True
             if 'id="ss-home-gallery-mobile-polish-style"' not in body and "</head>" in body:
                 body = body.replace("</head>", MOBILE_GALLERY_STYLE + "</head>", 1)
                 changed = True
