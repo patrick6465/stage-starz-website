@@ -33,6 +33,15 @@ PRODUCT_IMAGE_FIT_STYLE = r"""
   object-position:center!important;
 }
 
+.ss-stardust-title{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  text-align:center!important;
+}
+.ss-stardust-title span{display:block!important;width:100%!important}
+
 /* Every gallery item gets one consistent viewing canvas. Smaller source images
    can scale up to the canvas while the full product remains visible. */
 .ss-product-media-stage{
@@ -149,7 +158,7 @@ def register_two_shop_injection_fix(app) -> None:
                     )
                 body = body.replace(
                     "<h2>Stage Starz Shop</h2>",
-                    "<h2>Stardust Ship-it-Shop</h2>",
+                    '<h2 class="ss-stardust-title"><span>Stardust</span><span>Ship-it-Shop</span></h2>',
                     1,
                 )
                 if 'id="ssShopResultsTitle"' not in body:
