@@ -1,57 +1,10 @@
 from __future__ import annotations
 
-import base64
-import re
-from functools import lru_cache
-from pathlib import Path
-
-from flask import Response, request
-
-
-BANNER_CHUNKS = tuple(
-    Path(__file__).resolve().parent / "assets" / "media" / f"stardust_shipit_banner_{index}.b64"
-    for index in range(6)
-)
-
-# Use the actual animated GIF directly. This avoids mobile autoplay/video codec
-# behavior that could leave shoppers seeing only the old static poster image.
-ANIMATED_BANNER = '''<img class="ss-approved-shop-gif" src="/assets/images/stardust-ship-it-shop.gif?v=20260824-2" alt="Stardust Ship-it-Shop spirit wear banner">'''
-
-BANNER_LINK_RE = re.compile(
-    r'(<a\b[^>]*class=["\'][^"\']*\bapproved-shop-link\b[^"\']*["\'][^>]*>).*?(</a>)',
-    re.IGNORECASE | re.DOTALL,
-)
-
-
-@lru_cache(maxsize=1)
-def _stardust_banner_video() -> bytes:
-    payload = "".join(path.read_text(encoding="utf-8").strip() for path in BANNER_CHUNKS)
-    return base64.b64decode(payload)
-
-
-def _replace_stardust_banner(body: str) -> tuple[str, bool]:
-    """Replace the clickable homepage shop banner without depending on exact img markup."""
-
-    if 'class="ss-approved-shop-gif"' in body or "class='ss-approved-shop-gif'" in body:
-        return body, False
-
-    def replacement(match: re.Match[str]) -> str:
-        return f"{match.group(1)}\n      {ANIMATED_BANNER}\n    {match.group(2)}"
-
-    updated, count = BANNER_LINK_RE.subn(replacement, body, count=1)
-    return updated, bool(count)
+from flask import request
 
 
 MOBILE_GALLERY_STYLE = r"""
 <style id="ss-home-gallery-mobile-polish-style">
-.approved-shop-link .ss-approved-shop-gif{
-  display:block;
-  width:100%;
-  height:auto;
-  object-fit:contain;
-  object-position:center;
-  pointer-events:none;
-}
 @media(max-width:640px){
   .ss-studio-gallery{grid-auto-rows:auto!important;}
   .ss-studio-photo,.ss-studio-photo.featured{position:relative!important;height:auto!important;min-height:0!important;aspect-ratio:4/3!important;}
@@ -72,8 +25,7 @@ MOBILE_GALLERY_SCRIPT = r"""
   function isAdminLink(link){if(!link||!link.getAttribute){return false;}var href=link.getAttribute('href')||'';try{var url=new URL(href,window.location.href);return url.pathname.replace(/\/$/,'')==='/admin'&&/admin/i.test(link.textContent||'');}catch(_error){return false;}}
   function markFloatingAdmin(){document.querySelectorAll('a[href]').forEach(function(link){if(!isAdminLink(link)){return;}var target=link;var node=link;while(node&&node!==document.body){if(window.getComputedStyle(node).position==='fixed'){target=node;break;}node=node.parentElement;}target.classList.add('ss-public-admin-pill');});}
   function initGalleryGuard(){var gallery=document.getElementById('inside-stage-starz');if(!gallery){return;}function getCta(){return document.querySelector('.ss-mobile-cta');}function setGalleryMode(active){var cta=getCta();document.body.classList.toggle('ss-gallery-mode',active);if(cta){cta.classList.toggle('ss-gallery-hidden',active);}markFloatingAdmin();}if('IntersectionObserver' in window){var observer=new IntersectionObserver(function(entries){entries.forEach(function(entry){if(entry.target===gallery){setGalleryMode(entry.isIntersecting);}});},{threshold:.04,rootMargin:'-24px 0px -24px 0px'});observer.observe(gallery);}markFloatingAdmin();var mutationObserver=new MutationObserver(function(){markFloatingAdmin();if(document.body.classList.contains('ss-gallery-mode')){var cta=getCta();if(cta){cta.classList.add('ss-gallery-hidden');}}});mutationObserver.observe(document.body,{childList:true,subtree:true});}
-  function honorReducedMotion(){if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches){document.querySelectorAll('.ss-approved-shop-video').forEach(function(video){video.pause();});}}
-  function init(){initGalleryGuard();honorReducedMotion();}
+  function init(){initGalleryGuard();}
   if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',init,{once:true});}else{init();}
 })();
 </script>
@@ -82,12 +34,6 @@ MOBILE_GALLERY_SCRIPT = r"""
 
 def register_homepage_mobile_gallery_polish(app) -> None:
     """Keep fixed mobile homepage controls from covering the Studio Gallery."""
-
-    @app.route("/assets/media/stardust-ship-it-shop.mp4")
-    def stardust_shipit_banner_video():
-        response = Response(_stardust_banner_video(), mimetype="video/mp4")
-        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        return response
 
     @app.after_request
     def polish_homepage_gallery_mobile_controls(response):
@@ -104,9 +50,6 @@ def register_homepage_mobile_gallery_polish(app) -> None:
             if not body:
                 return response
             changed = False
-
-            body, banner_changed = _replace_stardust_banner(body)
-            changed = changed or banner_changed
 
             if "National competition opportunities" in body:
                 body = body.replace("National competition opportunities", "Regional competition opportunities", 1)
