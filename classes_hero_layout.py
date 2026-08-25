@@ -59,6 +59,14 @@ CLASSES_HERO_LAYOUT = r"""
     background-repeat:no-repeat!important;
   }
 }
+
+/* Phones: keep the hero headline strong without letting it overpower the dancer photo. */
+@media(max-width:640px){
+  .hero h1{
+    font-size:clamp(2.5rem,11.4vw,4.2rem)!important;
+    line-height:1.06!important;
+  }
+}
 </style>
 """
 
