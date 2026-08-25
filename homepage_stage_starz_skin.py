@@ -32,10 +32,17 @@ body{
   box-shadow:inset 0 -48px 58px -38px rgba(8,7,19,.96)!important;
 }
 
-/* On desktop, give the full dancer more vertical room before the shop banner begins. */
+/* Desktop hero: keep the dancer's full lower leg/foot clear of the shop banner.
+   The prior height-only fix still allowed cover-cropping to hide the bottom of
+   the source photo on wide monitors, so use a slightly taller hero and bias the
+   background toward the lower part of the photograph. Mobile remains unchanged. */
 @media(min-width:981px){
   .hero{
-    min-height:clamp(760px,92vh,940px)!important;
+    min-height:clamp(900px,104vh,1020px)!important;
+    background-position:center 70%!important;
+  }
+  .approved-shop{
+    padding-top:18px!important;
   }
 }
 
