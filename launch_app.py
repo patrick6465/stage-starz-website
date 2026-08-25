@@ -9,6 +9,7 @@ from bundled_assets import install_bundled_assets
 from class_content_editor import CLASS_PAGES, register_class_content_editor
 from classes_hero_asset import register_classes_hero_asset
 from classes_hero_layout import register_classes_hero_layout
+from classes_page_brand_polish import register_classes_page_brand_polish
 from command_center_mobile_polish import register_command_center_mobile_polish
 from command_center_time_polish import register_command_center_time_polish
 from competition_editor_support import install_competition_editor_support
@@ -155,6 +156,8 @@ install_competition_editor_support(app)
 register_launch_foundation(app, permission_required, log_activity)
 register_class_content_editor(app, permission_required, log_activity)
 register_competition_site_fixes(app)
+# Apply the richer Classes page skin after the existing hero/layout hooks render.
+register_classes_page_brand_polish(app)
 register_classes_hero_layout(app)
 
 # Register the finalizer before the panel renderer. Flask runs after_request
