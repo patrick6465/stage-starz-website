@@ -69,10 +69,10 @@ CLASSES_HERO_LAYOUT = r"""
 
   /* Tighten the handoff from the Class Finder card into Easy Enrollment. */
   .section:has(.finder){
-    padding-bottom:34px!important;
+    padding-bottom:16px!important;
   }
   .section:has(.finder) + .section{
-    padding-top:34px!important;
+    padding-top:16px!important;
   }
 }
 </style>
