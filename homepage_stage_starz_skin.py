@@ -139,6 +139,65 @@ body{
 @media(max-width:640px){
   .trust-inner{gap:10px!important;padding:16px!important}
   .trust-item{padding:11px 12px!important}
+
+  /* Replace the bright local-proof block with a compact Stage Starz dark panel. */
+  .ss-local-proof{
+    background:
+      radial-gradient(circle at 8% 12%,rgba(239,61,152,.16),transparent 20rem),
+      radial-gradient(circle at 94% 85%,rgba(53,207,197,.14),transparent 22rem),
+      linear-gradient(160deg,#0b0815 0%,#17102a 58%,#08171b 100%)!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    border-bottom:1px solid rgba(103,229,223,.12)!important;
+  }
+  .ss-local-proof-inner{
+    gap:12px!important;
+    padding:30px 18px 34px!important;
+  }
+  .ss-local-proof-copy{
+    padding:0 8px 6px!important;
+  }
+  .ss-local-proof-copy strong{
+    color:#fff!important;
+  }
+  .ss-local-proof-copy span{
+    color:#c9bed6!important;
+  }
+  .ss-local-proof-item{
+    padding:15px 14px!important;
+    border:1px solid rgba(255,255,255,.10)!important;
+    border-radius:17px!important;
+    background:linear-gradient(135deg,rgba(155,77,204,.11),rgba(53,207,197,.065))!important;
+    color:#f8f4ff!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.16)!important;
+  }
+  .ss-local-proof-item small{
+    color:#bdb2c9!important;
+  }
+
+  /* Keep the mobile quick actions useful without covering so much page content. */
+  .ss-mobile-cta{
+    left:10px!important;
+    right:10px!important;
+    bottom:max(7px,env(safe-area-inset-bottom))!important;
+    gap:6px!important;
+    padding:5px!important;
+    border-radius:16px!important;
+  }
+  .ss-mobile-cta a{
+    min-height:0!important;
+    height:52px!important;
+    padding:0 12px!important;
+    border-radius:11px!important;
+    font-size:.88rem!important;
+    line-height:1.1!important;
+  }
+  body[data-homepage="true"]{
+    padding-bottom:72px!important;
+  }
+  body[data-homepage="true"] .hero .actions{
+    margin-bottom:66px!important;
+  }
+
   #programs{
     padding-left:16px!important;
     padding-right:16px!important;
