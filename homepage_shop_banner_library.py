@@ -7,6 +7,7 @@ from pathlib import Path
 from flask import request
 
 import website_video_manager as video_manager
+from homepage_stage_starz_skin import HOMEPAGE_STAGE_STARZ_STYLE
 
 
 SLOT_KEY = "home_shop_banner"
@@ -80,14 +81,25 @@ def register_homepage_shop_banner_library(app) -> None:
             return response
 
         try:
-            values = video_manager._settings()
-            media_url = video_manager._valid_video_url(values.get(SLOT_KEY, ""))
-            if not media_url:
-                return response
-
             response.direct_passthrough = False
             body = response.get_data(as_text=True)
             if not body:
+                return response
+
+            # Apply the Stage Starz dark homepage skin independently of which
+            # media is currently assigned to the shop banner.
+            if 'id="ss-homepage-stage-starz-skin"' not in body and "</head>" in body:
+                body = body.replace("</head>", HOMEPAGE_STAGE_STARZ_STYLE + "\n</head>", 1)
+
+            values = video_manager._settings()
+            media_url = video_manager._valid_video_url(values.get(SLOT_KEY, ""))
+            if not media_url:
+                response.set_data(body)
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+                response.headers.pop("ETag", None)
+                response.headers.pop("Last-Modified", None)
                 return response
 
             media_markup = _banner_media_markup(media_url)
@@ -97,6 +109,12 @@ def register_homepage_shop_banner_library(app) -> None:
 
             updated, count = BANNER_LINK_RE.subn(replacement, body, count=1)
             if not count:
+                response.set_data(body)
+                response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+                response.headers["Expires"] = "0"
+                response.headers.pop("ETag", None)
+                response.headers.pop("Last-Modified", None)
                 return response
 
             if 'id="ss-home-shop-banner-media-style"' not in updated and "</head>" in updated:
@@ -128,6 +146,8 @@ def register_homepage_shop_banner_library(app) -> None:
 
             response.set_data(updated)
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
             response.headers.pop("ETag", None)
             response.headers.pop("Last-Modified", None)
         except Exception:
