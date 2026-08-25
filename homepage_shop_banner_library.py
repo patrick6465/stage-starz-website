@@ -10,6 +10,7 @@ import website_video_manager as video_manager
 
 
 SLOT_KEY = "home_shop_banner"
+SCRIPT_VERSION = "20260825-banner-library"
 
 BANNER_LINK_RE = re.compile(
     r'(<a\b[^>]*class=["\'][^"\']*\bapproved-shop-link\b[^"\']*["\'][^>]*>).*?(</a>)',
@@ -43,6 +44,7 @@ def _banner_media_markup(media_url: str) -> str:
     if _is_gif(media_url):
         return (
             f'<img class="ss-home-shop-banner-media" src="{safe_url}" '
+            f'data-managed-banner-src="{safe_url}" '
             'alt="Stardust Ship-it-Shop animated banner" loading="eager">'
         )
     return (
@@ -99,6 +101,30 @@ def register_homepage_shop_banner_library(app) -> None:
 
             if 'id="ss-home-shop-banner-media-style"' not in updated and "</head>" in updated:
                 updated = updated.replace("</head>", BANNER_STYLE + "</head>", 1)
+
+            # Force browsers to fetch the corrected homepage JavaScript instead of
+            # a cached copy that used to overwrite the managed banner with a
+            # hard-coded pink-stars GIF.
+            updated = re.sub(
+                r'(<script\s+src=["\'](?:/)?assets/js/site-refinements\.js)(?:\?[^"\']*)?(["\'])',
+                rf'\1?v={SCRIPT_VERSION}\2',
+                updated,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+
+            # Extra protection for any already-cached legacy script: after all
+            # deferred scripts finish, restore the GIF selected in the library.
+            if _is_gif(media_url) and "</body>" in updated:
+                safe_url_js = html.escape(media_url, quote=True)
+                guard = (
+                    '<script id="ss-managed-shop-banner-guard">'
+                    "document.addEventListener('DOMContentLoaded',function(){"
+                    "var img=document.querySelector('.approved-shop-link img[data-managed-banner-src]');"
+                    f"if(img){{img.src='{safe_url_js}';img.removeAttribute('srcset');}}"
+                    "});</script>"
+                )
+                updated = updated.replace("</body>", guard + "</body>", 1)
 
             response.set_data(updated)
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
