@@ -281,6 +281,16 @@ def register_homepage_stage_starz_skin(app) -> None:
                     HOMEPAGE_STAGE_STARZ_STYLE + "\n" + HOMEPAGE_MOBILE_CTA_SCRIPT + "\n</head>",
                     1,
                 )
+                body = body.replace(
+                    'src="assets/js/site-refinements.js"',
+                    'src="assets/js/site-refinements.js?v=20260825-cta2"',
+                    1,
+                )
+                body = body.replace(
+                    'src="/assets/js/site-refinements.js"',
+                    'src="/assets/js/site-refinements.js?v=20260825-cta2"',
+                    1,
+                )
                 response.set_data(body)
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 response.headers["Pragma"] = "no-cache"
