@@ -66,6 +66,14 @@ CLASSES_HERO_LAYOUT = r"""
     font-size:clamp(2.5rem,11.4vw,4.2rem)!important;
     line-height:1.06!important;
   }
+
+  /* Tighten the handoff from the Class Finder card into Easy Enrollment. */
+  .section:has(.finder){
+    padding-bottom:34px!important;
+  }
+  .section:has(.finder) + .section{
+    padding-top:34px!important;
+  }
 }
 </style>
 """
