@@ -9,6 +9,49 @@
     if(href===current){link.setAttribute('aria-current','page');}
   });
 
+  // Force the homepage Stardust Ship-it-Shop banner to use the animated media.
+  // Keep the existing static image visible until the animation is actually ready,
+  // so shoppers always have a working clickable banner even if media loading fails.
+  var shopLink=document.querySelector('.approved-shop-link');
+  var shopBanner=shopLink&&shopLink.querySelector('img');
+  if(shopLink&&shopBanner&&!shopLink.querySelector('.ss-approved-shop-video')){
+    var shopVideo=document.createElement('video');
+    shopVideo.className='ss-approved-shop-video';
+    shopVideo.autoplay=true;
+    shopVideo.muted=true;
+    shopVideo.defaultMuted=true;
+    shopVideo.loop=true;
+    shopVideo.playsInline=true;
+    shopVideo.preload='auto';
+    shopVideo.setAttribute('muted','');
+    shopVideo.setAttribute('playsinline','');
+    shopVideo.setAttribute('aria-hidden','true');
+    shopVideo.innerHTML='<source src="/assets/media/stardust-ship-it-shop.mp4?v=20260825-1" type="video/mp4">';
+    Object.assign(shopVideo.style,{
+      display:'none',
+      width:'100%',
+      height:'auto',
+      objectFit:'cover',
+      objectPosition:'center',
+      pointerEvents:'none'
+    });
+    shopBanner.insertAdjacentElement('afterend',shopVideo);
+
+    function showAnimatedShopBanner(){
+      shopVideo.style.display='block';
+      shopBanner.style.display='none';
+      var playPromise=shopVideo.play();
+      if(playPromise&&playPromise.catch){playPromise.catch(function(){});}
+    }
+    shopVideo.addEventListener('canplay',showAnimatedShopBanner,{once:true});
+    shopVideo.addEventListener('loadeddata',showAnimatedShopBanner,{once:true});
+    shopVideo.addEventListener('error',function(){
+      shopVideo.remove();
+      shopBanner.style.display='block';
+    },{once:true});
+    shopVideo.load();
+  }
+
   // Identify individual competition team pages for page-specific refinement.
   if(/^(mini|petite|junior|juniorettes|teen)-competition-team\.html$/.test(current)||current==='team-only.html'||current==='competition-auditions.html'){
     document.body.setAttribute('data-competition-team','true');
