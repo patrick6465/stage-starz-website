@@ -8,37 +8,42 @@ from studio_gallery_manager import published_gallery_settings
 STUDIO_PHOTO_STYLE = r"""
 <style id="ss-studio-photo-style">
 .ss-studio-story{
+  position:relative;overflow:hidden;
   padding:clamp(72px,8vw,110px) 22px;
+  border-top:1px solid rgba(255,255,255,.08);
+  border-bottom:1px solid rgba(255,255,255,.08);
   background:
-    radial-gradient(circle at 8% 8%,rgba(233,30,140,.12),transparent 24rem),
-    radial-gradient(circle at 92% 90%,rgba(123,216,209,.15),transparent 28rem),
-    #fffafd;
+    radial-gradient(circle at 8% 8%,rgba(233,30,140,.18),transparent 25rem),
+    radial-gradient(circle at 92% 88%,rgba(77,207,208,.17),transparent 30rem),
+    linear-gradient(145deg,#090510 0%,#17102a 54%,#08171b 100%);
 }
-.ss-studio-story-inner{width:min(1180px,100%);margin:0 auto}
+.ss-studio-story-inner{position:relative;z-index:1;width:min(1180px,100%);margin:0 auto}
 .ss-studio-story-head{max-width:820px;margin:0 auto 34px;text-align:center}
 .ss-studio-story .ss-eyebrow,
 .ss-page-photo-panel .ss-eyebrow{
   margin:0 0 10px;color:#e91e8c;text-transform:uppercase;letter-spacing:.14em;
   font-size:.76rem;font-weight:950
 }
+.ss-studio-story .ss-eyebrow{color:#67e5df}
 .ss-studio-story h2{
-  margin:0 0 14px;color:#191226;font-size:clamp(2.25rem,5vw,4.25rem);
+  margin:0 0 14px;color:#fff;font-size:clamp(2.25rem,5vw,4.25rem);
   line-height:1.04;letter-spacing:-.045em
 }
-.ss-studio-story .ss-lead{max-width:760px;margin:0 auto;color:#706780;font-size:1.08rem}
+.ss-studio-story .ss-lead{max-width:760px;margin:0 auto;color:#c9bfd7;font-size:1.08rem}
 .ss-studio-gallery{
   display:grid;grid-template-columns:repeat(12,minmax(0,1fr));
   grid-auto-rows:215px;gap:16px
 }
 .ss-studio-photo{
   position:relative;margin:0;overflow:hidden;border-radius:24px;background:#17102a;
-  box-shadow:0 20px 55px rgba(20,8,25,.17)
+  border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 22px 58px rgba(0,0,0,.34),0 0 34px rgba(140,60,172,.08)
 }
 .ss-studio-photo img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .45s ease}
 .ss-studio-photo:hover img{transform:scale(1.025)}
 .ss-studio-photo figcaption{
   position:absolute;left:13px;right:13px;bottom:13px;padding:10px 12px;border-radius:13px;
-  color:#fff;background:rgba(9,5,20,.68);backdrop-filter:blur(10px);
+  color:#fff;background:rgba(9,5,20,.72);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px);
   font-size:.82rem;font-weight:850
 }
 .ss-studio-photo.featured{grid-column:span 7;grid-row:span 2}
@@ -55,7 +60,11 @@ STUDIO_PHOTO_STYLE = r"""
   color:#fff;background:linear-gradient(135deg,#e91e8c,#8c3cac 60%,#4dcfd0);
   box-shadow:0 14px 32px rgba(233,30,140,.25)
 }
-.ss-studio-story-actions .secondary{color:#17102a;background:#fff;border:1px solid rgba(140,60,172,.2)}
+.ss-studio-story-actions .secondary{
+  color:#fff;background:rgba(255,255,255,.055);
+  border:1px solid rgba(103,229,223,.34);backdrop-filter:blur(8px)
+}
+.ss-studio-story-actions .secondary:hover{background:rgba(103,229,223,.10);border-color:rgba(103,229,223,.58)}
 .ss-page-photo-panel{
   width:min(1180px,calc(100% - 44px));margin:10px auto 54px;
   display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);
