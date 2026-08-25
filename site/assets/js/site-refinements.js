@@ -63,7 +63,37 @@
       mobile.className='ss-mobile-cta';
       mobile.setAttribute('aria-label','Quick actions');
       mobile.innerHTML='<a class="primary" href="classes.html">Find Classes</a><a class="secondary" href="contact.html">Ask a Question</a>';
+
+      var hero=document.querySelector('.hero');
+      var mobileMedia=window.matchMedia('(max-width:640px)');
+      function setQuickActionsVisible(show){
+        mobile.style.opacity=show?'1':'0';
+        mobile.style.transform=show?'translateY(0)':'translateY(18px)';
+        mobile.style.pointerEvents=show?'auto':'none';
+        mobile.setAttribute('aria-hidden',show?'false':'true');
+      }
+      mobile.style.transition='opacity .24s ease, transform .24s ease';
+      if(mobileMedia.matches&&hero){
+        setQuickActionsVisible(hero.getBoundingClientRect().bottom<=0);
+      }else{
+        setQuickActionsVisible(true);
+      }
       document.body.appendChild(mobile);
+
+      if(mobileMedia.matches&&hero){
+        if('IntersectionObserver' in window){
+          var quickActionsObserver=new IntersectionObserver(function(entries){
+            entries.forEach(function(entry){
+              if(entry.target===hero){setQuickActionsVisible(!entry.isIntersecting);}
+            });
+          },{threshold:0});
+          quickActionsObserver.observe(hero);
+        }else{
+          var updateQuickActions=function(){setQuickActionsVisible(hero.getBoundingClientRect().bottom<=0);};
+          window.addEventListener('scroll',updateQuickActions,{passive:true});
+          updateQuickActions();
+        }
+      }
     }
   }
 
