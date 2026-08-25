@@ -15,6 +15,7 @@ from competition_editor_support import install_competition_editor_support
 from competition_site_fixes import register_competition_site_fixes
 from config import UPLOAD_FOLDER
 from homepage_mobile_gallery_polish import register_homepage_mobile_gallery_polish
+from homepage_shop_banner_library import register_homepage_shop_banner_library
 from launch_foundation import register_launch_foundation
 from order_status_fix import register_order_status_fix
 from performance_mobile_polish import register_performance_mobile_polish
@@ -72,9 +73,13 @@ class_editor._save_uploaded_image = save_persistent_image
 # up to the persistent database and restore them to Railway disk after deploys.
 register_persistent_videos(app)
 
-# Website videos live in Railway media storage and can be assigned to the
-# homepage performance panel or the Musical Theater Competition spotlight.
+# Website videos and animated GIFs live in Railway media storage and can be
+# assigned to supported public placements from the shared Website Video Library.
 register_website_video_manager(app, permission_required, log_activity)
+
+# Add a dedicated Homepage Shop Banner placement to that same media library. The
+# selected GIF or MP4 replaces only the clickable Stardust Ship-it-Shop banner.
+register_homepage_shop_banner_library(app)
 
 # Store products can use a four-photo gallery plus one optional uploaded video.
 # The primary photo remains in products.image_url; extra media is kept in its own
