@@ -43,6 +43,7 @@ from routes_packing import register_packing_routes
 from routes_variants import register_variant_routes
 from store_mobile_delete_safety import register_store_mobile_delete_safety
 from store_mobile_main_shop_link import register_store_mobile_main_shop_link
+from store_product_accordion import register_store_product_accordion
 from store_two_shop_experience import register_two_shop_experience
 from store_two_shop_injection_fix import register_two_shop_injection_fix
 from store_workspace_polish import register_store_workspace_polish
@@ -104,6 +105,10 @@ register_store_mobile_delete_safety(app)
 # Split the public store into seasonal Spirit Wear and year-round merchandise.
 # Existing products default to Spirit Wear so the current catalog stays intact.
 register_two_shop_experience(app, permission_required, log_activity)
+
+# Collapse saved Store Manager products into compact editable rows and keep
+# Official Spirit Wear separate from Everyday Shop year-round merchandise.
+register_store_product_accordion(app)
 
 # Ensure the Store Availability panel and two public shop-choice cards are added
 # even after the shared workspace CSS has already introduced their class names.
