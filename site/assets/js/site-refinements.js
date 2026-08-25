@@ -67,6 +67,7 @@
       var hero=document.querySelector('.hero');
       var mobileMedia=window.matchMedia('(max-width:640px)');
       function setQuickActionsVisible(show){
+        document.body.classList.toggle('ss-past-hero',!!show);
         mobile.style.opacity=show?'1':'0';
         mobile.style.transform=show?'translateY(0)':'translateY(18px)';
         mobile.style.pointerEvents=show?'auto':'none';
