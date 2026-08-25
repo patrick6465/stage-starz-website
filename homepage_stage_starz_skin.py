@@ -198,6 +198,21 @@ body{
     margin-bottom:66px!important;
   }
 
+  /* The quick-action bar stays completely out of the way until the hero has left the viewport. */
+  body[data-homepage="true"]:not(.ss-past-hero) .ss-mobile-cta{
+    opacity:0!important;
+    transform:translateY(22px)!important;
+    pointer-events:none!important;
+    visibility:hidden!important;
+  }
+  body[data-homepage="true"].ss-past-hero .ss-mobile-cta{
+    opacity:1!important;
+    transform:translateY(0)!important;
+    pointer-events:auto!important;
+    visibility:visible!important;
+    transition:opacity .22s ease,transform .22s ease,visibility .22s ease!important;
+  }
+
   #programs{
     padding-left:16px!important;
     padding-right:16px!important;
@@ -212,6 +227,36 @@ body{
   }
 }
 </style>
+"""
+
+HOMEPAGE_MOBILE_CTA_SCRIPT = r"""
+<script id="ss-homepage-mobile-cta-visibility">
+(function(){
+  function init(){
+    var body=document.body;
+    var hero=document.querySelector('.hero');
+    if(!body||!hero){return;}
+
+    function update(){
+      if(window.innerWidth>640){
+        body.classList.add('ss-past-hero');
+        return;
+      }
+      body.classList.toggle('ss-past-hero',hero.getBoundingClientRect().bottom<=0);
+    }
+
+    update();
+    window.addEventListener('scroll',update,{passive:true});
+    window.addEventListener('resize',update,{passive:true});
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',init,{once:true});
+  }else{
+    init();
+  }
+})();
+</script>
 """
 
 
@@ -231,7 +276,11 @@ def register_homepage_stage_starz_skin(app) -> None:
             response.direct_passthrough = False
             body = response.get_data(as_text=True)
             if body and 'id="ss-homepage-stage-starz-skin"' not in body and "</head>" in body:
-                body = body.replace("</head>", HOMEPAGE_STAGE_STARZ_STYLE + "\n</head>", 1)
+                body = body.replace(
+                    "</head>",
+                    HOMEPAGE_STAGE_STARZ_STYLE + "\n" + HOMEPAGE_MOBILE_CTA_SCRIPT + "\n</head>",
+                    1,
+                )
                 response.set_data(body)
                 response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
                 response.headers["Pragma"] = "no-cache"
