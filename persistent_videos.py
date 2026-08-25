@@ -14,7 +14,7 @@ VIDEO_URL_PREFIX = "/media/videos/"
 
 
 def ensure_video_asset_schema() -> None:
-    """Create persistent database storage for uploaded website videos."""
+    """Create persistent database storage for uploaded website videos and GIFs."""
     connection = get_db()
     blob_type = "BYTEA" if getattr(connection, "backend", "sqlite") == "postgresql" else "BLOB"
     connection.execute(
@@ -52,7 +52,7 @@ def _stored_video_sizes() -> dict[str, int]:
 
 
 def _stored_video_metadata() -> list[dict[str, object]]:
-    """Return video names and sizes without loading any large BLOB data."""
+    """Return media names and sizes without loading any large BLOB data."""
     ensure_video_asset_schema()
     connection = get_db()
     rows = connection.execute(
@@ -97,7 +97,7 @@ def _store_video(path: Path) -> bool:
     if not data or len(data) > MAX_VIDEO_BYTES:
         return False
 
-    mime_type = mimetypes.guess_type(path.name)[0] or "video/mp4"
+    mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
     ensure_video_asset_schema()
     connection = get_db()
     connection.execute(
@@ -120,7 +120,7 @@ def _store_video(path: Path) -> bool:
 
 
 def backup_video_folder() -> int:
-    """Copy new/changed website videos from disk into persistent database storage."""
+    """Copy new/changed website media from disk into persistent database storage."""
     ensure_video_asset_schema()
     VIDEO_FOLDER.mkdir(parents=True, exist_ok=True)
     stored = _stored_video_sizes()
@@ -143,7 +143,7 @@ def backup_video_folder() -> int:
 
 
 def restore_persistent_video(filename: str) -> bool:
-    """Restore one requested video instead of loading the full library at startup."""
+    """Restore one requested media file instead of loading the full library at startup."""
     clean = Path(str(filename)).name
     if not clean or clean != str(filename):
         return False
@@ -193,7 +193,7 @@ def restore_persistent_video(filename: str) -> bool:
 
 
 def restore_persistent_videos() -> int:
-    """Compatibility helper: restore videos one at a time when explicitly requested."""
+    """Compatibility helper: restore media files one at a time when requested."""
     restored = 0
     for item in _stored_video_metadata():
         if restore_persistent_video(str(item["filename"])):
@@ -255,6 +255,7 @@ def _persistent_video_list() -> list[dict[str, str]]:
             "name": filename,
             "url": f"{VIDEO_URL_PREFIX}{filename}",
             "size_mb": f"{size / (1024 * 1024):.1f}",
+            "kind": "gif" if Path(filename).suffix.lower() == ".gif" else "video",
         }
         for filename, size in indexed.items()
         if size > 0
@@ -263,17 +264,17 @@ def _persistent_video_list() -> list[dict[str, str]]:
 
 
 def register_persistent_videos(app) -> None:
-    """Keep website videos persistent without blocking Railway startup."""
+    """Keep website videos and GIFs persistent without blocking Railway startup."""
     ensure_video_asset_schema()
     VIDEO_FOLDER.mkdir(parents=True, exist_ok=True)
 
-    # The public/editor helpers should recognize database-backed videos even when
+    # The public/editor helpers should recognize database-backed media even when
     # the new Railway container has not materialized those large files to disk yet.
     video_manager._valid_video_url = _persistent_valid_video_url
     video_manager._list_videos = _persistent_video_list
 
     app.logger.info(
-        "Persistent website video storage ready; large files restore lazily on request"
+        "Persistent website media storage ready; large files restore lazily on request"
     )
 
     @app.before_request
@@ -292,7 +293,7 @@ def register_persistent_videos(app) -> None:
                     if not target.exists() or not target.is_file():
                         restore_persistent_video(filename)
         except Exception:
-            app.logger.exception("Could not lazily restore persistent website video")
+            app.logger.exception("Could not lazily restore persistent website media")
 
     @app.after_request
     def persist_website_video_changes(response):
@@ -301,20 +302,23 @@ def register_persistent_videos(app) -> None:
                 backed_up = backup_video_folder()
                 if backed_up:
                     app.logger.info(
-                        "Backed up %s website video(s) to persistent storage",
+                        "Backed up %s website media file(s) to persistent storage",
                         backed_up,
                     )
             elif request_path_is_video_delete(response):
                 delete_persistent_video(request.form.get("video_url", "").strip())
         except Exception:
-            app.logger.exception("Could not synchronize persistent website video storage")
+            app.logger.exception("Could not synchronize persistent website media storage")
         return response
 
 
 def request_path_is_video_save(response) -> bool:
     return (
         request.method == "POST"
-        and request.path == "/admin/website/videos/save"
+        and request.path in {
+            "/admin/website/videos/save",
+            "/admin/website/videos/library/upload",
+        }
         and response.status_code < 400
     )
 
