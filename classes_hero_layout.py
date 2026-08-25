@@ -74,6 +74,11 @@ CLASSES_HERO_LAYOUT = r"""
   .section:has(.finder) + .section{
     padding-top:16px!important;
   }
+
+  /* Bring the final help card closer to the footer without changing either design. */
+  .section:has(.local){
+    padding-bottom:34px!important;
+  }
 }
 </style>
 """
