@@ -13,7 +13,9 @@ BANNER_CHUNKS = tuple(
     for index in range(6)
 )
 
-ANIMATED_BANNER = '''<video class="ss-approved-shop-video" autoplay muted loop playsinline preload="metadata" poster="assets/images/stardust-ship-it-shop-approved.jpg" aria-hidden="true"><source src="/assets/media/stardust-ship-it-shop.mp4" type="video/mp4"></video>'''
+# Use the actual animated GIF directly. This avoids mobile autoplay/video codec
+# behavior that could leave shoppers seeing only the old static poster image.
+ANIMATED_BANNER = '''<img class="ss-approved-shop-gif" src="/assets/images/stardust-ship-it-shop.gif?v=20260824-2" alt="Stardust Ship-it-Shop spirit wear banner">'''
 
 BANNER_LINK_RE = re.compile(
     r'(<a\b[^>]*class=["\'][^"\']*\bapproved-shop-link\b[^"\']*["\'][^>]*>).*?(</a>)',
@@ -30,7 +32,7 @@ def _stardust_banner_video() -> bytes:
 def _replace_stardust_banner(body: str) -> tuple[str, bool]:
     """Replace the clickable homepage shop banner without depending on exact img markup."""
 
-    if 'class="ss-approved-shop-video"' in body or "class='ss-approved-shop-video'" in body:
+    if 'class="ss-approved-shop-gif"' in body or "class='ss-approved-shop-gif'" in body:
         return body, False
 
     def replacement(match: re.Match[str]) -> str:
@@ -42,11 +44,11 @@ def _replace_stardust_banner(body: str) -> tuple[str, bool]:
 
 MOBILE_GALLERY_STYLE = r"""
 <style id="ss-home-gallery-mobile-polish-style">
-.approved-shop-link .ss-approved-shop-video{
+.approved-shop-link .ss-approved-shop-gif{
   display:block;
   width:100%;
   height:auto;
-  object-fit:cover;
+  object-fit:contain;
   object-position:center;
   pointer-events:none;
 }
