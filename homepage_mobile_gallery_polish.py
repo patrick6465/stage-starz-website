@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -12,14 +13,31 @@ BANNER_CHUNKS = tuple(
     for index in range(6)
 )
 
-STATIC_BANNER = '<img src="assets/images/stardust-ship-it-shop-approved.jpg" alt="Stardust Ship-it-Shop spirit wear banner">'
 ANIMATED_BANNER = '''<video class="ss-approved-shop-video" autoplay muted loop playsinline preload="metadata" poster="assets/images/stardust-ship-it-shop-approved.jpg" aria-hidden="true"><source src="/assets/media/stardust-ship-it-shop.mp4" type="video/mp4"></video>'''
+
+BANNER_LINK_RE = re.compile(
+    r'(<a\b[^>]*class=["\'][^"\']*\bapproved-shop-link\b[^"\']*["\'][^>]*>).*?(</a>)',
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 @lru_cache(maxsize=1)
 def _stardust_banner_video() -> bytes:
     payload = "".join(path.read_text(encoding="utf-8").strip() for path in BANNER_CHUNKS)
     return base64.b64decode(payload)
+
+
+def _replace_stardust_banner(body: str) -> tuple[str, bool]:
+    """Replace the clickable homepage shop banner without depending on exact img markup."""
+
+    if 'class="ss-approved-shop-video"' in body or "class='ss-approved-shop-video'" in body:
+        return body, False
+
+    def replacement(match: re.Match[str]) -> str:
+        return f"{match.group(1)}\n      {ANIMATED_BANNER}\n    {match.group(2)}"
+
+    updated, count = BANNER_LINK_RE.subn(replacement, body, count=1)
+    return updated, bool(count)
 
 
 MOBILE_GALLERY_STYLE = r"""
@@ -84,9 +102,10 @@ def register_homepage_mobile_gallery_polish(app) -> None:
             if not body:
                 return response
             changed = False
-            if STATIC_BANNER in body:
-                body = body.replace(STATIC_BANNER, ANIMATED_BANNER, 1)
-                changed = True
+
+            body, banner_changed = _replace_stardust_banner(body)
+            changed = changed or banner_changed
+
             if "National competition opportunities" in body:
                 body = body.replace("National competition opportunities", "Regional competition opportunities", 1)
                 changed = True
