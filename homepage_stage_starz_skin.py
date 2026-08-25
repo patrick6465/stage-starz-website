@@ -32,6 +32,13 @@ body{
   box-shadow:inset 0 -48px 58px -38px rgba(8,7,19,.96)!important;
 }
 
+/* On desktop, give the full dancer more vertical room before the shop banner begins. */
+@media(min-width:981px){
+  .hero{
+    min-height:clamp(760px,92vh,940px)!important;
+  }
+}
+
 /* Studio highlights become a compact dark-glass bridge into the content. */
 .trust-strip{
   position:relative!important;
