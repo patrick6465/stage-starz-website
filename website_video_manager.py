@@ -20,7 +20,7 @@ from config import BASE_DIR, VOLUME_MOUNT_PATH
 from database import get_db
 
 
-VIDEO_EXTENSIONS = {"mp4", "webm", "mov", "m4v"}
+VIDEO_EXTENSIONS = {"mp4", "webm", "mov", "m4v", "gif"}
 MAX_VIDEO_BYTES = 250 * 1024 * 1024
 MAX_REQUEST_BYTES = 260 * 1024 * 1024
 
@@ -63,7 +63,8 @@ PUBLIC_VIDEO_STYLE = r"""
   background:#05050c;
   border-radius:inherit;
 }
-.ss-video-stage video{
+.ss-video-stage video,
+.ss-video-stage img.ss-animated-media{
   display:block;
   width:100%;
   height:100%;
@@ -109,7 +110,8 @@ PUBLIC_VIDEO_STYLE = r"""
 }
 .ss-home-performance-video.performance-art:before,
 .ss-home-performance-video.performance-art:after{display:none!important;content:none!important}
-.ss-home-performance-video video{min-height:500px}
+.ss-home-performance-video video,
+.ss-home-performance-video img.ss-animated-media{min-height:500px}
 
 .ss-musical-theater-spotlight{padding-top:58px!important;padding-bottom:58px!important}
 .ss-musical-theater-card{
@@ -166,7 +168,8 @@ PUBLIC_VIDEO_STYLE = r"""
 .ss-video-placeholder span{display:block;color:#bfb2ca;font-size:.85rem;font-weight:700;margin-top:7px}
 @media(max-width:920px){
   .ss-musical-theater-card{grid-template-columns:1fr;padding:26px}
-  .ss-home-performance-video video{min-height:380px}
+  .ss-home-performance-video video,
+  .ss-home-performance-video img.ss-animated-media{min-height:380px}
 }
 @media(max-width:640px){
   .ss-musical-theater-spotlight{padding-top:34px!important;padding-bottom:34px!important}
@@ -179,11 +182,11 @@ PUBLIC_VIDEO_STYLE = r"""
 <script id="ss-public-video-script">
 function ssExpandVideo(button){
   var stage=button.closest('.ss-video-stage');
-  var video=stage&&stage.querySelector('video');
-  if(!video)return;
-  if(video.requestFullscreen){video.requestFullscreen();}
-  else if(video.webkitEnterFullscreen){video.webkitEnterFullscreen();}
-  else if(video.webkitRequestFullscreen){video.webkitRequestFullscreen();}
+  var media=stage&&stage.querySelector('video, img.ss-animated-media');
+  if(!media)return;
+  if(media.requestFullscreen){media.requestFullscreen();}
+  else if(media.webkitEnterFullscreen){media.webkitEnterFullscreen();}
+  else if(media.webkitRequestFullscreen){media.webkitRequestFullscreen();}
 }
 </script>
 """
@@ -256,12 +259,17 @@ def _valid_video_url(video_url: str) -> str:
     return f"/media/videos/{path.name}"
 
 
+def _is_gif_url(video_url: str) -> bool:
+    return Path(video_url.split("?", 1)[0]).suffix.lower() == ".gif"
+
+
 def _list_videos() -> list[dict[str, str]]:
     videos: list[dict[str, str]] = []
     if not VIDEO_FOLDER.exists():
         return videos
     for path in VIDEO_FOLDER.iterdir():
-        if not path.is_file() or path.suffix.lower().lstrip(".") not in VIDEO_EXTENSIONS:
+        extension = path.suffix.lower().lstrip(".")
+        if not path.is_file() or extension not in VIDEO_EXTENSIONS:
             continue
         size = path.stat().st_size
         videos.append(
@@ -269,6 +277,7 @@ def _list_videos() -> list[dict[str, str]]:
                 "name": path.name,
                 "url": f"/media/videos/{path.name}",
                 "size_mb": f"{size / (1024 * 1024):.1f}",
+                "kind": "gif" if extension == "gif" else "video",
             }
         )
     return sorted(videos, key=lambda item: item["name"].lower())
@@ -279,13 +288,13 @@ def _save_video(file_storage) -> str:
         return ""
     original = secure_filename(file_storage.filename) or "stage-starz-video.mp4"
     if "." not in original:
-        raise ValueError("Choose an MP4, WEBM, MOV, or M4V video.")
+        raise ValueError("Choose an MP4, GIF, WEBM, MOV, or M4V file.")
     extension = original.rsplit(".", 1)[1].lower()
     if extension not in VIDEO_EXTENSIONS:
-        raise ValueError("Choose an MP4, WEBM, MOV, or M4V video. MP4 is recommended.")
+        raise ValueError("Choose an MP4, GIF, WEBM, MOV, or M4V file. MP4 and GIF are recommended.")
 
     VIDEO_FOLDER.mkdir(parents=True, exist_ok=True)
-    stem = Path(original).stem[:70] or "stage-starz-video"
+    stem = Path(original).stem[:70] or "stage-starz-media"
     filename = f"{stem}-{uuid.uuid4().hex[:10]}.{extension}"
     target = VIDEO_FOLDER / filename
 
@@ -294,16 +303,16 @@ def _save_video(file_storage) -> str:
     except Exception as exc:
         if target.exists():
             target.unlink()
-        raise ValueError("The video could not be saved. Please choose it again.") from exc
+        raise ValueError("The media file could not be saved. Please choose it again.") from exc
 
     size = target.stat().st_size if target.exists() else 0
     if size <= 0:
         if target.exists():
             target.unlink()
-        raise ValueError("That video file is empty. Please choose another video.")
+        raise ValueError("That media file is empty. Please choose another file.")
     if size > MAX_VIDEO_BYTES:
         target.unlink()
-        raise ValueError("That video is larger than 250 MB. Please use a smaller file.")
+        raise ValueError("That media file is larger than 250 MB. Please use a smaller file.")
 
     return f"/media/videos/{filename}"
 
@@ -311,13 +320,22 @@ def _save_video(file_storage) -> str:
 def _video_markup(video_url: str, caption: str, extra_class: str = "") -> str:
     safe_url = html.escape(video_url, quote=True)
     safe_caption = html.escape(caption)
+    if _is_gif_url(video_url):
+        media = (
+            f'<img class="ss-animated-media" src="{safe_url}" '
+            f'alt="{safe_caption}" loading="eager">'
+        )
+    else:
+        media = (
+            f'<video controls playsinline preload="metadata" src="{safe_url}">'
+            "Your browser does not support HTML5 video."
+            "</video>"
+        )
     return (
         f'<div class="ss-video-stage {extra_class}">'
-        f'<video controls playsinline preload="metadata" src="{safe_url}">'
-        "Your browser does not support HTML5 video."
-        "</video>"
-        '<button class="ss-video-fullscreen" type="button" '
-        'onclick="ssExpandVideo(this)" aria-label="Expand video to full screen">⛶ Full screen</button>'
+        + media
+        + '<button class="ss-video-fullscreen" type="button" '
+        'onclick="ssExpandVideo(this)" aria-label="Expand media to full screen">⛶ Full screen</button>'
         f'<div class="ss-video-caption">{safe_caption}</div>'
         "</div>"
     )
@@ -335,7 +353,7 @@ def _inject_homepage_video(body: str, video_url: str) -> str:
     )
     replacement = (
         '<div class="performance-art ss-home-performance-video" '
-        'aria-label="Stage Starz performance video">'
+        'aria-label="Stage Starz performance media">'
         + video
         + "</div>"
     )
@@ -382,18 +400,18 @@ def _inject_competition_video(body: str, video_url: str) -> str:
 
 
 def register_website_video_manager(app, permission_required, log_activity=None) -> None:
-    """Add persistent large-video uploads and two editable public video placements."""
+    """Add persistent large-media uploads and editable public media placements."""
     ensure_video_schema()
     VIDEO_FOLDER.mkdir(parents=True, exist_ok=True)
 
     # Images still enforce their own 25 MB source limit. The larger request cap is
-    # needed only so the dedicated video uploader can receive production videos.
+    # needed only so the dedicated website media uploader can receive large files.
     app.config["MAX_CONTENT_LENGTH"] = MAX_REQUEST_BYTES
 
     @app.errorhandler(413)
     def website_media_too_large(_error):
         flash(
-            "That upload is too large. Website videos can be up to 250 MB; photos can be up to 25 MB.",
+            "That upload is too large. Website videos and GIFs can be up to 250 MB; photos can be up to 25 MB.",
             "error",
         )
         return redirect(request.referrer or "/admin")
@@ -430,6 +448,7 @@ def register_website_video_manager(app, permission_required, log_activity=None) 
                     "description": info["description"],
                     "page_url": info["page_url"],
                     "video_url": current,
+                    "media_kind": "gif" if _is_gif_url(current) else "video",
                 }
             )
         return render_template(
@@ -439,12 +458,32 @@ def register_website_video_manager(app, permission_required, log_activity=None) 
             max_video_mb=250,
         )
 
+    @app.route("/admin/website/videos/library/upload", methods=["POST"])
+    @permission_required("website")
+    def upload_website_video_library():
+        uploaded = request.files.get("library_upload")
+        if not uploaded or not uploaded.filename:
+            flash("Choose an MP4 or GIF file to add to the Video Library.", "error")
+            return redirect("/admin/website/videos#video-library")
+        try:
+            saved_url = _save_video(uploaded)
+        except ValueError as error:
+            flash(str(error), "error")
+            return redirect("/admin/website/videos#video-library")
+        flash("Media added to the Video Library. You can now reuse it in any supported website placement.", "success")
+        if log_activity:
+            try:
+                log_activity("Website media uploaded", Path(saved_url).name)
+            except Exception:
+                app.logger.exception("Could not log website media library upload")
+        return redirect("/admin/website/videos#video-library")
+
     @app.route("/admin/website/videos/save", methods=["POST"])
     @permission_required("website")
     def save_website_video():
         slot = request.form.get("slot", "").strip()
         if slot not in VIDEO_SLOTS:
-            flash("That video location could not be found.", "error")
+            flash("That media location could not be found.", "error")
             return redirect("/admin/website/videos")
 
         action = request.form.get("action", "save").strip()
@@ -453,9 +492,9 @@ def register_website_video_manager(app, permission_required, log_activity=None) 
             flash(f"{VIDEO_SLOTS[slot]['label']} was removed from the page.", "success")
             if log_activity:
                 try:
-                    log_activity("Website video cleared", VIDEO_SLOTS[slot]["label"])
+                    log_activity("Website media cleared", VIDEO_SLOTS[slot]["label"])
                 except Exception:
-                    app.logger.exception("Could not log website video clear")
+                    app.logger.exception("Could not log website media clear")
             return redirect(f"/admin/website/videos#slot-{slot}")
 
         selected = request.form.get("video_url", "").strip()
@@ -469,16 +508,16 @@ def register_website_video_manager(app, permission_required, log_activity=None) 
 
         selected = _valid_video_url(selected)
         if not selected:
-            flash("Choose or upload a video before publishing.", "error")
+            flash("Choose or upload an MP4, GIF, or other supported video before publishing.", "error")
             return redirect(f"/admin/website/videos#slot-{slot}")
 
         _set_slot(slot, selected)
         flash(f"{VIDEO_SLOTS[slot]['label']} is now published.", "success")
         if log_activity:
             try:
-                log_activity("Website video published", VIDEO_SLOTS[slot]["label"])
+                log_activity("Website media published", VIDEO_SLOTS[slot]["label"])
             except Exception:
-                app.logger.exception("Could not log website video update")
+                app.logger.exception("Could not log website media update")
         return redirect(f"/admin/website/videos#slot-{slot}")
 
     @app.route("/admin/website/videos/delete", methods=["POST"])
@@ -487,7 +526,7 @@ def register_website_video_manager(app, permission_required, log_activity=None) 
         video_url = request.form.get("video_url", "").strip()
         path = _video_path_from_url(video_url)
         if path is None or not path.exists() or not path.is_file():
-            flash("That video could not be found.", "error")
+            flash("That media file could not be found.", "error")
             return redirect("/admin/website/videos")
 
         values = _settings()
@@ -495,12 +534,12 @@ def register_website_video_manager(app, permission_required, log_activity=None) 
             if _valid_video_url(current) == f"/media/videos/{path.name}":
                 _set_slot(slot, "")
         path.unlink()
-        flash("Video deleted from the Video Library.", "success")
+        flash("Media deleted from the Video Library.", "success")
         if log_activity:
             try:
-                log_activity("Website video deleted", path.name)
+                log_activity("Website media deleted", path.name)
             except Exception:
-                app.logger.exception("Could not log website video deletion")
+                app.logger.exception("Could not log website media deletion")
         return redirect("/admin/website/videos")
 
     @app.after_request
