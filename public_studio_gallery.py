@@ -79,6 +79,50 @@ STUDIO_PHOTO_STYLE = r"""
 .ss-page-photo-copy h2{margin:0 0 13px;color:#7e32ff;font-size:clamp(1.8rem,4vw,3rem);line-height:1.05}
 .ss-page-photo-copy p{margin:0;color:#6f6780;font-size:1.04rem}
 .ss-page-photo-copy .ss-small{margin-top:14px;font-size:.92rem}
+
+/* Lower-homepage contrast polish. Keep the existing structure and wording intact. */
+.performance h2{
+  color:#fff!important;
+  text-shadow:0 2px 20px rgba(0,0,0,.42),0 0 26px rgba(155,77,204,.14)!important;
+}
+.ss-parent-guide{
+  position:relative!important;
+  overflow:hidden!important;
+  background:
+    radial-gradient(circle at 10% 12%,rgba(239,61,152,.15),transparent 28rem),
+    radial-gradient(circle at 92% 82%,rgba(80,214,208,.13),transparent 30rem),
+    linear-gradient(145deg,#090510 0%,#17102a 54%,#08171b 100%)!important;
+  border-top:1px solid rgba(255,255,255,.07)!important;
+  border-bottom:1px solid rgba(255,255,255,.08)!important;
+}
+.ss-parent-guide-inner{
+  border:1px solid rgba(255,255,255,.12)!important;
+  background:
+    linear-gradient(145deg,rgba(31,18,48,.93),rgba(12,10,25,.94) 58%,rgba(10,29,32,.90))!important;
+  box-shadow:0 28px 78px rgba(0,0,0,.34),0 0 42px rgba(155,77,204,.08)!important;
+}
+.ss-parent-guide-head .eyebrow{color:#67e5df!important}
+.ss-parent-guide-head h2{color:#fff!important;text-shadow:0 0 24px rgba(155,77,204,.12)!important}
+.ss-parent-guide-head>p:last-child{color:#c9bfd7!important}
+.ss-parent-guide-grid article{
+  border:1px solid rgba(255,255,255,.12)!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.075),rgba(255,255,255,.035))!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.18)!important;
+}
+.ss-parent-guide-grid article>span{
+  background:linear-gradient(135deg,#9b4dcc,#ef3d98 58%,#35cfc5)!important;
+  box-shadow:0 8px 20px rgba(155,77,204,.20)!important;
+}
+.ss-parent-guide-grid h3{color:#fff!important}
+.ss-parent-guide-grid p{color:#c9bfd7!important}
+.ss-parent-guide-grid a{color:#70e7dd!important}
+.ss-parent-guide-note{
+  border:1px solid rgba(80,214,208,.18)!important;
+  background:linear-gradient(110deg,rgba(155,77,204,.12),rgba(80,214,208,.09)),#0b0815!important;
+  color:#eae3f5!important;
+}
+.ss-parent-guide-note strong{color:#70e7dd!important}
+
 @media(max-width:820px){
   .ss-studio-gallery{grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:230px}
   .ss-studio-photo.featured,.ss-studio-photo.room,.ss-studio-photo.parents,
@@ -98,6 +142,7 @@ STUDIO_PHOTO_STYLE = r"""
   .ss-studio-photo{border-radius:19px}
   .ss-page-photo-panel{width:calc(100% - 28px);padding:14px;margin-bottom:38px;border-radius:22px}
   .ss-page-photo-panel img{border-radius:16px}
+  .ss-parent-guide-inner{box-shadow:0 20px 52px rgba(0,0,0,.30)!important}
 }
 @media(prefers-reduced-motion:reduce){.ss-studio-photo img{transition:none}}
 </style>
