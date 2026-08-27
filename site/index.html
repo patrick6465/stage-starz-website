@@ -31,6 +31,11 @@
     .nav-links{display:flex;align-items:center;gap:18px;font-weight:800;font-size:.95rem}
     .nav-links>a:not(.btn):hover{color:var(--purple)}
     .menu{display:none;border:0;background:none;font-size:1.8rem;cursor:pointer}
+    .mobile-quick-actions{display:none;align-items:center;gap:7px;margin-left:auto}
+    .mobile-quick-actions .mobile-quick-btn{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:8px 11px;border-radius:999px;font-size:.78rem;font-weight:950;line-height:1;text-decoration:none;white-space:nowrap}
+    .mobile-quick-actions .register-quick{background:linear-gradient(135deg,var(--pink),#f45faf);color:#fff;box-shadow:0 7px 18px rgba(233,30,140,.22)}
+    .mobile-quick-actions .payment-quick{background:var(--night);color:#fff}
+    .mobile-pay-short{display:none}
     .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:13px 20px;font-weight:900;transition:.25s ease;cursor:pointer}
     .btn:hover{transform:translateY(-2px)}
     .btn.primary{color:#fff;background:linear-gradient(135deg,var(--pink),#f45faf 58%,var(--teal));box-shadow:0 15px 35px rgba(233,30,140,.30)}
@@ -99,7 +104,7 @@
 
     .footer{background:var(--night);color:#fff}.footer-inner{max-width:var(--max);margin:auto;padding:55px 22px;display:grid;grid-template-columns:1.3fr .7fr .7fr .8fr;gap:30px}.footer h3{font-size:1.12rem}.footer p,.footer a{color:#cfc4de}.footer a{display:block;margin:8px 0}.footer a:hover{color:#fff}.copyright{border-top:1px solid rgba(255,255,255,.1);max-width:var(--max);margin:auto;padding:18px 22px;color:#9d93ad;font-size:.88rem}
     .reveal{opacity:0;transform:translateY(18px);transition:.7s ease}.reveal.visible{opacity:1;transform:none}
-    @media(max-width:980px){.menu{display:block}.nav-links{display:none;position:absolute;left:18px;right:18px;top:72px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav-links.open{display:flex}.hero-inner,.why,.performance{grid-template-columns:1fr}.hero-card{max-width:590px}.float-note{left:18px}.trust-inner{grid-template-columns:repeat(2,1fr)}.program-grid{grid-template-columns:repeat(2,1fr)}.experience{grid-template-columns:1fr}.footer-inner{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:980px){.nav{gap:10px}.mobile-quick-actions{display:flex}.menu{display:block;flex:0 0 auto}.nav-links{display:none;position:absolute;left:18px;right:18px;top:72px;background:#fff;border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}.nav-links.open{display:flex}.nav-links .btn{display:none}.hero-inner,.why,.performance{grid-template-columns:1fr}.hero-card{max-width:590px}.float-note{left:18px}.trust-inner{grid-template-columns:repeat(2,1fr)}.program-grid{grid-template-columns:repeat(2,1fr)}.experience{grid-template-columns:1fr}.footer-inner{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:640px){.topbar{gap:10px;font-size:.78rem}.hero{min-height:auto}.hero-inner{padding-top:76px;padding-bottom:70px}.hero-card{padding:18px}.float-note{position:relative;left:auto;bottom:auto;margin-top:14px;max-width:none}.trust-inner,.program-grid,.feature-grid,.footer-inner{grid-template-columns:1fr}.section{padding-top:68px;padding-bottom:68px}.section-head{align-items:flex-start;flex-direction:column}.program{min-height:290px}.cta{margin-left:14px;margin-right:14px;padding:55px 22px}.performance-art{min-height:380px}}
 
     @media(max-width:860px){
@@ -112,12 +117,24 @@
       .hero .kicker{justify-content:center}
     }
     @media(max-width:560px){
-      .logo img{width:74px;height:52px}
+      .nav{padding-left:12px;padding-right:12px;gap:7px}
+      .logo{gap:6px}
+      .logo img{width:68px;height:48px}
+      .mobile-quick-actions{gap:5px}
+      .mobile-quick-actions .mobile-quick-btn{min-height:34px;padding:7px 9px;font-size:.72rem}
       .hero{background-position:38% center;min-height:720px}
       .hero-inner{padding-top:345px}
       .hero-logo{width:min(340px,88vw)}
     }
 
+    @media(max-width:390px){
+      .nav{padding-left:9px;padding-right:9px;gap:5px}
+      .logo img{width:60px;height:44px}
+      .mobile-quick-actions .mobile-quick-btn{padding:7px 8px;font-size:.69rem}
+      .mobile-pay-long{display:none}
+      .mobile-pay-short{display:inline}
+      .menu{font-size:1.6rem;padding:2px 4px}
+    }
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.btn{transition:none}}
   
     /* Animated shimmer added because the supplied .gif contains one static frame. */
@@ -1778,7 +1795,7 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <div class="topbar"><span>6800 Lewis Ave, Temperance, MI 48182</span><a href="tel:+17344973740">Call or text: (734) 497-3740</a><a href="mailto:stagestarzdance@aol.com">stagestarzdance@aol.com</a></div>
-<header class="header"><nav class="nav" aria-label="Main navigation"><a class="logo" href="index-new.html" aria-label="Stage Starz Academy of Dance home"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance"><span class="brand-name">Stage Starz</span></a><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="/store">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="classes.html">Register</a><a class="btn small dark" href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgId=520608" target="_blank" rel="noopener">Make a Payment</a></div></nav></header>
+<header class="header"><nav class="nav" aria-label="Main navigation"><a class="logo" href="index-new.html" aria-label="Stage Starz Academy of Dance home"><img src="assets/images/stage-starz-logo.png" alt="Stage Starz Academy of Dance"><span class="brand-name">Stage Starz</span></a><div class="mobile-quick-actions" aria-label="Quick actions"><a class="mobile-quick-btn register-quick" href="classes.html">Register</a><a class="mobile-quick-btn payment-quick" href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgId=520608" target="_blank" rel="noopener" aria-label="Make a Payment"><span class="mobile-pay-long">Make a Payment</span><span class="mobile-pay-short">Pay</span></a></div><button class="menu" aria-label="Open menu" aria-expanded="false">☰</button><div class="nav-links"><a href="classes.html">Classes</a><a href="competition.html">Competition</a><a href="events.html">Events</a><a href="parent-hub.html">Parent Hub</a><a href="/store">Shop</a><a href="portal.html">Dancer Portal</a><a class="btn small dark" href="classes.html">Register</a><a class="btn small dark" href="https://app.jackrabbitclass.com/jr3.0/ParentPortal/Login?orgId=520608" target="_blank" rel="noopener">Make a Payment</a></div></nav></header>
 <main id="main">
   <section class="hero">
     <div class="hero-inner">
