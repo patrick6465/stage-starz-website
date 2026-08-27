@@ -42,7 +42,7 @@ body{
     background-position:center 70%!important;
   }
   .hero-content{
-    transform:translateX(50px)!important;
+    transform:translateX(90px)!important;
   }
   .approved-shop{
     padding-top:18px!important;
