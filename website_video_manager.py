@@ -21,8 +21,8 @@ from database import get_db
 
 
 VIDEO_EXTENSIONS = {"mp4", "webm", "mov", "m4v", "gif"}
-MAX_VIDEO_BYTES = 250 * 1024 * 1024
-MAX_REQUEST_BYTES = 260 * 1024 * 1024
+MAX_VIDEO_BYTES = 300 * 1024 * 1024
+MAX_REQUEST_BYTES = 310 * 1024 * 1024
 
 VIDEO_FOLDER = Path(
     os.environ.get(
@@ -312,7 +312,7 @@ def _save_video(file_storage) -> str:
         raise ValueError("That media file is empty. Please choose another file.")
     if size > MAX_VIDEO_BYTES:
         target.unlink()
-        raise ValueError("That media file is larger than 250 MB. Please use a smaller file.")
+        raise ValueError("That media file is larger than 300 MB. Please use a smaller file.")
 
     return f"/media/videos/{filename}"
 
@@ -411,7 +411,7 @@ def register_website_video_manager(app, permission_required, log_activity=None) 
     @app.errorhandler(413)
     def website_media_too_large(_error):
         flash(
-            "That upload is too large. Website videos and GIFs can be up to 250 MB; photos can be up to 25 MB.",
+            "That upload is too large. Website videos and GIFs can be up to 300 MB; photos can be up to 25 MB.",
             "error",
         )
         return redirect(request.referrer or "/admin")
@@ -455,7 +455,7 @@ def register_website_video_manager(app, permission_required, log_activity=None) 
             "website_video_editor.html",
             slots=slots,
             video_files=_list_videos(),
-            max_video_mb=250,
+            max_video_mb=300,
         )
 
     @app.route("/admin/website/videos/library/upload", methods=["POST"])
