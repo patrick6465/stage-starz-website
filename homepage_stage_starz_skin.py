@@ -41,6 +41,9 @@ body{
     min-height:clamp(900px,104vh,1020px)!important;
     background-position:center 70%!important;
   }
+  .hero-content{
+    transform:translateX(50px)!important;
+  }
   .approved-shop{
     padding-top:18px!important;
   }
