@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% if mode == 'compose' %}Compose Email{% elif mode == 'message' %}{{ message.subject or 'Email' }}{% else %}Stage Starz Email Center{% endif %}</title>
+<style>
+:root{--bg:#090713;--panel:#13101f;--panel2:#1b1629;--line:#302743;--ink:#f8f5ff;--muted:#aaa1bb;--purple:#8c4cff;--teal:#28d7d2;--pink:#e44bb5;--gold:#e6bf67;--danger:#ef5a70;--good:#39d49f}
+*{box-sizing:border-box}html{color-scheme:dark}body{margin:0;background:radial-gradient(circle at 10% 0%,rgba(140,76,255,.18),transparent 31rem),linear-gradient(180deg,#080610,#0b0813);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}.shell{min-height:100vh;display:grid;grid-template-columns:240px minmax(0,1fr)}
+.sidebar{border-right:1px solid var(--line);background:rgba(9,7,19,.94);padding:18px 14px;position:sticky;top:0;height:100vh;overflow:auto}
+.brand{display:flex;gap:11px;align-items:center;padding:8px 8px 20px}.mark{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--purple),var(--pink),var(--teal));font-weight:900}.brand strong{display:block}.brand small{color:var(--muted)}
+.compose{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--purple),#b23bd4);border-radius:14px;padding:13px;margin:0 5px 18px;font-weight:900;box-shadow:0 12px 30px rgba(140,76,255,.25)}
+.folder{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:10px 11px;border-radius:11px;color:#dcd5e8;font-weight:800;font-size:.91rem}.folder:hover,.folder.active{background:#211a32;color:#fff}.count{font-size:.72rem;color:var(--muted);background:#2a223b;border-radius:999px;padding:3px 7px}
+.back{margin-top:18px;border-top:1px solid var(--line);padding-top:15px}.main{min-width:0}.topbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:12px;padding:15px 22px;background:rgba(10,8,17,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.mobile-menu{display:none;border:0;border-radius:10px;background:#211a32;color:#fff;width:42px;height:42px}.title{font-weight:900;min-width:160px}.title small{display:block;color:var(--muted);font-weight:600;font-size:.75rem;margin-top:3px}
+.search{display:flex;flex:1;max-width:670px}.search input{width:100%;border:1px solid var(--line);border-radius:12px 0 0 12px;padding:11px 13px;background:#151020;color:#fff;outline:none}.search button{border:1px solid var(--line);border-left:0;border-radius:0 12px 12px 0;padding:0 15px;background:#211a32;color:#fff}
+.content{padding:22px;max-width:1320px;margin:auto}.flash{padding:12px 14px;margin-bottom:14px;border:1px solid rgba(57,212,159,.35);background:rgba(57,212,159,.1);border-radius:12px}.flash.error{border-color:rgba(239,90,112,.4);background:rgba(239,90,112,.1)}
+.mail-card,.message-card,.compose-card,.error-card{border:1px solid var(--line);background:linear-gradient(145deg,rgba(24,19,39,.96),rgba(14,11,23,.98));border-radius:18px;overflow:hidden;box-shadow:0 20px 55px rgba(0,0,0,.25)}
+.list-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;border-bottom:1px solid var(--line)}.list-head h1{font-size:1.2rem;margin:0}.muted{color:var(--muted)}.mail-row{display:grid;grid-template-columns:minmax(190px,.8fr) minmax(220px,1.35fr) minmax(220px,2fr) 120px;gap:14px;align-items:center;padding:13px 18px;border-bottom:1px solid rgba(48,39,67,.7);transition:.15s}.mail-row:hover{background:#181324}.mail-row.unread{background:rgba(140,76,255,.08)}.mail-row.unread .sender,.mail-row.unread .subject{font-weight:900;color:#fff}.sender,.subject{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.preview{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.88rem}.subject-line{min-width:0}.date{text-align:right;color:var(--muted);font-size:.78rem;white-space:nowrap}.flags{color:var(--gold);font-size:.8rem}.empty{padding:60px 24px;text-align:center;color:var(--muted)}
+.pagination{display:flex;justify-content:space-between;align-items:center;padding:14px 18px}.pager{padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#1b1629}.pager.disabled{opacity:.35;pointer-events:none}
+.message-card{padding:0}.message-head{padding:22px;border-bottom:1px solid var(--line)}.message-head h1{margin:0 0 13px;font-size:1.55rem;line-height:1.2}.meta{display:grid;gap:5px;color:#d8d0e5;font-size:.88rem}.meta b{color:#fff}.toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:#211a32;color:#fff;font-weight:850;cursor:pointer}.btn.primary{background:linear-gradient(135deg,var(--purple),#b23bd4);border:0}.btn.teal{background:linear-gradient(135deg,#1b9f9b,var(--teal));border:0;color:#051211}.btn.danger{border-color:rgba(239,90,112,.5);color:#ff9aa9}.message-body{white-space:pre-wrap;overflow-wrap:anywhere;padding:26px;line-height:1.65;background:#fdfcff;color:#1d1926;min-height:260px}.attachments{padding:18px 22px;border-top:1px solid var(--line)}.attachments h3{margin:0 0 10px}.attachment{display:inline-flex;padding:9px 12px;margin:5px 6px 0 0;border:1px solid var(--line);border-radius:10px;background:#211a32}
+.compose-card{padding:22px}.compose-card h1{margin:0 0 20px}.field{display:grid;gap:7px;margin-bottom:14px}.field label{font-size:.82rem;color:#cfc7da;font-weight:900}.field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:11px;background:#0e0b17;color:#fff;padding:11px 12px;outline:none}.field textarea{min-height:330px;resize:vertical;line-height:1.55}.compose-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.help{font-size:.8rem;color:var(--muted);line-height:1.5}.error-card{padding:30px}.error-card h1{margin-top:0;color:#ff9aaa}
+@media(max-width:980px){.shell{grid-template-columns:1fr}.sidebar{position:fixed;z-index:50;left:-270px;top:0;width:250px;transition:.2s}.sidebar.open{left:0;box-shadow:20px 0 50px rgba(0,0,0,.5)}.mobile-menu{display:block}.mail-row{grid-template-columns:minmax(150px,.7fr) minmax(230px,1.5fr) 100px}.mail-row .preview{display:none}}
+@media(max-width:650px){.topbar{padding:12px}.title{min-width:0}.title small{display:none}.search{max-width:none}.content{padding:12px}.mail-row{display:block;padding:14px}.sender,.subject,.preview{display:block!important;white-space:normal;margin-bottom:5px}.preview{display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.date{text-align:left;margin-top:7px}.message-head,.message-body{padding:18px}.toolbar{padding:12px}.toolbar form{flex:1}.toolbar .btn{width:100%}.compose-card{padding:16px}.field textarea{min-height:260px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar" id="emailSidebar">
+  <div class="brand"><div class="mark">★</div><div><strong>Stage Starz</strong><small>{{ account_email }}</small></div></div>
+  <a class="compose" href="/admin/email/compose">＋ Compose</a>
+  <a class="folder {% if folder == 'inbox' %}active{% endif %}" href="/admin/email?folder=inbox"><span>📥 Inbox</span>{% for m in mailboxes %}{% if m.role == 'inbox' and m.unreadEmails %}<span class="count">{{ m.unreadEmails }}</span>{% endif %}{% endfor %}</a>
+  <a class="folder {% if folder == 'sent' %}active{% endif %}" href="/admin/email?folder=sent"><span>📤 Sent</span></a>
+  <a class="folder {% if folder == 'drafts' %}active{% endif %}" href="/admin/email?folder=drafts"><span>📝 Drafts</span>{% for m in mailboxes %}{% if m.role == 'drafts' and m.totalEmails %}<span class="count">{{ m.totalEmails }}</span>{% endif %}{% endfor %}</a>
+  <a class="folder {% if folder == 'archive' %}active{% endif %}" href="/admin/email?folder=archive"><span>🗄 Archive</span></a>
+  <a class="folder {% if folder == 'junk' %}active{% endif %}" href="/admin/email?folder=junk"><span>🚫 Spam</span>{% for m in mailboxes %}{% if m.role == 'junk' and m.unreadEmails %}<span class="count">{{ m.unreadEmails }}</span>{% endif %}{% endfor %}</a>
+  <a class="folder {% if folder == 'trash' %}active{% endif %}" href="/admin/email?folder=trash"><span>🗑 Trash</span></a>
+  <a class="folder {% if folder == 'all' %}active{% endif %}" href="/admin/email?folder=all"><span>✉ All Mail</span></a>
+  {% for m in mailboxes %}{% if not m.role %}
+  <a class="folder {% if folder == m.id %}active{% endif %}" href="/admin/email?folder={{ m.id|urlencode }}"><span>📁 {{ m.name }}</span>{% if m.unreadEmails %}<span class="count">{{ m.unreadEmails }}</span>{% endif %}</a>
+  {% endif %}{% endfor %}
+  <div class="back"><a class="folder" href="/admin"><span>← Command Center</span></a><a class="folder" href="/admin/logout"><span>↪ Log Out</span></a></div>
+</aside>
+<main class="main">
+  <header class="topbar">
+    <button class="mobile-menu" id="emailMenu" type="button">☰</button>
+    <div class="title">Email Center<small>{{ account_email }}</small></div>
+    {% if mode == 'list' %}
+    <form class="search" action="/admin/email">
+      <input type="hidden" name="folder" value="{{ folder }}">
+      <input name="q" value="{{ q }}" placeholder="Search mail…">
+      <button type="submit">⌕</button>
+    </form>
+    {% endif %}
+  </header>
+  <div class="content">
+    {% with notices=get_flashed_messages(with_categories=true) %}{% for category,text in notices %}<div class="flash {{ category }}">{{ text }}</div>{% endfor %}{% endwith %}
+
+    {% if mode == 'error' %}
+      <section class="error-card"><h1>Email Center is not connected</h1><p>{{ error }}</p><p class="muted">The API token remains stored only in Railway. Verify FASTMAIL_API_TOKEN and FASTMAIL_EMAIL_ADDRESS, then redeploy.</p></section>
+
+    {% elif mode == 'list' %}
+      <section class="mail-card">
+        <div class="list-head"><div><h1>{{ folder_label }}</h1><span class="muted">{{ total }} message{% if total != 1 %}s{% endif %}{% if q %} matching “{{ q }}”{% endif %}</span></div><a class="btn primary" href="/admin/email/compose">Compose</a></div>
+        {% for e in messages %}
+          {% set target = '/admin/email/compose?draft=' ~ e.id if folder_role == 'drafts' else '/admin/email/message/' ~ e.id ~ '?folder=' ~ folder %}
+          <a class="mail-row {% if '$seen' not in (e.keywords or {}) %}unread{% endif %}" href="{{ target }}">
+            <div class="sender">{% if folder_role in ['sent','drafts'] %}{{ address_text(e.to) or '(No recipient)' }}{% else %}{{ address_text(e.from) or '(Unknown sender)' }}{% endif %}</div>
+            <div class="subject-line"><div class="subject">{{ e.subject or '(No subject)' }} {% if '$flagged' in (e.keywords or {}) %}<span class="flags">★</span>{% endif %}</div><div class="preview">{{ e.preview or '' }}</div></div>
+            <div class="preview">{% if e.hasAttachment %}📎 {% endif %}{{ e.preview or '' }}</div>
+            <div class="date">{{ (e.receivedAt or e.sentAt or '')[:16].replace('T',' ') }}</div>
+          </a>
+        {% else %}
+          <div class="empty">{% if q %}No messages matched your search.{% else %}This folder is empty.{% endif %}</div>
+        {% endfor %}
+        <div class="pagination"><a class="pager {% if page <= 1 %}disabled{% endif %}" href="/admin/email?folder={{ folder|urlencode }}&q={{ q|urlencode }}&page={{ page-1 }}">← Newer</a><span class="muted">Page {{ page }}</span><a class="pager {% if page*limit >= total %}disabled{% endif %}" href="/admin/email?folder={{ folder|urlencode }}&q={{ q|urlencode }}&page={{ page+1 }}">Older →</a></div>
+      </section>
+
+    {% elif mode == 'message' %}
+      <section class="message-card">
+        <div class="message-head"><h1>{{ message.subject or '(No subject)' }}</h1><div class="meta"><div><b>From:</b> {{ address_text(message.from) or '—' }}</div><div><b>To:</b> {{ address_text(message.to) or '—' }}</div>{% if message.cc %}<div><b>Cc:</b> {{ address_text(message.cc) }}</div>{% endif %}<div><b>Date:</b> {{ message.sentAt or message.receivedAt or '—' }}</div></div></div>
+        <div class="toolbar">
+          <a class="btn primary" href="/admin/email/compose?reply={{ message.id }}">↩ Reply</a>
+          <a class="btn" href="/admin/email/compose?forward={{ message.id }}">↪ Forward</a>
+          <form method="post" action="/admin/email/message/{{ message.id }}/action"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="return_folder" value="{{ folder }}"><button class="btn" name="action" value="archive">🗄 Archive</button></form>
+          <form method="post" action="/admin/email/message/{{ message.id }}/action"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="return_folder" value="{{ folder }}"><button class="btn" name="action" value="unread">✉ Mark unread</button></form>
+          {% if '$flagged' in (message.keywords or {}) %}<form method="post" action="/admin/email/message/{{ message.id }}/action"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="return_folder" value="{{ folder }}"><button class="btn" name="action" value="unflag">☆ Unflag</button></form>{% else %}<form method="post" action="/admin/email/message/{{ message.id }}/action"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="return_folder" value="{{ folder }}"><button class="btn" name="action" value="flag">★ Flag</button></form>{% endif %}
+          <form method="post" action="/admin/email/message/{{ message.id }}/action"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="return_folder" value="{{ folder }}"><button class="btn" name="action" value="junk">🚫 Spam</button></form>
+          <form method="post" action="/admin/email/message/{{ message.id }}/action"><input type="hidden" name="_csrf" value="{{ csrf_token }}"><input type="hidden" name="return_folder" value="{{ folder }}"><button class="btn danger" name="action" value="trash">🗑 Trash</button></form>
+        </div>
+        <div class="message-body">{{ message.displayBody }}</div>
+        {% if message.attachments %}<div class="attachments"><h3>Attachments</h3>{% for a in message.attachments %}<a class="attachment" href="/admin/email/attachment/{{ message.id }}/{{ a.blobId }}/{{ (a.name or 'attachment')|urlencode }}">📎 {{ a.name or 'Attachment' }}{% if a.size %} · {{ (a.size/1024)|round|int }} KB{% endif %}</a>{% endfor %}</div>{% endif %}
+      </section>
+
+    {% elif mode == 'compose' %}
+      <section class="compose-card">
+        <h1>{% if values.draft_id %}Edit Draft{% elif values.reply_to_id %}Reply{% else %}New Message{% endif %}</h1>
+        <form method="post" action="/admin/email/compose" enctype="multipart/form-data">
+          <input type="hidden" name="_csrf" value="{{ csrf_token }}">
+          <input type="hidden" name="reply_to_id" value="{{ values.reply_to_id }}">
+          <input type="hidden" name="draft_id" value="{{ values.draft_id }}">
+          <div class="field"><label>From</label><input value="Stage Starz Academy of Dance &lt;{{ account_email }}&gt;" disabled></div>
+          <div class="field"><label>To</label><input name="to" value="{{ values.to }}" autocomplete="off" placeholder="name@example.com"></div>
+          <div class="field"><label>Cc</label><input name="cc" value="{{ values.cc }}" autocomplete="off"></div>
+          <div class="field"><label>Bcc</label><input name="bcc" value="{{ values.bcc }}" autocomplete="off"></div>
+          <div class="field"><label>Subject</label><input name="subject" value="{{ values.subject }}" maxlength="500"></div>
+          <div class="field"><label>Message</label><textarea name="body">{{ values.body }}</textarea></div>
+          <div class="field"><label>Attachments</label><input name="attachments" type="file" multiple><div class="help">Up to 15 MB per file and 20 MB total from this Email Center.</div></div>
+          <div class="compose-actions"><button class="btn teal" type="submit" name="compose_action" value="send">Send Email</button><button class="btn" type="submit" name="compose_action" value="draft">Save Draft</button><a class="btn" href="/admin/email">Cancel</a></div>
+        </form>
+      </section>
+    {% endif %}
+  </div>
+</main>
+</div>
+<script>
+(function(){
+ const button=document.getElementById('emailMenu'), sidebar=document.getElementById('emailSidebar');
+ if(button&&sidebar){button.addEventListener('click',()=>sidebar.classList.toggle('open'));sidebar.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>sidebar.classList.remove('open')));}
+})();
+</script>
+</body>
+</html>
