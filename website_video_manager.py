@@ -89,21 +89,6 @@ PUBLIC_VIDEO_STYLE = r"""
   box-shadow:0 8px 22px rgba(0,0,0,.28);
 }
 .ss-video-fullscreen:hover{background:rgba(5,5,12,.92)}
-.ss-video-caption{
-  position:absolute;
-  left:18px;
-  bottom:54px;
-  z-index:4;
-  max-width:calc(100% - 36px);
-  padding:9px 12px;
-  border-radius:999px;
-  background:rgba(5,5,12,.68);
-  color:#fff;
-  font-size:.78rem;
-  font-weight:900;
-  backdrop-filter:blur(10px);
-  pointer-events:none;
-}
 .ss-home-performance-video.performance-art{
   background:#05050c!important;
   padding:0!important;
@@ -175,7 +160,6 @@ PUBLIC_VIDEO_STYLE = r"""
   .ss-musical-theater-spotlight{padding-top:34px!important;padding-bottom:34px!important}
   .ss-musical-theater-card{padding:20px;border-radius:25px}
   .ss-musical-theater-video{border-radius:20px;padding:6px}
-  .ss-video-caption{bottom:50px;left:10px;font-size:.68rem}
   .ss-video-fullscreen{top:9px;right:9px;padding:8px 10px}
 }
 </style>
@@ -336,7 +320,6 @@ def _video_markup(video_url: str, caption: str, extra_class: str = "") -> str:
         + media
         + '<button class="ss-video-fullscreen" type="button" '
         'onclick="ssExpandVideo(this)" aria-label="Expand media to full screen">⛶ Full screen</button>'
-        f'<div class="ss-video-caption">{safe_caption}</div>'
         "</div>"
     )
 
