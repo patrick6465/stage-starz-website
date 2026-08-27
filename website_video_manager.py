@@ -327,7 +327,7 @@ def _video_markup(video_url: str, caption: str, extra_class: str = "") -> str:
         )
     else:
         media = (
-            f'<video controls playsinline preload="metadata" src="{safe_url}">'
+            f'<video controls controlslist="nodownload noremoteplayback" disablepictureinpicture disableremoteplayback playsinline preload="metadata" src="{safe_url}">'
             "Your browser does not support HTML5 video."
             "</video>"
         )

@@ -25,6 +25,103 @@ CANONICAL_ORIGIN = "https://www.stagestarzdance.com"
 SITE_NAME = "Stage Starz Academy of Dance"
 DEFAULT_SOCIAL_IMAGE = f"{CANONICAL_ORIGIN}/assets/images/audriana-homepage-hero.jpg"
 
+
+STAGE_STARZ_MEDIA_PROTECTION = r"""
+<style id="stage-starz-media-protection-style">
+img,video{
+  -webkit-user-drag:none;
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;
+}
+</style>
+<script id="stage-starz-media-protection-script">
+(function(){
+  'use strict';
+
+  function protectMedia(root){
+    var scope=root&&root.querySelectorAll?root:document;
+    scope.querySelectorAll('img').forEach(function(img){
+      img.setAttribute('draggable','false');
+    });
+    scope.querySelectorAll('video').forEach(function(video){
+      video.setAttribute('controlsList','nodownload noremoteplayback');
+      video.setAttribute('disablePictureInPicture','');
+      video.setAttribute('disableRemotePlayback','');
+      video.disablePictureInPicture=true;
+      video.disableRemotePlayback=true;
+      video.setAttribute('draggable','false');
+      try{
+        if(video.controlsList){
+          video.controlsList.add('nodownload');
+          video.controlsList.add('noremoteplayback');
+        }
+      }catch(_error){}
+    });
+  }
+
+  document.addEventListener('contextmenu',function(event){
+    var target=event.target;
+    if(target&&target.closest&&target.closest('img,video')){
+      event.preventDefault();
+    }
+  },true);
+
+  document.addEventListener('dragstart',function(event){
+    var target=event.target;
+    if(target&&target.closest&&target.closest('img,video')){
+      event.preventDefault();
+    }
+  },true);
+
+  function start(){
+    protectMedia(document);
+    if('MutationObserver' in window){
+      new MutationObserver(function(records){
+        records.forEach(function(record){
+          record.addedNodes.forEach(function(node){
+            if(node&&node.nodeType===1){
+              if(node.matches&&node.matches('img,video')){
+                protectMedia(node.parentNode||document);
+              }else{
+                protectMedia(node);
+              }
+            }
+          });
+        });
+      }).observe(document.documentElement,{childList:true,subtree:true});
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',start,{once:true});
+  }else{
+    start();
+  }
+})();
+</script>
+"""
+
+
+def _protect_public_media(html_text: str) -> str:
+    """Deter casual downloading/saving of public images and videos.
+
+    Browser-delivered media can never be made impossible to copy, but this removes
+    native video download/PiP controls and blocks normal image/video context menus
+    and drag-saving without changing the public page design.
+    """
+    if "stage-starz-media-protection-script" in html_text:
+        return html_text
+    if not re.search(r"</head\\s*>", html_text, flags=re.I):
+        return html_text
+    return re.sub(
+        r"</head\\s*>",
+        STAGE_STARZ_MEDIA_PROTECTION + "</head>",
+        html_text,
+        count=1,
+        flags=re.I,
+    )
+
 # Wix URLs and other historical aliases that may still exist in Google, ads,
 # bookmarks, social posts, or customer emails. Query strings are preserved.
 LEGACY_REDIRECTS = {
@@ -308,6 +405,7 @@ def stage_starz_seo_finalize(response):
     except (RuntimeError, UnicodeDecodeError):
         return response
 
+    html_text = _protect_public_media(html_text)
     response.set_data(_seo_tags(html_text, path))
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
