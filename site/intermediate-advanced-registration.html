@@ -230,15 +230,11 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
 
 /* Desktop hero fit: keep the full “performance.” title clear of the photo card. */
 @media(min-width:921px){
-  .hero-inner.ss-program-photo-grid{
-    grid-template-columns:minmax(0,1.12fr) minmax(350px,.88fr)!important;
-    gap:34px!important;
-  }
-  .hero-inner.ss-program-photo-grid .ss-program-photo-panel{
-    transform:translateX(16px);
+  .hero .hero-copy{
+    max-width:690px!important;
   }
   .hero .hero-copy h1{
-    font-size:clamp(3rem,5vw,5rem)!important;
+    font-size:clamp(3rem,4.7vw,4.75rem)!important;
     max-width:100%!important;
   }
   .hero .hero-copy h1 span{
