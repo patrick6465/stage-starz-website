@@ -13,7 +13,10 @@ import re
 from flask import Response, redirect, request
 
 from config import BASE_DIR
+from contact_email import register_contact_email
 from launch_app import app
+
+register_contact_email(app)
 
 CANONICAL_ORIGIN = "https://www.stagestarzdance.com"
 SITE_NAME = "Stage Starz Academy of Dance"
