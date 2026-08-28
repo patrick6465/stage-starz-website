@@ -267,6 +267,20 @@ h1,h2,h3{font-family:Georgia,"Times New Roman",serif;line-height:1.05;letter-spa
   }
 }
 
+
+/* Desktop hero fit: keep “Strong foundations start here.” clear of the photo card. */
+@media(min-width:921px){
+  .hero .hero-copy{
+    max-width:660px!important;
+  }
+  .hero .hero-copy h1{
+    font-size:clamp(3rem,4.45vw,4.5rem)!important;
+    max-width:100%!important;
+  }
+  .hero .hero-copy h1 span{
+    max-width:100%!important;
+  }
+}
 </style>
 
 <style id="registration-parent-portal-style">
