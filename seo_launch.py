@@ -15,10 +15,12 @@ from flask import Response, redirect, request
 from config import BASE_DIR
 from contact_email import register_contact_email
 from fastmail_email_center import register_fastmail_email_center
+from routes_email import register_email_routes
 from launch_app import app
 from app import permission_required
 
 register_contact_email(app)
+register_email_routes(app)
 register_fastmail_email_center(app, permission_required)
 
 CANONICAL_ORIGIN = "https://www.stagestarzdance.com"
