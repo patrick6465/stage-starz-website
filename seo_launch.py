@@ -63,6 +63,25 @@ GOOGLE_ADS_TAG = r"""
     event.preventDefault();
     gtag_report_conversion(link.href);
   });
+
+  document.addEventListener('click', function(event) {
+    var link = event.target.closest && event.target.closest('a[href*="app.jackrabbitclass.com/jr3.0/Openings/OpeningsDirect"]');
+    if (!link) return;
+
+    gtag('event', 'conversion', {
+      'send_to': 'AW-18417496467/q8I5COqenOocEJPjks5E'
+    });
+
+    if (link.target && link.target.toLowerCase() === '_blank') {
+      return;
+    }
+
+    event.preventDefault();
+    var destination = link.href;
+    window.setTimeout(function() {
+      window.location = destination;
+    }, 250);
+  });
 </script>
 """
 
