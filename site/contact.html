@@ -246,6 +246,12 @@ const m=document.querySelector('.menu'),n=document.querySelector('.nav-links');i
   if(params.get('sent')==='1'){
     status.textContent='Thank you! Your message was sent to Stage Starz. We’ll be in touch soon.';
     status.className='contact-status success';
+    if(typeof gtag==='function'){
+      gtag('event', 'conversion', {'send_to': 'AW-18417496467/pfxMCOSenOocEJPjks5E'});
+    }
+    params.delete('sent');
+    const cleanQuery=params.toString();
+    history.replaceState(null,'',window.location.pathname+(cleanQuery?'?'+cleanQuery:'')+window.location.hash);
   }else if(params.get('error')==='required'){
     status.textContent='Please complete your first name, email, and message.';
     status.className='contact-status error';
