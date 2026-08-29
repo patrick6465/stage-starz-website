@@ -39,13 +39,37 @@ GOOGLE_ADS_TAG = r"""
   gtag('js', new Date());
 
   gtag('config', 'AW-18417496467');
+
+  function gtag_report_conversion(url) {
+    var navigated = false;
+    var go = function () {
+      if (navigated) return;
+      navigated = true;
+      if (typeof(url) != 'undefined') {
+        window.location = url;
+      }
+    };
+    gtag('event', 'conversion', {
+      'send_to': 'AW-18417496467/mPZGCOeenOocEJPjks5E',
+      'event_callback': go
+    });
+    window.setTimeout(go, 1200);
+    return false;
+  }
+
+  document.addEventListener('click', function(event) {
+    var link = event.target.closest && event.target.closest('a[href^="tel:"]');
+    if (!link) return;
+    event.preventDefault();
+    gtag_report_conversion(link.href);
+  });
 </script>
 """
 
 
 def _inject_google_ads_tag(html_text: str) -> str:
     """Install the Stage Starz Google Ads base tag on public HTML responses."""
-    if "AW-18417496467" in html_text:
+    if "googletagmanager.com/gtag/js?id=AW-18417496467" in html_text:
         return html_text
     if not re.search(r"<head(?:\s[^>]*)?>", html_text, flags=re.I):
         return html_text
