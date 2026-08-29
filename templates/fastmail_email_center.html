@@ -58,7 +58,7 @@ a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}.shell{m
     {% with notices=get_flashed_messages(with_categories=true) %}{% for category,text in notices %}<div class="flash {{ category }}">{{ text }}</div>{% endfor %}{% endwith %}
 
     {% if mode == 'error' %}
-      <section class="error-card"><h1>Email Center is not connected</h1><p>{{ error }}</p><p class="muted">The API token remains stored only in Railway. Verify FASTMAIL_API_TOKEN and FASTMAIL_EMAIL_ADDRESS, then redeploy.</p></section>
+      <section class="error-card"><h1>Email Center is not connected</h1><p>{{ error }}</p><p class="muted">The Zoho app password remains stored only in Railway. Verify ZOHO_APP_PASSWORD and ZOHO_EMAIL_ADDRESS, confirm IMAP access is enabled in Zoho Mail, then redeploy.</p></section>
 
     {% elif mode == 'list' %}
       <section class="mail-card">

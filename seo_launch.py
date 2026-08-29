@@ -13,13 +13,13 @@ import re
 from flask import Response, redirect, request
 
 from config import BASE_DIR
-from fastmail_email_center import register_fastmail_email_center
+from zoho_email_center import register_zoho_email_center
 from routes_email import register_email_routes
 from launch_app import app
 from app import permission_required
 
 register_email_routes(app)
-register_fastmail_email_center(app, permission_required)
+register_zoho_email_center(app, permission_required)
 
 CANONICAL_ORIGIN = "https://www.stagestarzdance.com"
 SITE_NAME = "Stage Starz Academy of Dance"
