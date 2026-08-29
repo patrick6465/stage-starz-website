@@ -538,9 +538,14 @@ class ZohoMailClient:
         client = self._connect()
         try:
             flag_text = f"({flags})" if flags else None
-            status, _ = client.append(_imap_quote(folder), flag_text, imaplib.Time2Internaldate(datetime.now()), raw)
+            internal_date = imaplib.Time2Internaldate(datetime.now(timezone.utc))
+            status, _ = client.append(_imap_quote(folder), flag_text, internal_date, raw)
             if status != "OK":
                 raise ZohoMailError(f"Zoho could not save the email in {folder}.")
+        except ZohoMailError:
+            raise
+        except Exception as exc:
+            raise ZohoMailError(f"Zoho could not save the email in {folder}: {exc}") from exc
         finally:
             try:
                 client.logout()
