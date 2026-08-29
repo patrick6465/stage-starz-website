@@ -21,6 +21,12 @@ a{text-decoration:none;color:inherit}button,input{font:inherit}
 .profile{margin-top:18px;padding:15px;text-align:center;border:1px solid var(--line);background:var(--panel);border-radius:17px}.avatar{width:54px;height:54px;margin:auto;border-radius:17px;display:grid;place-items:center;font-size:1.35rem;background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal))}.profile strong{display:block;margin-top:9px}.profile small{color:var(--muted)}
 .main{padding:23px clamp(18px,3.5vw,48px) 60px;min-width:0}.topbar{display:grid;grid-template-columns:1fr minmax(260px,470px) auto;gap:14px;align-items:center;margin-bottom:20px}.title-row{display:flex;gap:11px;align-items:center}.menu-button{display:none;width:44px;height:44px;border:1px solid var(--line);border-radius:13px;background:var(--panel);color:#fff;cursor:pointer}.topbar h1{margin:0;font-size:clamp(1.75rem,4vw,2.65rem);letter-spacing:-.045em}.topbar p{margin:5px 0 0;color:var(--muted)}.search{display:flex;border:1px solid var(--line);background:rgba(255,255,255,.07);border-radius:14px;overflow:hidden}.search input{flex:1;min-width:0;border:0;background:transparent;color:#fff;padding:12px 14px;outline:0}.search button{border:0;background:transparent;color:#fff;padding:0 14px;cursor:pointer}.tools{display:flex;gap:8px}.tool{position:relative;width:44px;height:44px;border:1px solid var(--line);border-radius:13px;background:var(--panel);color:#fff;cursor:pointer}.counter{position:absolute;right:-5px;top:-5px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:var(--pink);display:grid;place-items:center;font-size:.68rem;font-weight:900}
 .hero-card{display:grid;grid-template-columns:1.25fr .75fr;gap:18px;padding:23px;margin-bottom:16px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(120deg,rgba(239,61,152,.15),rgba(155,77,204,.17),rgba(80,214,208,.11));box-shadow:0 20px 65px rgba(0,0,0,.17)}.hero-card h2{font-size:clamp(1.35rem,3vw,2rem);margin:0 0 7px}.hero-card p{color:var(--muted);margin:0;line-height:1.5}.system{display:flex;justify-content:flex-end;align-items:center;gap:10px;color:var(--success);font-weight:850}.dot{width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 15px var(--success)}
+.email-launch{margin-bottom:16px;overflow:hidden;background:linear-gradient(118deg,rgba(239,61,152,.20),rgba(155,77,204,.22),rgba(80,214,208,.14));border-color:rgba(80,214,208,.25)}
+.email-launch a{display:flex;align-items:center;gap:15px;padding:18px 20px;min-height:88px}
+.email-launch-icon{width:54px;height:54px;flex:0 0 54px;border-radius:17px;display:grid;place-items:center;font-size:1.55rem;background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal));box-shadow:0 12px 30px rgba(155,77,204,.24)}
+.email-launch-copy{min-width:0;flex:1}.email-launch-copy .kicker{font-size:.68rem;font-weight:950;letter-spacing:.12em;text-transform:uppercase;color:var(--teal);margin-bottom:3px}.email-launch-copy strong{display:block;font-size:1.18rem}.email-launch-copy small{display:block;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.email-launch-open{flex:0 0 auto;border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:10px 13px;background:rgba(255,255,255,.07);font-size:.8rem;font-weight:900}
+.email-launch:hover{border-color:rgba(80,214,208,.48)}.email-launch:hover .email-launch-open{background:rgba(80,214,208,.12)}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.card{border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(16px);border-radius:19px;box-shadow:0 18px 50px rgba(0,0,0,.16)}.stat{padding:17px;position:relative;overflow:hidden}.stat:after{content:"";position:absolute;width:86px;height:86px;border-radius:50%;right:-30px;top:-34px;background:var(--glow)}.stat-icon{font-size:1.25rem;margin-bottom:10px}.stat-value{font-size:clamp(1.5rem,4vw,2.15rem);font-weight:950;letter-spacing:-.04em}.stat-label{color:var(--muted);font-size:.82rem}
 .section-title{display:flex;justify-content:space-between;align-items:end;gap:16px;margin:27px 0 12px}.section-title h2{margin:0;font-size:1.3rem}.section-title p{margin:4px 0 0;color:var(--muted);font-size:.9rem}.section-title a{font-size:.82rem;color:var(--teal);font-weight:900;white-space:nowrap}
 .quick-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.quick{padding:15px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.045);transition:.18s}.quick:hover{transform:translateY(-2px);border-color:rgba(80,214,208,.48)}.quick .icon{font-size:1.25rem}.quick strong{display:block;margin:7px 0 3px}.quick small{color:var(--muted);font-size:.76rem;line-height:1.35}
@@ -50,6 +56,7 @@ a{text-decoration:none;color:inherit}button,input{font:inherit}
   </nav>
   <div class="side-label">Direct</div>
   <nav class="side-nav">
+    {% if has_permission("notifications") %}<a href="/admin/email"><span class="icon">✉</span>Email</a>{% endif %}
     <a href="/admin/search"><span class="icon">⌕</span>Global Search</a>
     <a href="/" target="_blank"><span class="icon">↗</span>Open Website</a>
     <a href="/admin/logout"><span class="icon">↪</span>Log Out</a>
@@ -61,13 +68,23 @@ a{text-decoration:none;color:inherit}button,input{font:inherit}
   <div class="topbar">
     <div class="title-row"><button class="menu-button" id="menuButton" aria-label="Open menu">☰</button><div><h1>Command Center</h1><p>Choose a work area instead of hunting through a long menu.</p></div></div>
     <form class="search" action="/admin/search"><input name="q" placeholder="Search students, orders, pages, media…"><button aria-label="Search">⌕</button></form>
-    <div class="tools"><button class="tool" id="notificationButton" title="Notifications">🔔{% if notifications %}<span class="counter">{{ notifications|length }}</span>{% endif %}</button><a class="tool" href="/admin/logout" title="Log Out" style="display:grid;place-items:center">↪</a></div>
+    <div class="tools">{% if has_permission("notifications") %}<a class="tool" href="/admin/email" title="Email" aria-label="Open Stage Starz Email" style="display:grid;place-items:center">✉️</a>{% endif %}<button class="tool" id="notificationButton" title="Notifications">🔔{% if notifications %}<span class="counter">{{ notifications|length }}</span>{% endif %}</button><a class="tool" href="/admin/logout" title="Log Out" style="display:grid;place-items:center">↪</a></div>
   </div>
 
   <section class="hero-card">
     <div><h2>{{ greeting }}, {{ current_admin_user.display_name if current_admin_user else 'Administrator' }}.</h2><p>Your backend is organized by job: website maintenance, studio records, performances, commerce, communication, portals, and system administration.</p></div>
     <div class="system"><span class="dot"></span>{{ database_backend }} online</div>
   </section>
+
+  {% if has_permission("notifications") %}
+  <section class="card email-launch">
+    <a href="/admin/email" aria-label="Open Stage Starz Email">
+      <div class="email-launch-icon">✉️</div>
+      <div class="email-launch-copy"><div class="kicker">Stage Starz Email</div><strong>Email</strong><small>office@stagestarzdance.com</small></div>
+      <div class="email-launch-open">Open Inbox →</div>
+    </a>
+  </section>
+  {% endif %}
 
   <section class="stats">
     <article class="card stat" style="--glow:rgba(80,214,208,.22)"><div class="stat-icon">💵</div><div class="stat-value">${{ "{:,.2f}".format(stats.sales_today) }}</div><div class="stat-label">Sales today</div></article>
@@ -189,9 +206,9 @@ a{text-decoration:none;color:inherit}button,input{font:inherit}
 
 <div class="overlay" id="notificationDrawer"><aside class="drawer-panel"><div class="drawer-head"><h2>Notifications</h2><button class="close" id="closeNotifications">×</button></div>{% for notice in notifications %}<div class="notice {{ notice.level }}"><strong>{{ notice.title }}</strong><small>{{ notice.detail }}</small></div>{% else %}<div class="empty">Everything looks good.</div>{% endfor %}</aside></div>
 
-<div class="overlay mobile-menu" id="mobileMenu"><aside class="drawer-panel"><div class="drawer-head"><div class="mobile-menu-brand"><div class="brand-mark" style="width:42px;height:42px">★</div><div><strong>Stage Starz</strong><div style="color:var(--muted);font-size:.78rem">Command Center</div></div></div><button class="close" id="closeMenu">×</button></div><nav class="mobile-menu-links"><a href="/admin">◈ Dashboard</a><a href="#website-management">🌐 Website Management</a><a href="#studio-operations">🩰 Studio Operations</a><a href="#recital-competition">🎭 Recital & Competition</a><a href="#store-orders">🛍 Store & Orders</a><a href="#communication">🔔 Communication</a><a href="#portals">🔐 Portals</a><a href="#system-tools">⚙ System & Security</a><div class="break"></div><a href="/admin/search">⌕ Global Search</a><a href="/" target="_blank">↗ Open Website</a><a href="/admin/logout">↪ Log Out</a></nav></aside></div>
+<div class="overlay mobile-menu" id="mobileMenu"><aside class="drawer-panel"><div class="drawer-head"><div class="mobile-menu-brand"><div class="brand-mark" style="width:42px;height:42px">★</div><div><strong>Stage Starz</strong><div style="color:var(--muted);font-size:.78rem">Command Center</div></div></div><button class="close" id="closeMenu">×</button></div><nav class="mobile-menu-links"><a href="/admin">◈ Dashboard</a>{% if has_permission("notifications") %}<a href="/admin/email">✉️ Email</a>{% endif %}<a href="#website-management">🌐 Website Management</a><a href="#studio-operations">🩰 Studio Operations</a><a href="#recital-competition">🎭 Recital & Competition</a><a href="#store-orders">🛍 Store & Orders</a><a href="#communication">🔔 Communication</a><a href="#portals">🔐 Portals</a><a href="#system-tools">⚙ System & Security</a><div class="break"></div><a href="/admin/search">⌕ Global Search</a><a href="/" target="_blank">↗ Open Website</a><a href="/admin/logout">↪ Log Out</a></nav></aside></div>
 
-<nav class="mobile-dock"><a href="/admin"><b>◈</b>Home</a><a href="/admin/search"><b>⌕</b>Search</a><button type="button" id="dockNotifications"><b>🔔</b>Alerts</button><button type="button" id="dockMenu"><b>☰</b>Menu</button></nav>
+<nav class="mobile-dock"><a href="/admin"><b>◈</b>Home</a>{% if has_permission("notifications") %}<a href="/admin/email"><b>✉️</b>Email</a>{% else %}<a href="/admin/search"><b>⌕</b>Search</a>{% endif %}<a href="/admin/students"><b>🩰</b>Students</a><button type="button" id="dockMenu"><b>☰</b>Menu</button></nav>
 
 <script>
 (function(){
@@ -202,7 +219,6 @@ a{text-decoration:none;color:inherit}button,input{font:inherit}
   const openMenu=()=>menu.classList.add('open');
   const closeMenu=()=>menu.classList.remove('open');
   document.getElementById('notificationButton').addEventListener('click',openNotifications);
-  document.getElementById('dockNotifications').addEventListener('click',openNotifications);
   document.getElementById('closeNotifications').addEventListener('click',closeNotifications);
   document.getElementById('menuButton').addEventListener('click',openMenu);
   document.getElementById('dockMenu').addEventListener('click',openMenu);

@@ -21,6 +21,13 @@ a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}.shell{m
 .pagination{display:flex;justify-content:space-between;align-items:center;padding:14px 18px}.pager{padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:#1b1629}.pager.disabled{opacity:.35;pointer-events:none}
 .message-card{padding:0}.message-head{padding:22px;border-bottom:1px solid var(--line)}.message-head h1{margin:0 0 13px;font-size:1.55rem;line-height:1.2}.meta{display:grid;gap:5px;color:#d8d0e5;font-size:.88rem}.meta b{color:#fff}.toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line)}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:9px 13px;border:1px solid var(--line);border-radius:10px;background:#211a32;color:#fff;font-weight:850;cursor:pointer}.btn.primary{background:linear-gradient(135deg,var(--purple),#b23bd4);border:0}.btn.teal{background:linear-gradient(135deg,#1b9f9b,var(--teal));border:0;color:#051211}.btn.danger{border-color:rgba(239,90,112,.5);color:#ff9aa9}.message-body{white-space:pre-wrap;overflow-wrap:anywhere;padding:26px;line-height:1.65;background:#fdfcff;color:#1d1926;min-height:260px}.attachments{padding:18px 22px;border-top:1px solid var(--line)}.attachments h3{margin:0 0 10px}.attachment{display:inline-flex;padding:9px 12px;margin:5px 6px 0 0;border:1px solid var(--line);border-radius:10px;background:#211a32}
 .compose-card{padding:22px}.compose-card h1{margin:0 0 20px}.field{display:grid;gap:7px;margin-bottom:14px}.field label{font-size:.82rem;color:#cfc7da;font-weight:900}.field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:11px;background:#0e0b17;color:#fff;padding:11px 12px;outline:none}.field textarea{min-height:330px;resize:vertical;line-height:1.55}.compose-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.help{font-size:.8rem;color:var(--muted);line-height:1.5}.error-card{padding:30px}.error-card h1{margin-top:0;color:#ff9aaa}
+.email-mobile-dock{display:none}
+@media(max-width:650px){
+  body{padding-bottom:86px}
+  .email-mobile-dock{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:10px;right:10px;bottom:10px;z-index:70;border:1px solid var(--line);background:rgba(10,7,18,.97);backdrop-filter:blur(22px);border-radius:17px;padding:6px;box-shadow:0 14px 38px rgba(0,0,0,.42)}
+  .email-mobile-dock a,.email-mobile-dock button{border:0;background:transparent;color:var(--muted);text-align:center;font-size:.62rem;padding:5px 2px;cursor:pointer}
+  .email-mobile-dock b{display:block;color:#fff;font-size:1.08rem;margin-bottom:2px}
+}
 @media(max-width:980px){.shell{grid-template-columns:1fr}.sidebar{position:fixed;z-index:50;left:-270px;top:0;width:250px;transition:.2s}.sidebar.open{left:0;box-shadow:20px 0 50px rgba(0,0,0,.5)}.mobile-menu{display:block}.mail-row{grid-template-columns:minmax(150px,.7fr) minmax(230px,1.5fr) 100px}.mail-row .preview{display:none}}
 @media(max-width:650px){.topbar{padding:12px}.title{min-width:0}.title small{display:none}.search{max-width:none}.content{padding:12px}.mail-row{display:block;padding:14px}.sender,.subject,.preview{display:block!important;white-space:normal;margin-bottom:5px}.preview{display:-webkit-box!important;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.date{text-align:left;margin-top:7px}.message-head,.message-body{padding:18px}.toolbar{padding:12px}.toolbar form{flex:1}.toolbar .btn{width:100%}.compose-card{padding:16px}.field textarea{min-height:260px}}
 </style>
@@ -45,7 +52,7 @@ a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}.shell{m
 <main class="main">
   <header class="topbar">
     <button class="mobile-menu" id="emailMenu" type="button">☰</button>
-    <div class="title">Email Center<small>{{ account_email }}</small></div>
+    <div class="title">Email<small>{{ account_email }}</small></div>
     {% if mode == 'list' %}
     <form class="search" action="/admin/email">
       <input type="hidden" name="folder" value="{{ folder }}">
@@ -114,10 +121,19 @@ a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}.shell{m
   </div>
 </main>
 </div>
+<nav class="email-mobile-dock" aria-label="Stage Starz Email mobile navigation">
+  <a href="/admin"><b>◈</b>Home</a>
+  <a href="/admin/email"><b>📥</b>Inbox</a>
+  <a href="/admin/email/compose"><b>＋</b>Compose</a>
+  <button type="button" id="emailDockFolders"><b>☰</b>Folders</button>
+</nav>
 <script>
 (function(){
- const button=document.getElementById('emailMenu'), sidebar=document.getElementById('emailSidebar');
- if(button&&sidebar){button.addEventListener('click',()=>sidebar.classList.toggle('open'));sidebar.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>sidebar.classList.remove('open')));}
+ const button=document.getElementById('emailMenu'), dockFolders=document.getElementById('emailDockFolders'), sidebar=document.getElementById('emailSidebar');
+ const toggleFolders=()=>{if(sidebar)sidebar.classList.toggle('open');};
+ if(button&&sidebar){button.addEventListener('click',toggleFolders);}
+ if(dockFolders&&sidebar){dockFolders.addEventListener('click',toggleFolders);}
+ if(sidebar){sidebar.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>sidebar.classList.remove('open')));}
 })();
 </script>
 </body>

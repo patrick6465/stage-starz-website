@@ -762,6 +762,11 @@ def register_zoho_email_center(app, permission_required) -> None:
 
     email_permission = permission_required("notifications")
 
+    @app.get("/email", endpoint="stage_starz_email_shortcut")
+    @email_permission
+    def stage_starz_email_shortcut():
+        return redirect(url_for("zoho_email_center"))
+
     @app.after_request
     def zoho_email_no_cache(response):
         if request.path.startswith("/admin/email"):
