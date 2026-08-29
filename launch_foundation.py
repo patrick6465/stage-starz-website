@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import html
+import os
+from datetime import datetime, timezone
+
 from flask import flash, redirect, render_template, request
 
 from database import get_db
+from email_notifications import ensure_email_schema
+from zeptomail_sender import is_zeptomail_configured, send_zeptomail
+
+DEFAULT_CONTACT_EMAIL = "office@stagestarzdance.com"
 
 
 def ensure_website_inquiry_schema() -> None:
@@ -32,6 +40,59 @@ def ensure_website_inquiry_schema() -> None:
     )
     connection.commit()
     connection.close()
+
+
+def _log_contact_delivery(recipient: str, subject: str, status: str, detail: str = "") -> None:
+    connection = None
+    try:
+        connection = get_db()
+        ensure_email_schema(connection)
+        connection.execute(
+            "INSERT INTO email_log "
+            "(order_id,created_at,recipient,subject,email_type,status,error_message) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (
+                None,
+                datetime.now(timezone.utc).isoformat(),
+                recipient,
+                subject,
+                "contact_form",
+                status,
+                (detail or "")[:500],
+            ),
+        )
+        connection.commit()
+    except Exception:
+        if connection:
+            connection.rollback()
+    finally:
+        if connection:
+            connection.close()
+
+
+def _contact_email_html(
+    first_name: str,
+    last_name: str,
+    email: str,
+    phone: str,
+    interest: str,
+    message: str,
+) -> str:
+    full_name = " ".join(part for part in (first_name, last_name) if part)
+    return f"""<!doctype html>
+<html><body style="font-family:Arial,sans-serif;color:#202234;background:#f5f2f8;padding:24px">
+<div style="max-width:680px;margin:auto;background:#fff;border-radius:16px;overflow:hidden">
+<div style="padding:24px;background:linear-gradient(115deg,#4d1f91,#6f35c5,#16a4b8);color:#fff">
+<h1 style="margin:0">New Stage Starz Website Inquiry</h1></div>
+<div style="padding:24px">
+<p><strong>Name:</strong> {html.escape(full_name)}</p>
+<p><strong>Email:</strong> {html.escape(email)}</p>
+<p><strong>Phone:</strong> {html.escape(phone or "Not provided")}</p>
+<p><strong>Interested In:</strong> {html.escape(interest or "Not specified")}</p>
+<p><strong>Message:</strong></p>
+<div style="padding:16px;border-radius:12px;background:#f7f4fa">{html.escape(message).replace(chr(10), "<br>")}</div>
+<p style="margin-top:22px;color:#6d7180;font-size:13px">Sent from https://www.stagestarzdance.com/contact.html</p>
+</div></div></body></html>"""
 
 
 def register_launch_foundation(app, permission_required, log_activity=None) -> None:
@@ -90,6 +151,41 @@ def register_launch_foundation(app, permission_required, log_activity=None) -> N
                 )
             except Exception:
                 app.logger.exception("Could not write website inquiry activity log")
+
+        recipient = (os.environ.get("CONTACT_TO_EMAIL") or DEFAULT_CONTACT_EMAIL).strip()
+        subject = f"Stage Starz Website Inquiry - {' '.join(part for part in (first_name, last_name) if part)}"
+
+        if not is_zeptomail_configured():
+            detail = "ZeptoMail is not configured in Railway."
+            _log_contact_delivery(recipient, subject, "Failed", detail)
+            app.logger.error(detail)
+            return redirect("/contact.html?error=send#contact-form", code=303)
+
+        sent, detail = send_zeptomail(
+            recipient,
+            subject,
+            html_body=_contact_email_html(
+                first_name,
+                last_name,
+                email,
+                phone,
+                interest,
+                message,
+            ),
+            from_name="Stage Starz Website",
+            reply_to=email,
+            reply_to_name=" ".join(part for part in (first_name, last_name) if part),
+            client_reference="website-contact",
+        )
+        _log_contact_delivery(
+            recipient,
+            subject,
+            "Sent" if sent else "Failed",
+            detail,
+        )
+        if not sent:
+            app.logger.error("ZeptoMail contact delivery failed: %s", detail)
+            return redirect("/contact.html?error=send#contact-form", code=303)
 
         return redirect("/contact.html?sent=1#contact-form", code=303)
 

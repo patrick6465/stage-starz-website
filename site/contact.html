@@ -252,6 +252,9 @@ const m=document.querySelector('.menu'),n=document.querySelector('.nav-links');i
   }else if(params.get('error')==='email'){
     status.textContent='Please enter a valid email address.';
     status.className='contact-status error';
+  }else if(params.get('error')==='send'){
+    status.textContent='Your inquiry was saved, but the email notification could not be delivered. Please call the studio at (734) 497-3740 if you need an immediate response.';
+    status.className='contact-status error';
   }
 })();
 </script><script src="assets/js/site-refinements.js" defer></script>
