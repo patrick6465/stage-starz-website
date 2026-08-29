@@ -106,7 +106,7 @@ a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}.shell{m
           <div class="field"><label>Bcc</label><input name="bcc" value="{{ values.bcc }}" autocomplete="off"></div>
           <div class="field"><label>Subject</label><input name="subject" value="{{ values.subject }}" maxlength="500"></div>
           <div class="field"><label>Message</label><textarea name="body">{{ values.body }}</textarea></div>
-          <div class="field"><label>Attachments</label><input name="attachments" type="file" multiple><div class="help">Up to 15 MB per file and 20 MB total from this Email Center.</div></div>
+          <div class="field"><label>Attachments</label><input name="attachments" type="file" multiple><div class="help">Up to 10 MB total from this Email Center.</div></div>
           <div class="compose-actions"><button class="btn teal" type="submit" name="compose_action" value="send">Send Email</button><button class="btn" type="submit" name="compose_action" value="draft">Save Draft</button><a class="btn" href="/admin/email">Cancel</a></div>
         </form>
       </section>

@@ -1,4 +1,4 @@
-"""Private Zoho Mail IMAP/SMTP email client for the Stage Starz Command Center."""
+"""Private Zoho mailbox client for the Stage Starz Command Center.\n\nIncoming/folder access uses Zoho IMAP. Outbound delivery uses the existing\nZeptoMail HTTPS API so Railway does not need outbound SMTP access.\n"""
 
 from __future__ import annotations
 
@@ -30,10 +30,10 @@ from flask import (
     url_for,
 )
 
+from zeptomail_sender import send_zeptomail_message
+
 IMAP_HOST = (os.getenv("ZOHO_IMAP_HOST") or "imap.zoho.com").strip()
 IMAP_PORT = int((os.getenv("ZOHO_IMAP_PORT") or "993").strip())
-SMTP_HOST = (os.getenv("ZOHO_SMTP_HOST") or "smtp.zoho.com").strip()
-SMTP_PORT = int((os.getenv("ZOHO_SMTP_PORT") or "465").strip())
 
 
 class ZohoMailError(RuntimeError):
@@ -292,15 +292,6 @@ class ZohoMailClient:
         except OSError as exc:
             raise ZohoMailError(f"Could not reach Zoho IMAP: {exc}") from exc
 
-    def _smtp(self) -> smtplib.SMTP_SSL:
-        try:
-            context = ssl.create_default_context()
-            smtp = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=25, context=context)
-            smtp.login(self.email, self.password)
-            return smtp
-        except (smtplib.SMTPException, OSError) as exc:
-            raise ZohoMailError(f"Could not sign in to Zoho SMTP: {exc}") from exc
-
     def mailboxes(self) -> list[dict[str, Any]]:
         client = self._connect()
         try:
@@ -557,18 +548,46 @@ class ZohoMailClient:
                 pass
 
     def send_raw(self, raw: bytes) -> None:
-        msg = BytesParser(policy=policy.SMTP).parsebytes(raw)
-        try:
-            smtp = self._smtp()
-            try:
-                smtp.send_message(msg, from_addr=self.email)
-            finally:
-                try:
-                    smtp.quit()
-                except Exception:
-                    pass
-        except (smtplib.SMTPException, OSError) as exc:
-            raise ZohoMailError(f"Zoho could not send the email: {exc}") from exc
+        msg = BytesParser(policy=policy.default).parsebytes(raw)
+        to_recipients = getaddresses([msg.get("To") or ""])
+        cc_recipients = getaddresses([msg.get("Cc") or ""])
+        bcc_recipients = getaddresses([msg.get("Bcc") or ""])
+        text_body = _message_text(msg)
+
+        api_attachments: list[dict[str, Any]] = []
+        for part in msg.walk():
+            if part.is_multipart():
+                continue
+            filename = part.get_filename()
+            disposition = (part.get_content_disposition() or "").lower()
+            if not filename and disposition != "attachment":
+                continue
+            data = part.get_payload(decode=True) or b""
+            api_attachments.append({
+                "name": _decode_header_text(filename) or "attachment",
+                "mime_type": part.get_content_type() or "application/octet-stream",
+                "data": data,
+            })
+
+        headers: dict[str, str] = {}
+        if msg.get("In-Reply-To"):
+            headers["In-Reply-To"] = str(msg.get("In-Reply-To"))
+        if msg.get("References"):
+            headers["References"] = str(msg.get("References"))
+
+        ok, detail = send_zeptomail_message(
+            to_recipients,
+            _decode_header_text(msg.get("Subject")) or "(No subject)",
+            cc_recipients=cc_recipients,
+            bcc_recipients=bcc_recipients,
+            text_body=text_body or " ",
+            attachments=api_attachments,
+            from_name="Stage Starz Academy of Dance",
+            mime_headers=headers,
+            client_reference="stage-starz-email-center",
+        )
+        if not ok:
+            raise ZohoMailError(f"ZeptoMail could not send the email: {detail}")
 
     def download_attachment(self, email_id: str, blob_id: str) -> tuple[bytes, str, str]:
         folder, uid = _decode_message_id(email_id)
@@ -724,8 +743,8 @@ def _build_message(
         filename = os.path.basename(upload.filename)[:180] or "attachment"
         data = upload.read()
         total_size += len(data)
-        if len(data) > 15 * 1024 * 1024 or total_size > 20 * 1024 * 1024:
-            raise ZohoMailError("Attachments are limited to 15 MB each and 20 MB total in the Stage Starz Email Center.")
+        if len(data) > 10 * 1024 * 1024 or total_size > 10 * 1024 * 1024:
+            raise ZohoMailError("Attachments are limited to 10 MB total in the Stage Starz Email Center.")
         guessed = upload.mimetype or mimetypes.guess_type(filename)[0] or "application/octet-stream"
         maintype, subtype = guessed.split("/", 1) if "/" in guessed else ("application", "octet-stream")
         msg.add_attachment(data, maintype=maintype, subtype=subtype, filename=filename)
@@ -911,7 +930,11 @@ def register_zoho_email_center(app, permission_required) -> None:
                 return redirect(url_for("zoho_email_center", folder="drafts"))
 
             client.send_raw(raw)
-            client.append_raw(sent["id"], raw, "\\Seen")
+            sent_copy_saved = True
+            try:
+                client.append_raw(sent["id"], raw, "\\Seen")
+            except ZohoMailError:
+                sent_copy_saved = False
             if old_draft_id:
                 try:
                     client.destroy_email(old_draft_id)
@@ -922,8 +945,11 @@ def register_zoho_email_center(app, permission_required) -> None:
                     client.set_flag(reply_to_id, "\\Answered", True)
                 except ZohoMailError:
                     pass
-            flash("Email sent from office@stagestarzdance.com through Zoho Mail.", "success")
-            return redirect(url_for("zoho_email_center", folder="sent"))
+            if sent_copy_saved:
+                flash("Email sent from office@stagestarzdance.com and saved in Zoho Sent.", "success")
+                return redirect(url_for("zoho_email_center", folder="sent"))
+            flash("Email was sent successfully, but Zoho could not save the Sent copy.", "error")
+            return redirect(url_for("zoho_email_center", folder="inbox"))
         except ZohoMailError as exc:
             flash(str(exc), "error")
             if request.method == "POST":
