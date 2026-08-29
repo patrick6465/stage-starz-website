@@ -10,10 +10,13 @@ import smtplib
 import ssl
 import threading
 import time
+from datetime import datetime, timezone
 from email.message import EmailMessage
 
 from flask import redirect, request
 
+from database import get_db
+from email_notifications import ensure_email_schema
 from zeptomail_sender import is_zeptomail_configured, send_zeptomail
 
 logger = logging.getLogger("stage_starz.contact_email")
@@ -55,6 +58,36 @@ def _rate_limited(client_key: str) -> bool:
 
 def _contact_redirect(status: str):
     return redirect(f"/contact.html?contact={status}#contact-form", code=303)
+
+
+def _log_contact_delivery(recipient: str, subject: str, status: str, detail: str = "") -> None:
+    """Record contact-form delivery attempts in the manager Email Delivery Center."""
+    connection = None
+    try:
+        connection = get_db()
+        ensure_email_schema(connection)
+        connection.execute(
+            "INSERT INTO email_log "
+            "(order_id,created_at,recipient,subject,email_type,status,error_message) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (
+                None,
+                datetime.now(timezone.utc).isoformat(),
+                recipient,
+                subject,
+                "contact_form",
+                status,
+                (detail or "")[:500],
+            ),
+        )
+        connection.commit()
+    except Exception:
+        if connection:
+            connection.rollback()
+        logger.exception("Unable to record contact-form email delivery attempt.")
+    finally:
+        if connection:
+            connection.close()
 
 
 def _contact_html(full_name: str, sender_email: str, phone: str, message: str) -> str:
@@ -125,8 +158,10 @@ def register_contact_email(app) -> None:
                 client_reference="website-contact",
             )
             if not sent:
+                _log_contact_delivery(recipient, subject, "Failed", error)
                 logger.error("Unable to send Stage Starz contact email through ZeptoMail: %s", error)
                 return _contact_redirect("error")
+            _log_contact_delivery(recipient, subject, "Sent", error)
             return _contact_redirect("sent")
 
         # Temporary fallback while the ZeptoMail token is being added to Railway.
@@ -176,8 +211,10 @@ def register_contact_email(app) -> None:
             ) as smtp:
                 smtp.login(smtp_user, smtp_password)
                 smtp.send_message(email_message)
-        except Exception:
+        except Exception as exc:
+            _log_contact_delivery(recipient, subject, "Failed", f"AOL SMTP fallback: {exc}")
             logger.exception("Unable to send Stage Starz website contact email.")
             return _contact_redirect("error")
 
+        _log_contact_delivery(recipient, subject, "Sent", "AOL SMTP fallback")
         return _contact_redirect("sent")

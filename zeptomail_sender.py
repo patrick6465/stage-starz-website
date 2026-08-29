@@ -113,7 +113,8 @@ def send_zeptomail(
             status = int(getattr(response, "status", 200) or 200)
             response_body = response.read().decode("utf-8", errors="replace")
             if 200 <= status < 300:
-                return True, ""
+                detail = response_body[:700] or f"ZeptoMail HTTP {status} success"
+                return True, detail
             return False, f"ZeptoMail HTTP {status}: {response_body[:700]}"
     except HTTPError as exc:
         try:
