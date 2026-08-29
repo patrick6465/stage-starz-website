@@ -40,6 +40,28 @@ GOOGLE_ADS_TAG = r"""
 
   gtag('config', 'AW-18417496467');
 
+  function report_contact_form_conversion() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      if (params.get('sent') !== '1') return;
+
+      gtag('event', 'conversion', {
+        'send_to': 'AW-18417496467/pfxMCOSenOocEJPjks5E'
+      });
+
+      params.delete('sent');
+      var query = params.toString();
+      var cleanUrl = window.location.pathname + (query ? '?' + query : '') + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    } catch (_error) {}
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', report_contact_form_conversion, {once:true});
+  } else {
+    report_contact_form_conversion();
+  }
+
   function gtag_report_conversion(url) {
     var navigated = false;
     var go = function () {
