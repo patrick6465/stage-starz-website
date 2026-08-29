@@ -6,9 +6,12 @@ import smtplib
 from datetime import datetime, timezone
 from email.message import EmailMessage
 
+from zeptomail_sender import is_zeptomail_configured, send_zeptomail
+
 
 def ensure_email_schema(connection) -> None:
-    connection.execute('''
+    connection.execute(
+        """
         CREATE TABLE IF NOT EXISTS email_log (
             id SERIAL PRIMARY KEY,
             order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
@@ -19,7 +22,8 @@ def ensure_email_schema(connection) -> None:
             status TEXT NOT NULL,
             error_message TEXT NOT NULL DEFAULT ''
         )
-    ''')
+        """
+    )
     connection.execute('CREATE INDEX IF NOT EXISTS idx_email_log_order ON email_log(order_id,id DESC)')
 
 
@@ -50,7 +54,10 @@ def _items_text(order) -> str:
             options.append(f"Color: {item['color']}")
         if item.get('requested_name'):
             options.append(f"Name: {item['requested_name']}")
-        lines.append(f"- {item['product_name']} x {item['quantity']} ({', '.join(options)}) — {_money(item['line_total'])}")
+        lines.append(
+            f"- {item['product_name']} x {item['quantity']} "
+            f"({', '.join(options)}) — {_money(item['line_total'])}"
+        )
     return '\n'.join(lines)
 
 
@@ -84,28 +91,61 @@ def _message(order, store_name: str, kind: str):
     else:
         subject = f'{store_name} order update — {number}'
         heading = f"Order status: {order['status']}"
-        intro = f"Your order {number} is now marked {order['status']}. Payment status: {order['payment_status']}."
+        intro = (
+            f"Your order {number} is now marked {order['status']}. "
+            f"Payment status: {order['payment_status']}."
+        )
 
     fulfillment = 'Studio pickup' if order['fulfillment_method'] == 'pickup' else 'Shipping'
-    text = f"{heading}\n\n{intro}\n\nFulfillment: {fulfillment}\n\n{_items_text(order)}\n\nTotal: {_money(order['total'])}\n\nThank you,\n{store_name}"
-    body = f'''<!doctype html><html><body style="font-family:Arial,sans-serif;color:#202234;background:#f5f2f8;padding:24px"><div style="max-width:680px;margin:auto;background:white;border-radius:16px;overflow:hidden"><div style="padding:24px;background:linear-gradient(115deg,#4d1f91,#6f35c5,#16a4b8);color:white"><h1 style="margin:0">{html.escape(store_name)}</h1></div><div style="padding:24px"><h2>{html.escape(heading)}</h2><p>{html.escape(intro)}</p><p><strong>Fulfillment:</strong> {html.escape(fulfillment)}</p><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:10px">Item</th><th style="padding:10px">Qty</th><th style="text-align:right;padding:10px">Amount</th></tr></thead><tbody>{_items_html(order)}</tbody></table><p style="font-size:20px;text-align:right"><strong>Total: {_money(order['total'])}</strong></p><p>Thank you,<br>{html.escape(store_name)}</p></div></div></body></html>'''
+    text = (
+        f"{heading}\n\n{intro}\n\nFulfillment: {fulfillment}\n\n"
+        f"{_items_text(order)}\n\nTotal: {_money(order['total'])}\n\n"
+        f"Thank you,\n{store_name}"
+    )
+    body = (
+        '<!doctype html><html><body style="font-family:Arial,sans-serif;color:#202234;'
+        'background:#f5f2f8;padding:24px"><div style="max-width:680px;margin:auto;'
+        'background:white;border-radius:16px;overflow:hidden"><div style="padding:24px;'
+        'background:linear-gradient(115deg,#4d1f91,#6f35c5,#16a4b8);color:white">'
+        f'<h1 style="margin:0">{html.escape(store_name)}</h1></div><div style="padding:24px">'
+        f'<h2>{html.escape(heading)}</h2><p>{html.escape(intro)}</p>'
+        f'<p><strong>Fulfillment:</strong> {html.escape(fulfillment)}</p>'
+        '<table style="width:100%;border-collapse:collapse"><thead><tr>'
+        '<th style="text-align:left;padding:10px">Item</th><th style="padding:10px">Qty</th>'
+        '<th style="text-align:right;padding:10px">Amount</th></tr></thead><tbody>'
+        f'{_items_html(order)}</tbody></table><p style="font-size:20px;text-align:right">'
+        f'<strong>Total: {_money(order["total"])}</strong></p><p>Thank you,<br>'
+        f'{html.escape(store_name)}</p></div></div></body></html>'
+    )
     return subject, text, body
 
 
 def _log(connection, order_id, recipient, subject, kind, status, error=''):
     ensure_email_schema(connection)
     connection.execute(
-        'INSERT INTO email_log (order_id,created_at,recipient,subject,email_type,status,error_message) VALUES (?,?,?,?,?,?,?)',
-        (order_id, datetime.now(timezone.utc).isoformat(), recipient, subject, kind, status, error[:500]),
+        'INSERT INTO email_log '
+        '(order_id,created_at,recipient,subject,email_type,status,error_message) '
+        'VALUES (?,?,?,?,?,?,?)',
+        (
+            order_id,
+            datetime.now(timezone.utc).isoformat(),
+            recipient,
+            subject,
+            kind,
+            status,
+            error[:500],
+        ),
     )
 
 
-def send_order_email(connection, order_id: int, recipient: str, kind: str, settings: dict[str, str]) -> bool:
-    order = _order(connection, order_id)
-    if not order or not recipient:
-        return False
-    store_name = settings.get('store_name') or 'Stage Starz Store'
-    subject, text, body = _message(order, store_name, kind)
+def _send_order_email_smtp(
+    recipient: str,
+    subject: str,
+    text: str,
+    body: str,
+    store_name: str,
+) -> tuple[bool, str]:
+    """Temporary SMTP fallback used only when ZeptoMail is not configured."""
 
     host = os.environ.get('SMTP_HOST', '').strip()
     username = os.environ.get('SMTP_USERNAME', '').strip()
@@ -117,8 +157,7 @@ def send_order_email(connection, order_id: int, recipient: str, kind: str, setti
         port = 587
 
     if not host or not from_address:
-        _log(connection, order_id, recipient, subject, kind, 'Skipped', 'SMTP is not configured.')
-        return False
+        return False, 'ZeptoMail and SMTP are not configured.'
 
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -140,8 +179,47 @@ def send_order_email(connection, order_id: int, recipient: str, kind: str, setti
             server.login(username, password)
         server.send_message(msg)
         server.quit()
+        return True, ''
+    except Exception as exc:
+        return False, str(exc)
+
+
+def send_order_email(
+    connection,
+    order_id: int,
+    recipient: str,
+    kind: str,
+    settings: dict[str, str],
+) -> bool:
+    order = _order(connection, order_id)
+    if not order or not recipient:
+        return False
+
+    store_name = settings.get('store_name') or 'Stage Starz Store'
+    subject, text, body = _message(order, store_name, kind)
+
+    if is_zeptomail_configured():
+        sent, error = send_zeptomail(
+            recipient,
+            subject,
+            html_body=body,
+            text_body=text,
+            from_name=os.environ.get('ZEPTOMAIL_FROM_NAME', store_name),
+            client_reference=f"order-{order_id}-{kind}",
+        )
+    else:
+        sent, error = _send_order_email_smtp(
+            recipient,
+            subject,
+            text,
+            body,
+            store_name,
+        )
+
+    if sent:
         _log(connection, order_id, recipient, subject, kind, 'Sent')
         return True
-    except Exception as exc:
-        _log(connection, order_id, recipient, subject, kind, 'Failed', str(exc))
-        return False
+
+    status = 'Skipped' if 'not configured' in (error or '').lower() else 'Failed'
+    _log(connection, order_id, recipient, subject, kind, status, error)
+    return False

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 import os
 import re
@@ -13,9 +14,12 @@ from email.message import EmailMessage
 
 from flask import redirect, request
 
+from zeptomail_sender import is_zeptomail_configured, send_zeptomail
+
 logger = logging.getLogger("stage_starz.contact_email")
 
 DEFAULT_AOL_EMAIL = "stagestarzdance@aol.com"
+DEFAULT_CONTACT_EMAIL = "office@stagestarzdance.com"
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 _RATE_WINDOW_SECONDS = 10 * 60
@@ -53,6 +57,33 @@ def _contact_redirect(status: str):
     return redirect(f"/contact.html?contact={status}#contact-form", code=303)
 
 
+def _contact_html(full_name: str, sender_email: str, phone: str, message: str) -> str:
+    safe_name = html.escape(full_name)
+    safe_email = html.escape(sender_email)
+    safe_phone = html.escape(phone or "Not provided")
+    safe_message = html.escape(message).replace("\n", "<br>")
+    return f"""<!doctype html>
+<html>
+  <body style="margin:0;background:#f5f2f8;font-family:Arial,sans-serif;color:#202234">
+    <div style="max-width:680px;margin:24px auto;background:#fff;border-radius:16px;overflow:hidden">
+      <div style="padding:22px 24px;background:linear-gradient(115deg,#4d1f91,#6f35c5,#16a4b8);color:#fff">
+        <h1 style="margin:0;font-size:24px">New Stage Starz Website Inquiry</h1>
+      </div>
+      <div style="padding:24px">
+        <p><strong>Name:</strong> {safe_name}</p>
+        <p><strong>Email:</strong> {safe_email}</p>
+        <p><strong>Phone:</strong> {safe_phone}</p>
+        <p><strong>Message:</strong></p>
+        <div style="padding:16px;border-radius:12px;background:#f7f4fa">{safe_message}</div>
+        <p style="margin-top:22px;color:#6d7180;font-size:13px">
+          Sent from https://www.stagestarzdance.com/contact.html
+        </p>
+      </div>
+    </div>
+  </body>
+</html>"""
+
+
 def register_contact_email(app) -> None:
     if "stage_starz_contact_submit" in app.view_functions:
         return
@@ -77,9 +108,30 @@ def register_contact_email(app) -> None:
         if not first_name or not sender_email or not message or not EMAIL_RE.match(sender_email):
             return _contact_redirect("invalid")
 
+        full_name = " ".join(part for part in (first_name, last_name) if part)
+        recipient = (os.getenv("CONTACT_TO_EMAIL") or DEFAULT_CONTACT_EMAIL).strip()
+        subject = f"Stage Starz Website Inquiry - {full_name}"
+
+        # Prefer ZeptoMail's HTTPS API on Railway. This avoids outbound SMTP
+        # restrictions and sends from the verified stagestarzdance.com domain.
+        if is_zeptomail_configured():
+            sent, error = send_zeptomail(
+                recipient,
+                subject,
+                html_body=_contact_html(full_name, sender_email, phone, message),
+                from_name="Stage Starz Website",
+                reply_to=sender_email,
+                reply_to_name=full_name,
+                client_reference="website-contact",
+            )
+            if not sent:
+                logger.error("Unable to send Stage Starz contact email through ZeptoMail: %s", error)
+                return _contact_redirect("error")
+            return _contact_redirect("sent")
+
+        # Temporary fallback while the ZeptoMail token is being added to Railway.
         smtp_user = (os.getenv("AOL_SMTP_USER") or DEFAULT_AOL_EMAIL).strip()
         smtp_password = (os.getenv("AOL_SMTP_APP_PASSWORD") or "").replace(" ", "").strip()
-        recipient = (os.getenv("CONTACT_TO_EMAIL") or DEFAULT_AOL_EMAIL).strip()
         smtp_host = (os.getenv("AOL_SMTP_HOST") or "smtp.aol.com").strip()
         try:
             smtp_port = int(os.getenv("AOL_SMTP_PORT") or "465")
@@ -87,12 +139,13 @@ def register_contact_email(app) -> None:
             smtp_port = 465
 
         if not smtp_password:
-            logger.error("Contact email is not configured: AOL_SMTP_APP_PASSWORD is missing.")
+            logger.error(
+                "Contact email is not configured: ZEPTOMAIL_API_TOKEN and AOL_SMTP_APP_PASSWORD are missing."
+            )
             return _contact_redirect("error")
 
-        full_name = " ".join(part for part in (first_name, last_name) if part)
         email_message = EmailMessage()
-        email_message["Subject"] = f"Stage Starz Website Inquiry - {full_name}"
+        email_message["Subject"] = subject
         email_message["From"] = smtp_user
         email_message["To"] = recipient
         email_message["Reply-To"] = sender_email
