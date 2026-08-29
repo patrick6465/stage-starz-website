@@ -30,6 +30,34 @@ SITE_NAME = "Stage Starz Academy of Dance"
 DEFAULT_SOCIAL_IMAGE = f"{CANONICAL_ORIGIN}/assets/images/audriana-homepage-hero.jpg"
 
 
+GOOGLE_ADS_TAG = r"""
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18417496467"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-18417496467');
+</script>
+"""
+
+
+def _inject_google_ads_tag(html_text: str) -> str:
+    """Install the Stage Starz Google Ads base tag on public HTML responses."""
+    if "AW-18417496467" in html_text:
+        return html_text
+    if not re.search(r"<head(?:\s[^>]*)?>", html_text, flags=re.I):
+        return html_text
+    return re.sub(
+        r"(<head(?:\s[^>]*)?>)",
+        r"\1\n" + GOOGLE_ADS_TAG,
+        html_text,
+        count=1,
+        flags=re.I,
+    )
+
+
 STAGE_STARZ_MEDIA_PROTECTION = r"""
 <style id="stage-starz-media-protection-style">
 img,video{
@@ -417,6 +445,7 @@ def stage_starz_seo_finalize(response):
     except (RuntimeError, UnicodeDecodeError):
         return response
 
+    html_text = _inject_google_ads_tag(html_text)
     html_text = _protect_public_media(html_text)
     response.set_data(_seo_tags(html_text, path))
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
