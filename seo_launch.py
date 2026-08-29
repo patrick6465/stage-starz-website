@@ -137,7 +137,6 @@ LEGACY_REDIRECTS = {
     "/teachersandstaff": "/about.html",
     "/contact-us": "/contact.html",
     "/classes": "/classes.html",
-    "/dance-classes-toledo": "/classes.html",
     "/preschool": "/preschool-class-registration.html",
     "/preschool-class-registration": "/preschool-class-registration.html",
     "/primary": "/primary-class-registration.html",
@@ -180,6 +179,7 @@ LEGACY_REDIRECTS = {
 SITEMAP_PATHS = (
     "/",
     "/classes.html",
+    "/dance-classes-toledo",
     "/class-finder.html",
     "/about.html",
     "/contact.html",
@@ -276,6 +276,14 @@ def stage_starz_legacy_url_redirects():
     if not target:
         return None
     return redirect(_with_query(f"{CANONICAL_ORIGIN}{target}"), code=301)
+
+
+@app.route("/dance-classes-toledo", methods=["GET", "HEAD"])
+def stage_starz_toledo_landing():
+    page_path = BASE_DIR / "dance-classes-toledo.html"
+    if not page_path.exists():
+        return ("Page not found", 404)
+    return app.response_class(page_path.read_text(encoding="utf-8"), mimetype="text/html")
 
 
 @app.route("/robots.txt", methods=["GET", "HEAD"])
