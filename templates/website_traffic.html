@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Website Traffic | Stage Starz</title>
+<style>
+:root{--night:#090510;--night2:#17102a;--panel:#17102a;--panel2:#100a1d;--line:rgba(255,255,255,.13);--ink:#fff;--muted:#b8adca;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867;--good:#62e6aa}
+*{box-sizing:border-box}html{color-scheme:dark}body{margin:0;min-height:100vh;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(circle at 5% 0%,rgba(239,61,152,.18),transparent 28rem),radial-gradient(circle at 95% 4%,rgba(80,214,208,.12),transparent 30rem),linear-gradient(145deg,var(--night),var(--night2));padding-bottom:32px}a{color:inherit;text-decoration:none}.top{position:sticky;top:0;z-index:20;background:rgba(9,5,16,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(20px)}.top-inner{width:min(1240px,calc(100% - 28px));margin:auto;min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:12px;min-width:0}.back{width:42px;height:42px;display:grid;place-items:center;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.05)}.kicker{font-size:.66rem;font-weight:950;color:var(--teal);text-transform:uppercase;letter-spacing:.12em}.brand h1{font-size:1.28rem;margin:2px 0 0}.actions{display:flex;gap:8px}.action{padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.05);font-size:.78rem;font-weight:850}.wrap{width:min(1240px,calc(100% - 28px));margin:24px auto}.intro{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:16px}.intro h2{margin:0 0 5px;font-size:clamp(1.45rem,4vw,2.2rem)}.intro p{margin:0;color:var(--muted);line-height:1.5}.ranges{display:flex;gap:7px;flex-wrap:wrap}.ranges a{padding:8px 11px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.76rem;font-weight:900}.ranges a.active{color:#fff;border-color:rgba(80,214,208,.35);background:rgba(80,214,208,.11)}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.card{border:1px solid var(--line);background:rgba(23,16,42,.94);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.15)}.kpi{padding:18px}.kpi .label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:900}.kpi .value{font-size:2rem;font-weight:950;margin-top:7px}.kpi small{color:var(--muted)}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}.panel{padding:18px}.panel h3{margin:0 0 4px;font-size:1.05rem}.panel .sub{color:var(--muted);font-size:.79rem;margin-bottom:14px}.daily{display:grid;gap:7px}.day{display:grid;grid-template-columns:58px minmax(0,1fr) 78px;gap:10px;align-items:center;font-size:.76rem}.bar-track{height:10px;background:#0d0917;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.06)}.bar{height:100%;min-width:2px;background:linear-gradient(90deg,var(--pink),var(--purple),var(--teal));border-radius:999px}.day .nums{text-align:right;color:var(--muted)}.table{display:grid;gap:7px}.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 11px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:11px;align-items:center}.row strong{font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.row small{display:block;color:var(--muted);margin-top:2px}.count{font-weight:950;color:var(--teal);white-space:nowrap}.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.empty{padding:24px 8px;color:var(--muted);text-align:center}.note{margin-top:16px;padding:14px;border:1px solid rgba(255,200,103,.24);background:rgba(255,200,103,.07);border-radius:14px;color:#e7d7b5;font-size:.8rem;line-height:1.5}.mobile-dock{display:none}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+@media(max-width:650px){body{padding-bottom:100px}.top-inner{min-height:64px}.actions .desktop{display:none}.wrap{margin-top:17px}.intro{display:block}.ranges{margin-top:12px}.kpis{gap:8px}.kpi{padding:14px}.kpi .value{font-size:1.6rem}.panel{padding:14px}.split{grid-template-columns:1fr}.day{grid-template-columns:52px minmax(0,1fr) 68px;gap:7px}.mobile-dock{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:10px;right:10px;bottom:10px;z-index:30;border:1px solid var(--line);background:rgba(10,6,18,.96);backdrop-filter:blur(22px);border-radius:17px;padding:6px;box-shadow:0 14px 38px rgba(0,0,0,.36)}.mobile-dock a{text-align:center;color:var(--muted);font-size:.62rem;padding:5px 2px}.mobile-dock b{display:block;color:#fff;font-size:1.08rem;margin-bottom:2px}}
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand"><a class="back" href="/admin#website-management" aria-label="Back to Command Center">←</a><div><div class="kicker">Website Management</div><h1>📊 Website Traffic</h1></div></div>
+  <div class="actions"><a class="action desktop" href="/" target="_blank">↗ Open Website</a><a class="action" href="/admin">◈ Command Center</a></div>
+</div></header>
+
+<main class="wrap">
+  <section class="intro">
+    <div><h2>Your website traffic</h2><p>Visitors, page views, referral sources, devices, landing pages and campaigns.</p></div>
+    <nav class="ranges" aria-label="Traffic date range">
+      <a href="/admin/traffic?days=7" class="{% if report.days == 7 %}active{% endif %}">7 Days</a>
+      <a href="/admin/traffic?days=30" class="{% if report.days == 30 %}active{% endif %}">30 Days</a>
+      <a href="/admin/traffic?days=90" class="{% if report.days == 90 %}active{% endif %}">90 Days</a>
+    </nav>
+  </section>
+
+  <section class="kpis">
+    <article class="card kpi"><div class="label">Visitors Today</div><div class="value">{{ report.today.visitors }}</div><small>Unique browsers today</small></article>
+    <article class="card kpi"><div class="label">Page Views Today</div><div class="value">{{ report.today.views }}</div><small>Total pages viewed today</small></article>
+    <article class="card kpi"><div class="label">{{ report.days }}-Day Visitors</div><div class="value">{{ report.period.visitors }}</div><small>{{ report.start }} through {{ report.end }}</small></article>
+    <article class="card kpi"><div class="label">{{ report.days }}-Day Page Views</div><div class="value">{{ report.period.views }}</div><small>{{ report.new_visitors }} new · {{ report.returning_visitors }} returning</small></article>
+  </section>
+
+  <section class="grid">
+    <article class="card panel">
+      <h3>Daily Visitors</h3><div class="sub">Unique visitors per day. The bar scales to the busiest day in this range.</div>
+      <div class="daily">
+      {% for day in report.daily %}
+        <div class="day"><span>{{ day.label }}</span><div class="bar-track"><div class="bar" style="width:{{ day.bar }}%"></div></div><span class="nums">{{ day.visitors }} / {{ day.views }}</span></div>
+      {% endfor %}
+      </div>
+    </article>
+
+    <article class="card panel">
+      <h3>Traffic Sources</h3><div class="sub">Where visitors arrived from.</div>
+      <div class="table">
+      {% for item in report.sources %}
+        <div class="row"><div><strong>{{ item.source }}</strong><small>{{ item.views }} page views</small></div><div class="count">{{ item.visitors }}</div></div>
+      {% else %}<div class="empty">No traffic recorded yet.</div>{% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="grid">
+    <article class="card panel">
+      <h3>Top Pages</h3><div class="sub">Most-viewed public pages.</div>
+      <div class="table">
+      {% for item in report.top_pages %}
+        <div class="row"><div><strong>{{ item.path }}</strong><small>{{ item.visitors }} visitor{% if item.visitors != 1 %}s{% endif %}</small></div><div class="count">{{ item.views }} views</div></div>
+      {% else %}<div class="empty">No page views recorded yet.</div>{% endfor %}
+      </div>
+    </article>
+
+    <article class="card panel">
+      <h3>Devices</h3><div class="sub">How visitors are viewing the site.</div>
+      <div class="table">
+      {% for item in report.devices %}
+        <div class="row"><div><strong>{{ item.device }}</strong><small>{{ item.views }} page views</small></div><div class="count">{{ item.visitors }}</div></div>
+      {% else %}<div class="empty">No device data yet.</div>{% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <section class="grid">
+    <article class="card panel">
+      <h3>Landing Pages</h3><div class="sub">The first page seen when a visit begins.</div>
+      <div class="table">
+      {% for item in report.landing_pages %}
+        <div class="row"><strong>{{ item.path }}</strong><div class="count">{{ item.visits }} visits</div></div>
+      {% else %}<div class="empty">No landing-page data yet.</div>{% endfor %}
+      </div>
+    </article>
+
+    <article class="card panel">
+      <h3>Campaign Traffic</h3><div class="sub">Visits carrying UTM campaign tags, including ad and social links.</div>
+      <div class="table">
+      {% for item in report.campaigns %}
+        <div class="row"><div><strong>{{ item.campaign }}</strong><small>{{ item.source }} · {{ item.medium }}</small></div><div class="count">{{ item.visitors }}</div></div>
+      {% else %}<div class="empty">No tagged campaign traffic yet.</div>{% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <div class="note">
+    {% if report.tracking_since %}Traffic collection began {{ report.tracking_since }}. {% else %}Traffic collection starts with this deployment. {% endif %}
+    Stage Starz analytics uses a first-party anonymous browser ID, excludes manager/admin visits and common bots, stores no IP address, and respects Do Not Track and Global Privacy Control signals. Numbers are therefore intended as practical site-traffic estimates rather than ad-platform billing totals.
+  </div>
+</main>
+
+<nav class="mobile-dock" aria-label="Website Traffic mobile navigation">
+  <a href="/admin"><b>◈</b>Home</a>
+  <a href="/admin/traffic"><b>📊</b>Traffic</a>
+  <a href="/" target="_blank"><b>↗</b>Website</a>
+  <a href="/admin/email"><b>✉️</b>Email</a>
+</nav>
+</body>
+</html>
