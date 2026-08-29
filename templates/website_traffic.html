@@ -8,6 +8,7 @@
 :root{--night:#090510;--night2:#17102a;--panel:#17102a;--panel2:#100a1d;--line:rgba(255,255,255,.13);--ink:#fff;--muted:#b8adca;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0;--gold:#ffc867;--good:#62e6aa}
 *{box-sizing:border-box}html{color-scheme:dark}body{margin:0;min-height:100vh;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(circle at 5% 0%,rgba(239,61,152,.18),transparent 28rem),radial-gradient(circle at 95% 4%,rgba(80,214,208,.12),transparent 30rem),linear-gradient(145deg,var(--night),var(--night2));padding-bottom:32px}a{color:inherit;text-decoration:none}.top{position:sticky;top:0;z-index:20;background:rgba(9,5,16,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(20px)}.top-inner{width:min(1240px,calc(100% - 28px));margin:auto;min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:12px;min-width:0}.back{width:42px;height:42px;display:grid;place-items:center;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.05)}.kicker{font-size:.66rem;font-weight:950;color:var(--teal);text-transform:uppercase;letter-spacing:.12em}.brand h1{font-size:1.28rem;margin:2px 0 0}.actions{display:flex;gap:8px}.action{padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.05);font-size:.78rem;font-weight:850}.wrap{width:min(1240px,calc(100% - 28px));margin:24px auto}.intro{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:16px}.intro h2{margin:0 0 5px;font-size:clamp(1.45rem,4vw,2.2rem)}.intro p{margin:0;color:var(--muted);line-height:1.5}.ranges{display:flex;gap:7px;flex-wrap:wrap}.ranges a{padding:8px 11px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.76rem;font-weight:900}.ranges a.active{color:#fff;border-color:rgba(80,214,208,.35);background:rgba(80,214,208,.11)}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.card{border:1px solid var(--line);background:rgba(23,16,42,.94);border-radius:18px;box-shadow:0 18px 50px rgba(0,0,0,.15)}.kpi{padding:18px}.kpi .label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:900}.kpi .value{font-size:2rem;font-weight:950;margin-top:7px}.kpi small{color:var(--muted)}
+.live-status{display:inline-flex;align-items:center;gap:7px;margin-top:10px;padding:7px 10px;border:1px solid rgba(98,230,170,.25);border-radius:999px;background:rgba(98,230,170,.08);color:var(--good);font-size:.74rem;font-weight:900}.live-dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 12px rgba(98,230,170,.8)}.live-status .countdown{color:var(--muted);font-weight:750}
 .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}.panel{padding:18px}.panel h3{margin:0 0 4px;font-size:1.05rem}.panel .sub{color:var(--muted);font-size:.79rem;margin-bottom:14px}.daily{display:grid;gap:7px}.day{display:grid;grid-template-columns:58px minmax(0,1fr) 78px;gap:10px;align-items:center;font-size:.76rem}.bar-track{height:10px;background:#0d0917;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.06)}.bar{height:100%;min-width:2px;background:linear-gradient(90deg,var(--pink),var(--purple),var(--teal));border-radius:999px}.day .nums{text-align:right;color:var(--muted)}.table{display:grid;gap:7px}.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 11px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:11px;align-items:center}.row strong{font-size:.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.row small{display:block;color:var(--muted);margin-top:2px}.count{font-weight:950;color:var(--teal);white-space:nowrap}.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.empty{padding:24px 8px;color:var(--muted);text-align:center}.note{margin-top:16px;padding:14px;border:1px solid rgba(255,200,103,.24);background:rgba(255,200,103,.07);border-radius:14px;color:#e7d7b5;font-size:.8rem;line-height:1.5}.mobile-dock{display:none}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
 @media(max-width:650px){body{padding-bottom:100px}.top-inner{min-height:64px}.actions .desktop{display:none}.wrap{margin-top:17px}.intro{display:block}.ranges{margin-top:12px}.kpis{gap:8px}.kpi{padding:14px}.kpi .value{font-size:1.6rem}.panel{padding:14px}.split{grid-template-columns:1fr}.day{grid-template-columns:52px minmax(0,1fr) 68px;gap:7px}.mobile-dock{position:fixed;display:grid;grid-template-columns:repeat(4,1fr);left:10px;right:10px;bottom:10px;z-index:30;border:1px solid var(--line);background:rgba(10,6,18,.96);backdrop-filter:blur(22px);border-radius:17px;padding:6px;box-shadow:0 14px 38px rgba(0,0,0,.36)}.mobile-dock a{text-align:center;color:var(--muted);font-size:.62rem;padding:5px 2px}.mobile-dock b{display:block;color:#fff;font-size:1.08rem;margin-bottom:2px}}
@@ -21,7 +22,7 @@
 
 <main class="wrap">
   <section class="intro">
-    <div><h2>Your website traffic</h2><p>Visitors, page views, referral sources, devices, landing pages and campaigns.</p></div>
+    <div><h2>Your website traffic</h2><p>Visitors, page views, referral sources, devices, landing pages and campaigns.</p><div class="live-status" id="liveStatus"><span class="live-dot"></span><span>Live</span><span class="countdown" id="refreshCountdown">Updates in 30s</span></div></div>
     <nav class="ranges" aria-label="Traffic date range">
       <a href="/admin/traffic?days=7" class="{% if report.days == 7 %}active{% endif %}">7 Days</a>
       <a href="/admin/traffic?days=30" class="{% if report.days == 30 %}active{% endif %}">30 Days</a>
@@ -108,5 +109,39 @@
   <a href="/" target="_blank"><b>↗</b>Website</a>
   <a href="/admin/email"><b>✉️</b>Email</a>
 </nav>
+<script>
+(function(){
+  const INTERVAL_MS=30000;
+  const countdown=document.getElementById('refreshCountdown');
+  let nextRefresh=Date.now()+INTERVAL_MS;
+
+  function updateCountdown(){
+    if(!countdown)return;
+    const seconds=Math.max(0,Math.ceil((nextRefresh-Date.now())/1000));
+    countdown.textContent=seconds===0?'Updating…':'Updates in '+seconds+'s';
+  }
+
+  function refreshIfDue(){
+    if(document.hidden)return;
+    if(Date.now()>=nextRefresh){
+      if(countdown)countdown.textContent='Updating…';
+      window.location.reload();
+    }
+  }
+
+  updateCountdown();
+  window.setInterval(function(){
+    updateCountdown();
+    refreshIfDue();
+  },1000);
+
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden){
+      refreshIfDue();
+      updateCountdown();
+    }
+  });
+})();
+</script>
 </body>
 </html>
