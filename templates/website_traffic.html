@@ -34,8 +34,13 @@
   <section class="kpis">
     <article class="card kpi"><div class="label">Visitors Today</div><div class="value">{{ report.today.visitors }}</div><small>Unique browsers today</small></article>
     <article class="card kpi"><div class="label">Page Views Today</div><div class="value">{{ report.today.views }}</div><small>Total pages viewed today</small></article>
-    <article class="card kpi"><div class="label">{% if report.days == 1 %}Today's Visitors{% else %}{{ report.days }}-Day Visitors{% endif %}</div><div class="value">{{ report.period.visitors }}</div><small>{% if report.days == 1 %}Traffic for {{ report.end }} only{% else %}{{ report.start }} through {{ report.end }}{% endif %}</small></article>
-    <article class="card kpi"><div class="label">{% if report.days == 1 %}Today's Page Views{% else %}{{ report.days }}-Day Page Views{% endif %}</div><div class="value">{{ report.period.views }}</div><small>{{ report.new_visitors }} new · {{ report.returning_visitors }} returning</small></article>
+    {% if report.days == 1 %}
+    <article class="card kpi"><div class="label">New Visitors Today</div><div class="value">{{ report.new_visitors }}</div><small>First-time visitors recorded today</small></article>
+    <article class="card kpi"><div class="label">Returning Visitors Today</div><div class="value">{{ report.returning_visitors }}</div><small>Visitors who have been here before</small></article>
+    {% else %}
+    <article class="card kpi"><div class="label">{{ report.days }}-Day Visitors</div><div class="value">{{ report.period.visitors }}</div><small>{{ report.start }} through {{ report.end }}</small></article>
+    <article class="card kpi"><div class="label">{{ report.days }}-Day Page Views</div><div class="value">{{ report.period.views }}</div><small>{{ report.new_visitors }} new · {{ report.returning_visitors }} returning</small></article>
+    {% endif %}
   </section>
 
   <section class="grid">
