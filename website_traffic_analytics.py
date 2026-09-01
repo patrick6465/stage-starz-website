@@ -154,6 +154,43 @@ def _source_from_referrer(referrer: str) -> str:
     return host[:120]
 
 
+def _source_from_campaign(utm_source: str, utm_medium: str) -> str:
+    source = (utm_source or "").strip()
+    medium = (utm_medium or "").strip().lower()
+    if not source:
+        return ""
+    key = source.lower().replace("_", " ").replace("-", " ").strip()
+    paid = medium in {
+        "cpc", "ppc", "paid", "paid search", "paidsearch", "paid social",
+        "paidsocial", "display", "remarketing", "retargeting",
+    }
+    if key in {"google", "google ads", "googleads", "adwords"}:
+        return "Google Ads" if paid else "Google"
+    if key in {"bing", "microsoft", "microsoft ads", "microsoftads"}:
+        return "Microsoft Ads" if paid else "Bing"
+    if key in {"facebook", "fb", "meta"}:
+        return "Facebook"
+    if key in {"instagram", "ig"}:
+        return "Instagram"
+    if key in {"x", "twitter"}:
+        return "X / Twitter"
+    if key in {"youtube", "you tube"}:
+        return "YouTube"
+    if key == "tiktok":
+        return "TikTok"
+    return source[:120]
+
+
+def _campaign_click_source() -> str:
+    if request.args.get("gclid") or request.args.get("gbraid") or request.args.get("wbraid"):
+        return "Google Ads"
+    if request.args.get("msclkid"):
+        return "Microsoft Ads"
+    if request.args.get("fbclid"):
+        return "Facebook / Instagram"
+    return ""
+
+
 def _clean_campaign(value: str, limit: int) -> str:
     return " ".join((value or "").replace("\r", " ").replace("\n", " ").split())[:limit]
 
@@ -163,17 +200,30 @@ def _record_page_view(visitor_id: str) -> None:
     occurred_at = now.isoformat(timespec="seconds")
     event_day = now.date().isoformat()
     path = (request.path or "/")[:300]
-    source = _source_from_referrer(request.headers.get("Referer", ""))
     device = _device_type(request.headers.get("User-Agent", ""))
     utm_source = _clean_campaign(request.args.get("utm_source", ""), 120)
     utm_medium = _clean_campaign(request.args.get("utm_medium", ""), 120)
     utm_campaign = _clean_campaign(request.args.get("utm_campaign", ""), 160)
 
+    click_source = _campaign_click_source()
+    campaign_source = _source_from_campaign(utm_source, utm_medium)
+    raw_source = (
+        click_source
+        or campaign_source
+        or _source_from_referrer(request.headers.get("Referer", ""))
+    )
+    explicit_campaign = bool(
+        click_source
+        or utm_source
+        or utm_medium
+        or utm_campaign
+    )
+
     connection = get_db()
     try:
         last = connection.execute(
             """
-            SELECT occurred_at
+            SELECT occurred_at, referrer_source, utm_source, utm_medium, utm_campaign
             FROM website_traffic
             WHERE visitor_id=?
             ORDER BY id DESC
@@ -183,15 +233,34 @@ def _record_page_view(visitor_id: str) -> None:
         ).fetchone()
 
         is_entry = 1
+        active_session = False
         if last and last["occurred_at"]:
             try:
                 previous = datetime.fromisoformat(str(last["occurred_at"]))
                 if previous.tzinfo is None:
                     previous = previous.replace(tzinfo=STUDIO_TZ)
-                if now - previous.astimezone(STUDIO_TZ) <= SESSION_GAP:
-                    is_entry = 0
+                active_session = (
+                    now - previous.astimezone(STUDIO_TZ) <= SESSION_GAP
+                )
             except (TypeError, ValueError):
-                pass
+                active_session = False
+
+        source = raw_source
+
+        # Keep the acquisition source attached to the whole 30-minute visit.
+        # This prevents clicks between Stage Starz pages from becoming a new
+        # "Internal" source and prevents missing referrers from inflating Direct.
+        if active_session and not explicit_campaign:
+            is_entry = 0
+            source = str(last["referrer_source"] or "Direct")
+            utm_source = str(last["utm_source"] or "")
+            utm_medium = str(last["utm_medium"] or "")
+            utm_campaign = str(last["utm_campaign"] or "")
+        elif explicit_campaign:
+            # A fresh tagged or ad click is treated as a new acquisition touch.
+            is_entry = 1
+        elif active_session:
+            is_entry = 0
 
         connection.execute(
             """
