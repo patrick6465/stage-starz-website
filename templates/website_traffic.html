@@ -54,7 +54,7 @@
     </article>
 
     <article class="card panel">
-      <h3>Traffic Sources</h3><div class="sub">Where visitors arrived from.</div>
+      <h3>Traffic Sources</h3><div class="sub">Original source credited to each visit.</div>
       <div class="table">
       {% for item in report.sources %}
         <div class="row"><div><strong>{{ item.source }}</strong><small>{{ item.views }} page views</small></div><div class="count">{{ item.visitors }}</div></div>
