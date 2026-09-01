@@ -516,7 +516,7 @@ def register_website_traffic(app, permission_required) -> None:
             days = int(request.args.get("days", "30"))
         except ValueError:
             days = 30
-        if days not in {7, 30, 90}:
+        if days not in {1, 7, 30, 90}:
             days = 30
         return render_template(
             "website_traffic.html",
