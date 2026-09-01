@@ -1,0 +1,21 @@
+Stage Starz Railway security hardening
+======================================
+
+Changes made before Google Ads policy appeal:
+
+1. Public catch-all file serving is restricted to intended web file types.
+   Application source, configuration, databases, notes, bytecode, and other
+   project files are no longer reachable through /<path:filename>.
+
+2. /uploads/ only serves approved image formats.
+
+3. Production/Railway no longer falls back to publicly known admin credentials
+   or a predictable Flask SECRET_KEY. SECRET_KEY, ADMIN_USERNAME, and
+   ADMIN_PASSWORD must be supplied as Railway environment variables.
+
+4. The committed Python bytecode artifact __pycache__/app.cpython-313.pyc is
+   removed from the deployment branch.
+
+These changes are defensive hardening. They do not assert that the site was
+actually compromised; the source review found no obvious malware loader,
+cryptominer, unknown external JavaScript loader, or forced redirect.

@@ -35,15 +35,38 @@ SQLITE_DB_PATH = Path(
 )
 SQLITE_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-SECRET_KEY = os.environ.get(
-    "SECRET_KEY",
-    "change-this-secret-key",
+FLASK_ENV = os.environ.get("FLASK_ENV", "").strip().lower()
+_RUNNING_ON_RAILWAY = bool(
+    os.environ.get("RAILWAY_ENVIRONMENT")
+    or os.environ.get("RAILWAY_PROJECT_ID")
+    or os.environ.get("RAILWAY_SERVICE_ID")
 )
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get(
-    "ADMIN_PASSWORD",
-    "StageStarz123!",
-)
-FLASK_ENV = os.environ.get("FLASK_ENV", "")
+_PRODUCTION_LIKE = FLASK_ENV == "production" or _RUNNING_ON_RAILWAY
+
+# Production must never fall back to publicly known credentials or a predictable
+# Flask signing key. Railway should provide all three as environment variables.
+if _PRODUCTION_LIKE:
+    SECRET_KEY = os.environ.get("SECRET_KEY", "").strip()
+    ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "").strip()
+    ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+    missing = [
+        name
+        for name, value in (
+            ("SECRET_KEY", SECRET_KEY),
+            ("ADMIN_USERNAME", ADMIN_USERNAME),
+            ("ADMIN_PASSWORD", ADMIN_PASSWORD),
+        )
+        if not value
+    ]
+    if missing:
+        raise RuntimeError(
+            "Missing required production environment variable(s): "
+            + ", ".join(missing)
+        )
+else:
+    # Local-only convenience values. Never used by Railway/production.
+    SECRET_KEY = os.environ.get("SECRET_KEY", "local-dev-only-change-me")
+    ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+    ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "local-dev-only-change-me")
 PORT = int(os.environ.get("PORT", "5000"))
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG") == "1"

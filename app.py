@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from flask import (
     Flask,
     Response,
+    abort,
     flash,
     jsonify,
     redirect,
@@ -1155,21 +1156,57 @@ def storefront():
     return render_template("store.html")
 
 
+PUBLIC_SITE_EXTENSIONS = {
+    ".html", ".css", ".js",
+    ".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".ico",
+    ".mp4", ".webm", ".mov", ".m4v",
+}
+PUBLIC_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+
+def _safe_public_path(filename: str) -> Path | None:
+    """Return a normalized relative path only for intended public web assets."""
+    raw = (filename or "").replace("\\", "/").lstrip("/")
+    relative = Path(raw)
+    if not raw or relative.is_absolute() or ".." in relative.parts:
+        return None
+    if any(part.startswith(".") for part in relative.parts):
+        return None
+    if relative.suffix.lower() not in PUBLIC_SITE_EXTENSIONS:
+        return None
+    return relative
+
+
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename: str):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    # Uploaded website photos are normalized to safe image formats before they
+    # are stored. Never serve arbitrary HTML/JS/source files from persistent
+    # storage even if an unexpected file is present there.
+    relative = _safe_public_path(filename)
+    if relative is None or relative.suffix.lower() not in PUBLIC_UPLOAD_EXTENSIONS:
+        abort(404)
+    return send_from_directory(UPLOAD_FOLDER, relative.as_posix())
 
 
 @app.route("/<path:filename>")
 def website_file(filename: str):
-    """Serve main website pages and shared root-level assets."""
-    site_file = BASE_DIR / "site" / filename
-    if site_file.exists() and site_file.is_file():
-        return send_from_directory(BASE_DIR / "site", filename)
+    """Serve only intentional public pages/assets, never application source."""
+    relative = _safe_public_path(filename)
+    if relative is None:
+        return ("Page not found", 404)
 
-    root_file = BASE_DIR / filename
-    if root_file.exists() and root_file.is_file():
-        return send_from_directory(BASE_DIR, filename)
+    # The approved static website lives in /site.
+    site_file = BASE_DIR / "site" / relative
+    if site_file.exists() and site_file.is_file():
+        return send_from_directory(BASE_DIR / "site", relative.as_posix())
+
+    # Root-level /assets contains a few approved images/scripts used by the
+    # Railway pages. Do not expose Python, config, database, notes, .b64 chunks,
+    # bytecode, or any other project file through this catch-all route.
+    if relative.parts and relative.parts[0] == "assets":
+        root_file = BASE_DIR / relative
+        if root_file.exists() and root_file.is_file():
+            return send_from_directory(BASE_DIR, relative.as_posix())
 
     return ("Page not found", 404)
 
