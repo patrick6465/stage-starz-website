@@ -24,6 +24,7 @@
   <section class="intro">
     <div><h2>Your website traffic</h2><p>Visitors, page views, referral sources, devices, landing pages and campaigns.</p><div class="live-status" id="liveStatus"><span class="live-dot"></span><span>Live</span><span class="countdown" id="refreshCountdown">Updates in 30s</span></div></div>
     <nav class="ranges" aria-label="Traffic date range">
+      <a href="/admin/traffic?days=1" class="{% if report.days == 1 %}active{% endif %}">Today</a>
       <a href="/admin/traffic?days=7" class="{% if report.days == 7 %}active{% endif %}">7 Days</a>
       <a href="/admin/traffic?days=30" class="{% if report.days == 30 %}active{% endif %}">30 Days</a>
       <a href="/admin/traffic?days=90" class="{% if report.days == 90 %}active{% endif %}">90 Days</a>
@@ -33,8 +34,8 @@
   <section class="kpis">
     <article class="card kpi"><div class="label">Visitors Today</div><div class="value">{{ report.today.visitors }}</div><small>Unique browsers today</small></article>
     <article class="card kpi"><div class="label">Page Views Today</div><div class="value">{{ report.today.views }}</div><small>Total pages viewed today</small></article>
-    <article class="card kpi"><div class="label">{{ report.days }}-Day Visitors</div><div class="value">{{ report.period.visitors }}</div><small>{{ report.start }} through {{ report.end }}</small></article>
-    <article class="card kpi"><div class="label">{{ report.days }}-Day Page Views</div><div class="value">{{ report.period.views }}</div><small>{{ report.new_visitors }} new · {{ report.returning_visitors }} returning</small></article>
+    <article class="card kpi"><div class="label">{% if report.days == 1 %}Today's Visitors{% else %}{{ report.days }}-Day Visitors{% endif %}</div><div class="value">{{ report.period.visitors }}</div><small>{% if report.days == 1 %}Traffic for {{ report.end }} only{% else %}{{ report.start }} through {{ report.end }}{% endif %}</small></article>
+    <article class="card kpi"><div class="label">{% if report.days == 1 %}Today's Page Views{% else %}{{ report.days }}-Day Page Views{% endif %}</div><div class="value">{{ report.period.views }}</div><small>{{ report.new_visitors }} new · {{ report.returning_visitors }} returning</small></article>
   </section>
 
   <section class="grid">
