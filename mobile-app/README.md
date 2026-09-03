@@ -1,4 +1,4 @@
-# Stage Starz Mobile — Version 1
+# Stage Starz Mobile — Version 1.1
 
 A simple Expo/React Native mobile hub for Stage Starz Academy of Dance.
 
@@ -66,3 +66,9 @@ Portal URLs are kept in:
 src/links.js
 
 That makes it easy to update Jackrabbit or Stage Starz links without redesigning the app.
+
+## Version 1.1
+
+- Fixed Android status-bar overlap at the top.
+- Raised the bottom navigation above Android system buttons.
+- Kept Expo SDK 57 compatibility.
