@@ -342,7 +342,15 @@ function AppContent() {
 
         <View style={styles.body}>{screen}</View>
 
-        <View style={styles.tabBar}>
+        <View
+          style={[
+            styles.tabBar,
+            {
+              paddingBottom: Math.max(insets.bottom, 8),
+              minHeight: 68 + Math.max(insets.bottom, 8)
+            }
+          ]}
+        >
           {TABS.map((tab) => {
             const selected = activeTab === tab.key;
             return (
@@ -381,9 +389,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background
   },
   topBar: {
-    minHeight: 68,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.line,
     backgroundColor: "#0E0817",
@@ -577,12 +584,11 @@ const styles = StyleSheet.create({
     marginTop: 20
   },
   tabBar: {
-    minHeight: 68,
     flexDirection: "row",
     backgroundColor: "#0E0817",
     borderTopWidth: 1,
     borderTopColor: COLORS.line,
-    paddingBottom: 4
+    paddingTop: 4
   },
   tabButton: {
     flex: 1,
