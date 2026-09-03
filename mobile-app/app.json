@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "Stage Starz",
+    "slug": "stage-starz",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "stagestarz",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stagestarz.app"
+    },
+    "android": {
+      "package": "com.stagestarz.app"
+    }
+  }
+}
