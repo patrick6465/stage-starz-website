@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   Alert,
   Linking,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -9,7 +10,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LINKS } from "./src/links";
 
 const COLORS = {
@@ -301,8 +302,16 @@ function MoreScreen() {
   );
 }
 
-export default function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState("home");
+  const insets = useSafeAreaInsets();
+
+  // Expo Go on some Android phones can report edge-to-edge insets late or as
+  // zero during development. These fallbacks keep the header and tab bar away
+  // from the phone's system controls even in that case.
+  const androidTop = Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0;
+  const topInset = Math.max(insets.top || 0, androidTop);
+  const bottomInset = Math.max(insets.bottom || 0, Platform.OS === "android" ? 40 : 0);
 
   let screen = <HomeScreen setTab={setActiveTab} />;
   if (activeTab === "family") screen = <FamilyScreen />;
@@ -310,8 +319,15 @@ export default function App() {
   if (activeTab === "more") screen = <MoreScreen />;
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
+    <View
+      style={[
+        styles.safeArea,
+        {
+          paddingTop: topInset,
+          paddingBottom: bottomInset
+        }
+      ]}
+    >
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} translucent={false} />
       <View style={styles.app}>
         <View style={styles.topBar}>
@@ -343,7 +359,14 @@ export default function App() {
           })}
         </View>
       </View>
-      </SafeAreaView>
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
     </SafeAreaProvider>
   );
 }
