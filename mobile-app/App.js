@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   Alert,
   Linking,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { LINKS } from "./src/links";
 
 const COLORS = {
@@ -310,8 +310,9 @@ export default function App() {
   if (activeTab === "more") screen = <MoreScreen />;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.safeArea} edges={["top", "right", "bottom", "left"]}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} translucent={false} />
       <View style={styles.app}>
         <View style={styles.topBar}>
           <View>
@@ -342,7 +343,8 @@ export default function App() {
           })}
         </View>
       </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
