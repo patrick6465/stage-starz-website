@@ -9,6 +9,48 @@
     if(href===current){link.setAttribute('aria-current','page');}
   });
 
+  // Short-term enrollment alert for the homepage as the 2026-2027 season begins.
+  if(current==='index.html'&&!document.querySelector('.ss-season-alert')){
+    var topbar=document.querySelector('.topbar');
+    var header=document.querySelector('.header');
+    var seasonAlert=document.createElement('section');
+    seasonAlert.className='ss-season-alert';
+    seasonAlert.setAttribute('aria-label','Class enrollment announcement');
+    seasonAlert.innerHTML=
+      '<div class="ss-season-alert-inner">'+
+        '<div class="ss-season-alert-copy">'+
+          '<strong>Classes Begin Monday — Limited Openings Still Available</strong>'+
+          '<span>Find the right class for your dancer and get started with Stage Starz.</span>'+
+        '</div>'+
+        '<div class="ss-season-alert-actions">'+
+          '<a href="class-finder.html">Find Your Class</a>'+
+          '<a href="classes.html">Register Now</a>'+
+        '</div>'+
+      '</div>';
+
+    var seasonStyle=document.createElement('style');
+    seasonStyle.textContent=
+      '.ss-season-alert{position:relative;z-index:95;background:linear-gradient(100deg,#691170,#a91cae 48%,#007f88);color:#fff;border-bottom:1px solid rgba(255,255,255,.2);box-shadow:0 10px 28px rgba(8,7,19,.2)}'+
+      '.ss-season-alert-inner{width:min(1180px,94%);margin:0 auto;padding:15px 20px;display:flex;align-items:center;justify-content:space-between;gap:22px}'+
+      '.ss-season-alert-copy{display:flex;flex-direction:column;gap:2px;line-height:1.3}'+
+      '.ss-season-alert-copy strong{font-size:clamp(1rem,2vw,1.22rem);font-weight:950;letter-spacing:-.015em}'+
+      '.ss-season-alert-copy span{font-size:.92rem;color:rgba(255,255,255,.88)}'+
+      '.ss-season-alert-actions{display:flex;gap:9px;flex:0 0 auto}'+
+      '.ss-season-alert-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 16px;border-radius:999px;font-size:.9rem;font-weight:900;text-decoration:none;white-space:nowrap}'+
+      '.ss-season-alert-actions a:first-child{color:#fff;border:1px solid rgba(255,255,255,.58);background:rgba(7,5,16,.18)}'+
+      '.ss-season-alert-actions a:last-child{color:#23102b;background:#fff;box-shadow:0 8px 20px rgba(0,0,0,.18)}'+
+      '.ss-season-alert-actions a:hover{transform:translateY(-1px)}'+
+      '@media(max-width:760px){.ss-season-alert-inner{padding:13px 14px;flex-direction:column;text-align:center;gap:10px}.ss-season-alert-copy span{font-size:.86rem}.ss-season-alert-actions{width:100%;justify-content:center}.ss-season-alert-actions a{flex:1;max-width:180px}}'+
+      '@media(max-width:390px){.ss-season-alert-actions{flex-direction:column;align-items:stretch}.ss-season-alert-actions a{max-width:none;width:100%}}';
+    document.head.appendChild(seasonStyle);
+
+    if(header&&header.parentNode){
+      header.parentNode.insertBefore(seasonAlert,header);
+    }else if(topbar&&topbar.parentNode){
+      topbar.insertAdjacentElement('afterend',seasonAlert);
+    }
+  }
+
   // Force the homepage Stardust Ship-it-Shop banner to use the animated media.
   // Keep the existing static image visible until the animation is actually ready,
   // so shoppers always have a working clickable banner even if media loading fails.
