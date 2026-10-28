@@ -212,6 +212,51 @@ def file_center_s3():
     return client, required["BUCKET"]
 
 
+_FILE_CENTER_CORS_READY = set()
+
+
+def file_center_allowed_origins(current_origin: str = "") -> list[str]:
+    origins = {
+        "https://stagestarzdance.com",
+        "https://www.stagestarzdance.com",
+        "https://stagestarzdance.net",
+        "https://www.stagestarzdance.net",
+        "https://stage-starz-website-production.up.railway.app",
+    }
+    configured = os.environ.get("FILE_CENTER_ALLOWED_ORIGINS", "")
+    for value in configured.split(","):
+        value = value.strip().rstrip("/")
+        if value.startswith(("https://", "http://")):
+            origins.add(value)
+    current_origin = (current_origin or "").strip().rstrip("/")
+    if current_origin.startswith(("https://", "http://")):
+        origins.add(current_origin)
+    return sorted(origins)
+
+
+def ensure_file_center_bucket_cors(s3, bucket: str) -> None:
+    current_origin = request.headers.get("Origin", "").strip() or request.url_root.rstrip("/")
+    origins = file_center_allowed_origins(current_origin)
+    cache_key = (bucket, tuple(origins))
+    if cache_key in _FILE_CENTER_CORS_READY:
+        return
+    s3.put_bucket_cors(
+        Bucket=bucket,
+        CORSConfiguration={
+            "CORSRules": [
+                {
+                    "AllowedHeaders": ["*"],
+                    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+                    "AllowedOrigins": origins,
+                    "ExposeHeaders": ["ETag"],
+                    "MaxAgeSeconds": 3600,
+                }
+            ]
+        },
+    )
+    _FILE_CENTER_CORS_READY.add(cache_key)
+
+
 def file_center_size_label(size_bytes: int) -> str:
     size = float(size_bytes or 0)
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -1416,17 +1461,34 @@ def file_center_logout():
 @file_center_required
 def file_center():
     connection = get_db()
-    rows = connection.execute(
-        """
-        SELECT
-            f.id, f.object_key, f.original_name, f.mime_type,
-            f.size_bytes, f.created_at,
-            COALESCE(u.display_name, u.username, 'Unknown user') AS uploaded_by_name
-        FROM file_center_files f
-        LEFT JOIN admin_users u ON u.id = f.uploaded_by
-        ORDER BY f.id DESC
-        """
-    ).fetchall()
+    is_owner = session.get("admin_role") == "owner"
+    user_id = int(session.get("admin_user_id") or 0)
+    if is_owner:
+        rows = connection.execute(
+            """
+            SELECT
+                f.id, f.object_key, f.original_name, f.mime_type,
+                f.size_bytes, f.created_at,
+                COALESCE(u.display_name, u.username, 'Unknown user') AS uploaded_by_name
+            FROM file_center_files f
+            LEFT JOIN admin_users u ON u.id = f.uploaded_by
+            ORDER BY f.id DESC
+            """
+        ).fetchall()
+    else:
+        rows = connection.execute(
+            """
+            SELECT
+                f.id, f.object_key, f.original_name, f.mime_type,
+                f.size_bytes, f.created_at,
+                COALESCE(u.display_name, u.username, 'Unknown user') AS uploaded_by_name
+            FROM file_center_files f
+            LEFT JOIN admin_users u ON u.id = f.uploaded_by
+            WHERE f.uploaded_by=?
+            ORDER BY f.id DESC
+            """,
+            (user_id,),
+        ).fetchall()
     connection.close()
     files = []
     total_bytes = 0
@@ -1441,7 +1503,7 @@ def file_center():
         total_size=file_center_size_label(total_bytes),
         max_upload_size=file_center_size_label(FILE_CENTER_MAX_BYTES),
         csrf_token=file_center_csrf_token(),
-        can_delete=session.get("admin_role") == "owner",
+        can_delete=is_owner,
     )
 
 
@@ -1469,6 +1531,7 @@ def file_center_prepare_upload():
     )
     try:
         s3, bucket = file_center_s3()
+        ensure_file_center_bucket_cors(s3, bucket)
         upload = s3.generate_presigned_post(
             Bucket=bucket,
             Key=object_key,
@@ -1536,10 +1599,16 @@ def file_center_complete_upload():
 @file_center_required
 def file_center_download(file_id):
     connection = get_db()
-    row = connection.execute(
-        "SELECT object_key, original_name FROM file_center_files WHERE id=?",
-        (file_id,),
-    ).fetchone()
+    if session.get("admin_role") == "owner":
+        row = connection.execute(
+            "SELECT object_key, original_name FROM file_center_files WHERE id=?",
+            (file_id,),
+        ).fetchone()
+    else:
+        row = connection.execute(
+            "SELECT object_key, original_name FROM file_center_files WHERE id=? AND uploaded_by=?",
+            (file_id, int(session.get("admin_user_id") or 0)),
+        ).fetchone()
     connection.close()
     if not row:
         abort(404)
