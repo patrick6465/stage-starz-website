@@ -387,6 +387,7 @@ def init_db() -> None:
             uploaded_by INTEGER,
             visibility TEXT NOT NULL DEFAULT 'family',
             folder_id INTEGER,
+            content_fingerprint TEXT NOT NULL DEFAULT '',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(uploaded_by) REFERENCES admin_users(id) ON DELETE SET NULL,
             FOREIGN KEY(folder_id) REFERENCES file_center_folders(id) ON DELETE SET NULL
@@ -400,6 +401,9 @@ def init_db() -> None:
         cursor.execute(
             "ALTER TABLE file_center_files ADD COLUMN IF NOT EXISTS folder_id INTEGER"
         )
+        cursor.execute(
+            "ALTER TABLE file_center_files ADD COLUMN IF NOT EXISTS content_fingerprint TEXT NOT NULL DEFAULT ''"
+        )
     else:
         file_center_columns = {
             row["name"]
@@ -412,6 +416,10 @@ def init_db() -> None:
         if "folder_id" not in file_center_columns:
             cursor.execute(
                 "ALTER TABLE file_center_files ADD COLUMN folder_id INTEGER"
+            )
+        if "content_fingerprint" not in file_center_columns:
+            cursor.execute(
+                "ALTER TABLE file_center_files ADD COLUMN content_fingerprint TEXT NOT NULL DEFAULT ''"
             )
 
     cursor.execute(
