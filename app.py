@@ -1643,6 +1643,7 @@ def file_center():
         item = dict(row)
         item["size_label"] = file_center_size_label(int(item["size_bytes"] or 0))
         item["can_delete"] = bool(is_owner or int(item["uploaded_by"] or 0) == user_id)
+        item["can_move"] = bool(is_owner or int(item["uploaded_by"] or 0) == user_id)
         item["media_kind"] = file_center_media_kind(item["original_name"], item["mime_type"])
         files.append(item)
 
@@ -1950,6 +1951,137 @@ def file_center_abort_upload():
     except Exception:
         logger.exception("File Center multipart upload abort failed")
     return jsonify({"ok": True})
+
+
+@app.route("/api/file-center/move-options/<int:file_id>")
+@file_center_required
+def file_center_move_options(file_id):
+    connection = get_db()
+    row = connection.execute(
+        """
+        SELECT id, original_name, visibility, uploaded_by, folder_id
+        FROM file_center_files
+        WHERE id=?
+        """,
+        (file_id,),
+    ).fetchone()
+    if not row:
+        connection.close()
+        return jsonify({"error": "File not found."}), 404
+
+    user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    if not is_owner and int(row["uploaded_by"] or 0) != user_id:
+        connection.close()
+        return jsonify({"error": "You can only move files you uploaded."}), 403
+
+    if row["visibility"] == "family":
+        folder_rows = connection.execute(
+            """
+            SELECT id,name,parent_id
+            FROM file_center_folders
+            WHERE visibility='family'
+            ORDER BY LOWER(name)
+            """
+        ).fetchall()
+        root_label = "Family Library (no folder)"
+    else:
+        folder_rows = connection.execute(
+            """
+            SELECT id,name,parent_id
+            FROM file_center_folders
+            WHERE visibility='private' AND owner_user_id=?
+            ORDER BY LOWER(name)
+            """,
+            (int(row["uploaded_by"] or 0),),
+        ).fetchall()
+        root_label = "Private Files (no folder)"
+
+    folder_map = {int(folder["id"]): dict(folder) for folder in folder_rows}
+
+    def folder_path(folder_id):
+        parts = []
+        seen = set()
+        current_id = folder_id
+        while current_id and current_id not in seen and current_id in folder_map:
+            seen.add(current_id)
+            current = folder_map[current_id]
+            parts.append(current["name"])
+            current_id = int(current["parent_id"] or 0) or None
+        return " / ".join(reversed(parts))
+
+    destinations = [{"id": None, "label": root_label}]
+    destinations.extend(
+        {"id": folder_id, "label": folder_path(folder_id)}
+        for folder_id in sorted(
+            folder_map,
+            key=lambda folder_id: folder_path(folder_id).lower(),
+        )
+    )
+    connection.close()
+    return jsonify({
+        "file_id": int(row["id"]),
+        "filename": row["original_name"],
+        "current_folder_id": row["folder_id"],
+        "destinations": destinations,
+    })
+
+
+@app.route("/api/file-center/move/<int:file_id>", methods=["POST"])
+@file_center_required
+def file_center_move(file_id):
+    if not file_center_csrf_valid():
+        return jsonify({"error": "Security token expired. Refresh the page and try again."}), 403
+
+    data = request.get_json(silent=True) or {}
+    raw_folder_id = data.get("folder_id")
+    try:
+        target_folder_id = int(raw_folder_id) if raw_folder_id not in (None, "", 0, "0") else None
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid destination folder."}), 400
+
+    connection = get_db()
+    row = connection.execute(
+        """
+        SELECT id, original_name, visibility, uploaded_by, folder_id
+        FROM file_center_files
+        WHERE id=?
+        """,
+        (file_id,),
+    ).fetchone()
+    if not row:
+        connection.close()
+        return jsonify({"error": "File not found."}), 404
+
+    user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    if not is_owner and int(row["uploaded_by"] or 0) != user_id:
+        connection.close()
+        return jsonify({"error": "You can only move files you uploaded."}), 403
+
+    if target_folder_id is not None:
+        target = connection.execute(
+            """
+            SELECT id, visibility, owner_user_id
+            FROM file_center_folders
+            WHERE id=?
+            """,
+            (target_folder_id,),
+        ).fetchone()
+        if not target or target["visibility"] != row["visibility"]:
+            connection.close()
+            return jsonify({"error": "That folder is not available for this file."}), 403
+        if row["visibility"] == "private" and int(target["owner_user_id"] or 0) != int(row["uploaded_by"] or 0):
+            connection.close()
+            return jsonify({"error": "Private files can only move within that family member's private folders."}), 403
+
+    connection.execute(
+        "UPDATE file_center_files SET folder_id=? WHERE id=?",
+        (target_folder_id, file_id),
+    )
+    connection.commit()
+    connection.close()
+    return jsonify({"ok": True, "filename": row["original_name"]})
 
 
 @app.route("/file-center/preview/<int:file_id>")
