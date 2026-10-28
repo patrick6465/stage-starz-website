@@ -15,11 +15,11 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
 .library-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}.library-tab{padding:15px 16px;border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.045)}.library-tab strong{display:block;font-size:1rem}.library-tab span{display:block;color:var(--muted);font-size:.78rem;margin-top:3px}.library-tab.active{border-color:rgba(80,214,208,.5);background:linear-gradient(110deg,rgba(239,61,152,.12),rgba(155,77,204,.13),rgba(80,214,208,.1))}
 .folder-bar{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;margin-bottom:14px}.folder-form{display:flex;gap:8px;align-items:flex-end}.folder-form label{font-size:.75rem;color:var(--muted);font-weight:850}.folder-form input{display:block;margin-top:5px;min-width:210px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.06);color:#fff}.folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:15px}.folder{padding:14px;border:1px solid rgba(255,255,255,.1);border-radius:13px;background:rgba(255,255,255,.035);font-weight:850}.folder span{display:block;color:var(--muted);font-size:.75rem;font-weight:650;margin-top:4px}.back-folder{display:inline-block;margin:0 0 12px;color:#bffbf8;font-weight:850;font-size:.86rem}
 .drop{margin-top:16px;border:2px dashed rgba(80,214,208,.42);border-radius:17px;padding:28px;text-align:center;background:rgba(80,214,208,.055);transition:.18s}.drop.drag{border-color:var(--pink);background:rgba(239,61,152,.08)}.drop input{display:none}.drop label{display:inline-block;padding:11px 16px;border-radius:11px;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));font-weight:900;cursor:pointer}.selected{margin-top:12px;color:var(--muted);overflow-wrap:anywhere}.progress-wrap{display:none;margin-top:16px}.progress-track{height:12px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.progress-bar{width:0;height:100%;background:linear-gradient(90deg,var(--pink),var(--purple),var(--teal));transition:width .15s}.progress-text{margin-top:8px;font-size:.86rem;color:var(--muted)}.error,.flash{padding:12px 14px;border-radius:12px;margin-bottom:14px}.error{display:none;border:1px solid rgba(255,108,125,.45);background:rgba(255,108,125,.11);color:#ffd7dc}.flash{border:1px solid rgba(98,230,170,.32);background:rgba(98,230,170,.09)}
-.file-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.search{width:min(330px,100%);padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.06);color:#fff;outline:0}.table{display:grid;gap:9px}.file{display:grid;grid-template-columns:72px minmax(0,1fr) 100px 155px auto;gap:14px;align-items:center;padding:13px 14px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035)}.file-main{min-width:0}.file-name{font-weight:850;overflow-wrap:anywhere}.file-meta{font-size:.78rem;color:var(--muted);margin-top:4px}.file-size,.file-date{color:var(--muted);font-size:.85rem}.file-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}.download,.move,.delete{border-radius:10px;padding:8px 10px;font-weight:850;font-size:.82rem}.download{background:rgba(80,214,208,.14);color:#bffbf8;border:1px solid rgba(80,214,208,.28);cursor:pointer}.move{background:rgba(155,77,204,.15);color:#ead7ff;border:1px solid rgba(155,77,204,.34);cursor:pointer}.delete{background:rgba(255,108,125,.11);color:#ffd0d6;border:1px solid rgba(255,108,125,.27);cursor:pointer}.empty{text-align:center;padding:34px;color:var(--muted)}form{margin:0}
+.file-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.bulk-tools{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.select-all{display:flex;gap:7px;align-items:center;font-size:.84rem;color:var(--muted);font-weight:850}.select-all input,.file-select input{width:20px;height:20px;accent-color:var(--teal);cursor:pointer}.bulk-move{border:1px solid rgba(155,77,204,.34);border-radius:10px;padding:8px 11px;background:rgba(155,77,204,.15);color:#ead7ff;font-weight:850;cursor:pointer}.bulk-move:disabled{opacity:.45;cursor:not-allowed}.search{width:min(330px,100%);padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.06);color:#fff;outline:0}.table{display:grid;gap:9px}.file{display:grid;grid-template-columns:30px 72px minmax(0,1fr) 100px 155px auto;gap:14px;align-items:center;padding:13px 14px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035)}.file-select{display:grid;place-items:center;min-height:44px}.file-select-spacer{width:30px}.file-main{min-width:0}.file-name{font-weight:850;overflow-wrap:anywhere}.file-meta{font-size:.78rem;color:var(--muted);margin-top:4px}.file-size,.file-date{color:var(--muted);font-size:.85rem}.file-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}.download,.move,.delete{border-radius:10px;padding:8px 10px;font-weight:850;font-size:.82rem}.download{background:rgba(80,214,208,.14);color:#bffbf8;border:1px solid rgba(80,214,208,.28);cursor:pointer}.move{background:rgba(155,77,204,.15);color:#ead7ff;border:1px solid rgba(155,77,204,.34);cursor:pointer}.delete{background:rgba(255,108,125,.11);color:#ffd0d6;border:1px solid rgba(255,108,125,.27);cursor:pointer}.empty{text-align:center;padding:34px;color:var(--muted)}form{margin:0}
 .file-thumb{width:72px;height:56px;padding:0;border:1px solid rgba(255,255,255,.12);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.06);color:#fff;display:grid;place-items:center;position:relative;cursor:pointer}.file-thumb img,.file-thumb video{width:100%;height:100%;display:block;object-fit:cover}.file-thumb.generic{cursor:default;font-size:1.5rem}.play-badge{position:absolute;inset:auto 6px 5px auto;width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.72);font-size:.68rem}.selected{white-space:pre-line}.queue-note{margin-top:7px;font-size:.78rem;color:var(--muted)}
 .preview-modal{position:fixed;inset:0;z-index:1000;display:none;place-items:center;padding:22px;background:rgba(0,0,0,.78);backdrop-filter:blur(10px)}.preview-modal.open{display:grid}.preview-dialog{width:min(1050px,100%);max-height:92vh;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#100a1d;box-shadow:0 30px 90px rgba(0,0,0,.55)}.preview-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 15px;border-bottom:1px solid var(--line)}.preview-title{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.preview-close{width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.06);color:#fff;cursor:pointer}.preview-body{display:grid;place-items:center;min-height:260px;max-height:calc(92vh - 66px);overflow:auto;background:#07040c}.preview-body img{max-width:100%;max-height:calc(92vh - 90px);object-fit:contain}.preview-body video{width:100%;max-height:calc(92vh - 90px);background:#000}.preview-body iframe{width:100%;height:80vh;border:0;background:#fff}
 .move-modal{position:fixed;inset:0;z-index:1100;display:none;place-items:center;padding:22px;background:rgba(0,0,0,.74);backdrop-filter:blur(10px)}.move-modal.open{display:grid}.move-dialog{width:min(520px,100%);border:1px solid var(--line);border-radius:20px;background:#100a1d;box-shadow:0 30px 90px rgba(0,0,0,.55);overflow:hidden}.move-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}.move-title{font-weight:900}.move-body{padding:18px}.move-filename{font-weight:850;overflow-wrap:anywhere;margin-bottom:14px}.move-body label{display:block;color:var(--muted);font-size:.82rem;font-weight:850}.move-body select{width:100%;margin-top:7px;padding:12px;border:1px solid var(--line);border-radius:11px;background:#17102a;color:#fff}.move-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}.move-status{min-height:20px;margin-top:10px;color:var(--muted);font-size:.82rem}
-@media(max-width:760px){.top{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr}.library-tabs{grid-template-columns:1fr}.folder-bar{align-items:stretch;flex-direction:column}.folder-form{align-items:stretch;flex-direction:column}.folder-form input{min-width:0;width:100%}.storage-head{align-items:flex-start;flex-direction:column}.file{grid-template-columns:72px minmax(0,1fr) auto}.file-thumb{grid-column:1;grid-row:1/3}.file-main{grid-column:2}.file-size{grid-column:3;grid-row:1}.file-date{grid-column:2/-1}.file-actions{grid-column:2/-1;justify-content:flex-start}.file-tools{align-items:flex-start;flex-direction:column}.search{width:100%}}
+@media(max-width:760px){.top{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr}.library-tabs{grid-template-columns:1fr}.folder-bar{align-items:stretch;flex-direction:column}.folder-form{align-items:stretch;flex-direction:column}.folder-form input{min-width:0;width:100%}.storage-head{align-items:flex-start;flex-direction:column}.file{grid-template-columns:30px 72px minmax(0,1fr) auto}.file-select,.file-select-spacer{grid-column:1;grid-row:1/3}.file-thumb{grid-column:2;grid-row:1/3}.file-main{grid-column:3}.file-size{grid-column:4;grid-row:1}.file-date{grid-column:3/-1}.file-actions{grid-column:3/-1;justify-content:flex-start}.file-tools{align-items:flex-start;flex-direction:column}.bulk-tools{width:100%}.search{width:100%}}
 </style>
 </head>
 <body>
@@ -121,10 +121,24 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     </div>
     {% endif %}
 
-    <div class="file-tools"><div><strong>{% if current_folder %}Files in {{ current_folder.name }}{% else %}Files{% endif %}</strong></div><input class="search" id="fileSearch" placeholder="Search files…"></div>
+    <div class="file-tools">
+      <div>
+        <strong>{% if current_folder %}Files in {{ current_folder.name }}{% else %}Files{% endif %}</strong>
+        <div class="bulk-tools" style="margin-top:8px">
+          <label class="select-all"><input id="selectAllFiles" type="checkbox"> Select All</label>
+          <button class="bulk-move" id="bulkMoveButton" type="button" disabled>Move Selected (0)</button>
+        </div>
+      </div>
+      <input class="search" id="fileSearch" placeholder="Search files…">
+    </div>
     <div class="table" id="fileList">
       {% for file in files %}
       <div class="file" data-name="{{ file.original_name|lower }}">
+        {% if file.can_move %}
+          <label class="file-select" title="Select {{ file.original_name }}"><input class="move-select" type="checkbox" value="{{ file.id }}" aria-label="Select {{ file.original_name }}"></label>
+        {% else %}
+          <div class="file-select-spacer"></div>
+        {% endif %}
         {% if file.media_kind == 'image' %}
           <button class="file-thumb preview-trigger" type="button" data-kind="image" data-url="/file-center/preview/{{ file.id }}" data-name="{{ file.original_name }}"><img loading="lazy" src="/file-center/preview/{{ file.id }}" alt=""></button>
         {% elif file.media_kind == 'video' %}
@@ -164,7 +178,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
 <div class="move-modal" id="moveModal" aria-hidden="true">
   <div class="move-dialog">
     <div class="move-head">
-      <div class="move-title">Move File</div>
+      <div class="move-title" id="moveDialogTitle">Move File</div>
       <button class="preview-close" id="moveClose" type="button" aria-label="Close move dialog">✕</button>
     </div>
     <div class="move-body">
@@ -354,7 +368,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
       await jsonFetch('/api/file-center/complete-upload',{
         key:prep.key,upload_id:prep.upload_id,parts:parts,filename:file.name,
         content_type:file.type||'application/octet-stream',visibility:uploadVisibility,
-        folder_id:uploadFolderId,fingerprint:fingerprint
+        folder_id:targetFolderId,fingerprint:fingerprint
       });
       return {status:'uploaded',name:file.name};
     }catch(err){
@@ -448,23 +462,57 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
   const moveClose=document.getElementById('moveClose');
   const moveCancel=document.getElementById('moveCancel');
   const moveConfirm=document.getElementById('moveConfirm');
+  const moveDialogTitle=document.getElementById('moveDialogTitle');
   const moveFilename=document.getElementById('moveFilename');
   const moveDestination=document.getElementById('moveDestination');
   const moveStatus=document.getElementById('moveStatus');
-  let movingFileId=null;
+  const selectAllFiles=document.getElementById('selectAllFiles');
+  const bulkMoveButton=document.getElementById('bulkMoveButton');
+  let movingFileIds=[];
+
+  function selectedFileIds(){
+    return Array.from(document.querySelectorAll('.move-select:checked')).map(input=>Number(input.value)).filter(Boolean);
+  }
+
+  function visibleSelectableInputs(){
+    return Array.from(document.querySelectorAll('#fileList .file')).filter(row=>row.style.display!=='none').map(row=>row.querySelector('.move-select')).filter(Boolean);
+  }
+
+  function updateBulkSelection(){
+    const selectedIds=selectedFileIds();
+    bulkMoveButton.disabled=selectedIds.length===0;
+    bulkMoveButton.textContent='Move Selected ('+selectedIds.length+')';
+    const visible=visibleSelectableInputs();
+    const visibleChecked=visible.filter(input=>input.checked).length;
+    selectAllFiles.checked=visible.length>0&&visibleChecked===visible.length;
+    selectAllFiles.indeterminate=visibleChecked>0&&visibleChecked<visible.length;
+  }
+
+  function populateMoveDestinations(data){
+    moveDestination.replaceChildren();
+    (data.destinations||[]).forEach(destination=>{
+      const option=document.createElement('option');
+      option.value=destination.id===null?'':String(destination.id);
+      option.textContent=destination.label;
+      if((data.current_folder_id||null)===(destination.id||null))option.selected=true;
+      moveDestination.appendChild(option);
+    });
+  }
 
   function closeMove(){
     moveModal.classList.remove('open');
     moveModal.setAttribute('aria-hidden','true');
     moveDestination.replaceChildren();
     moveStatus.textContent='';
-    movingFileId=null;
+    movingFileIds=[];
     document.body.style.overflow='';
   }
 
   async function openMove(trigger){
     clearError();
-    movingFileId=trigger.dataset.fileId;
+    movingFileIds=[Number(trigger.dataset.fileId)];
+    moveDialogTitle.textContent='Move File';
+    moveConfirm.textContent='Move File';
     moveFilename.textContent=trigger.dataset.name||'Selected file';
     moveDestination.replaceChildren();
     moveStatus.textContent='Loading folders…';
@@ -473,16 +521,10 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     moveModal.setAttribute('aria-hidden','false');
     document.body.style.overflow='hidden';
     try{
-      const response=await fetch('/api/file-center/move-options/'+movingFileId);
+      const response=await fetch('/api/file-center/move-options/'+movingFileIds[0]);
       const data=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(data.error||'Could not load folders.');
-      (data.destinations||[]).forEach(destination=>{
-        const option=document.createElement('option');
-        option.value=destination.id===null?'':String(destination.id);
-        option.textContent=destination.label;
-        if((data.current_folder_id||null)===(destination.id||null))option.selected=true;
-        moveDestination.appendChild(option);
-      });
+      populateMoveDestinations(data);
       moveStatus.textContent=(data.destinations||[]).length>1?'Choose a destination folder.':'No folders yet — you can move this file back to the main library.';
       moveConfirm.disabled=false;
     }catch(err){
@@ -490,22 +532,60 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     }
   }
 
+  async function openBulkMove(){
+    clearError();
+    movingFileIds=selectedFileIds();
+    if(!movingFileIds.length)return;
+    moveDialogTitle.textContent='Move Selected Files';
+    moveConfirm.textContent='Move '+movingFileIds.length+' Files';
+    moveFilename.textContent=movingFileIds.length+' files selected';
+    moveDestination.replaceChildren();
+    moveStatus.textContent='Loading folders…';
+    moveConfirm.disabled=true;
+    moveModal.classList.add('open');
+    moveModal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+    try{
+      const data=await jsonFetch('/api/file-center/bulk-move-options',{file_ids:movingFileIds});
+      populateMoveDestinations(data);
+      moveStatus.textContent='Choose one destination for all '+movingFileIds.length+' selected files.';
+      moveConfirm.disabled=false;
+    }catch(err){
+      moveStatus.textContent=err.message||'Could not load folders.';
+    }
+  }
+
   document.querySelectorAll('.move-trigger').forEach(el=>el.addEventListener('click',()=>openMove(el)));
+  document.querySelectorAll('.move-select').forEach(input=>input.addEventListener('change',updateBulkSelection));
+  selectAllFiles.addEventListener('change',()=>{
+    visibleSelectableInputs().forEach(input=>{input.checked=selectAllFiles.checked;});
+    updateBulkSelection();
+  });
+  bulkMoveButton.addEventListener('click',openBulkMove);
   moveClose.addEventListener('click',closeMove);
   moveCancel.addEventListener('click',closeMove);
   moveModal.addEventListener('click',e=>{if(e.target===moveModal)closeMove();});
   moveConfirm.addEventListener('click',async()=>{
-    if(!movingFileId)return;
+    if(!movingFileIds.length)return;
     moveConfirm.disabled=true;
-    moveStatus.textContent='Moving file…';
+    moveStatus.textContent=movingFileIds.length>1?'Moving selected files…':'Moving file…';
     try{
-      const data=await jsonFetch('/api/file-center/move/'+movingFileId,{
-        folder_id:moveDestination.value||null
-      });
-      sessionStorage.setItem('familyFileCenterNotice',(data.filename||'File')+' moved successfully.');
+      let data;
+      if(movingFileIds.length===1){
+        data=await jsonFetch('/api/file-center/move/'+movingFileIds[0],{
+          folder_id:moveDestination.value||null
+        });
+        sessionStorage.setItem('familyFileCenterNotice',(data.filename||'File')+' moved successfully.');
+      }else{
+        data=await jsonFetch('/api/file-center/bulk-move',{
+          file_ids:movingFileIds,
+          folder_id:moveDestination.value||null
+        });
+        sessionStorage.setItem('familyFileCenterNotice',(data.count||movingFileIds.length)+' files moved successfully.');
+      }
       window.location.reload();
     }catch(err){
-      moveStatus.textContent=err.message||'Could not move file.';
+      moveStatus.textContent=err.message||'Could not move the selected files.';
       moveConfirm.disabled=false;
     }
   });
@@ -526,6 +606,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
   document.getElementById('fileSearch').addEventListener('input',function(){
     const q=this.value.trim().toLowerCase();
     document.querySelectorAll('#fileList .file').forEach(row=>{row.style.display=(!q||row.dataset.name.includes(q))?'grid':'none';});
+    updateBulkSelection();
   });
 })();
 </script>
