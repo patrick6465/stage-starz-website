@@ -284,7 +284,12 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     let prep=null;
     try{
       progressText.textContent='Checking '+(fileIndex+1)+' of '+fileCount+' for duplicates… '+file.name;
-      const fingerprint=await fileFingerprint(file);
+      let fingerprint='';
+      try{
+        fingerprint=await fileFingerprint(file);
+      }catch(fingerprintError){
+        console.warn('Duplicate fingerprint unavailable; continuing upload without it.',fingerprintError);
+      }
       prep=await jsonFetch('/api/file-center/prepare-upload',{
         filename:file.name,size:file.size,content_type:file.type||'application/octet-stream',
         visibility:uploadVisibility,folder_id:uploadFolderId,fingerprint:fingerprint
@@ -316,7 +321,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     progressWrap.style.display='block';progressBar.style.width='1%';
     const totalBytes=chosenFiles.reduce((sum,file)=>sum+file.size,0)||1;
     let completedBytes=0,uploaded=0,duplicates=0,failed=0;
-    const duplicateNames=[],failedNames=[];
+    const duplicateNames=[],failedNames=[],failureMessages=[];
     for(let i=0;i<chosenFiles.length;i++){
       const file=chosenFiles[i];
       const result=await uploadOne(file,i,chosenFiles.length,totalBytes,completedBytes);
@@ -325,7 +330,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
       progressBar.style.width=pct+'%';
       if(result.status==='uploaded')uploaded++;
       else if(result.status==='duplicate'){duplicates++;duplicateNames.push(result.name);}
-      else{failed++;failedNames.push(result.name);}
+      else{failed++;failedNames.push(result.name);failureMessages.push(result.message||'Upload failed.');}
     }
     progressBar.style.width='100%';
     const parts=[];
@@ -333,7 +338,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     if(duplicates)parts.push(duplicates+' duplicate'+(duplicates===1?'':'s')+' skipped');
     if(failed)parts.push(failed+' failed');
     const summary='Upload finished: '+parts.join(', ')+'.';
-    progressText.textContent=summary;
+    progressText.textContent=summary+(failed&&failureMessages[0]?' '+failureMessages[0]:'');
     button.disabled=false;input.disabled=false;
     if(uploaded){
       sessionStorage.setItem('familyFileCenterNotice',summary+(duplicates?' Duplicate files were not stored again.':''));
