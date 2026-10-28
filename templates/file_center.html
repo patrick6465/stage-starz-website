@@ -54,7 +54,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
   </section>
 
   <section class="card">
-    <div class="file-tools"><div><h2 style="margin-bottom:4px">Stored Files</h2><div class="muted">Everyone with File Center access can download these files.</div></div><input class="search" id="fileSearch" placeholder="Search files…"></div>
+    <div class="file-tools"><div><h2 style="margin-bottom:4px">Stored Files</h2><div class="muted">{% if can_delete %}Owner view: all authorized File Center uploads are shown here.{% else %}Private view: only files you uploaded are shown here.{% endif %}</div></div><input class="search" id="fileSearch" placeholder="Search files…"></div>
     <div class="table" id="fileList">
       {% for file in files %}
       <div class="file" data-name="{{ file.original_name|lower }}">
