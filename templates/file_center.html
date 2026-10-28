@@ -78,10 +78,14 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     <div class="drop" id="dropZone">
       <div style="font-size:2rem;margin-bottom:8px">⬆️</div>
       <div style="font-weight:850;margin-bottom:12px">Drag files here or choose photos, videos, and other files from your device</div>
-      <label for="fileInput">Choose Files</label>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <label for="fileInput">Choose Files</label>
+        <label for="folderInput">📁 Upload Folder</label>
+      </div>
       <input id="fileInput" type="file" multiple>
+      <input id="folderInput" type="file" webkitdirectory directory multiple>
       <div class="selected" id="selectedFile">No files selected.</div>
-      <div class="queue-note">You can select many files at once. They upload one file at a time, while each large file still uses fast multipart chunks.</div>
+      <div class="queue-note">Choose Files for individual items, or Upload Folder to bring in an entire folder with its subfolders preserved. Large files still use secure multipart chunks.</div>
     </div>
     <div class="progress-wrap" id="progressWrap">
       <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
@@ -181,6 +185,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
   const csrf={{ csrf_token|tojson }};
   const maxUploadBytes={{ max_upload_bytes|tojson }};
   const input=document.getElementById('fileInput');
+  const folderInput=document.getElementById('folderInput');
   const drop=document.getElementById('dropZone');
   const selected=document.getElementById('selectedFile');
   const button=document.getElementById('uploadButton');
@@ -192,6 +197,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
   const uploadVisibility={{ current_view|tojson }};
   const uploadFolderId={{ (current_folder.id if current_folder else none)|tojson }};
   let chosenFiles=[];
+  let chosenFolderUpload=false;
 
   const savedNotice=sessionStorage.getItem('familyFileCenterNotice');
   if(savedNotice){noticeBox.textContent=savedNotice;noticeBox.style.display='block';sessionStorage.removeItem('familyFileCenterNotice');}
@@ -203,28 +209,35 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     while(value>=1024&&i<units.length-1){value/=1024;i++;}
     return (i===0?Math.round(value):value.toFixed(1))+' '+units[i];
   }
-  function choose(files){
+  function choose(files,folderMode=false){
     chosenFiles=Array.from(files||[]).filter(Boolean);
+    chosenFolderUpload=folderMode;
     const tooLarge=chosenFiles.find(file=>file.size>maxUploadBytes);
     const total=chosenFiles.reduce((sum,file)=>sum+file.size,0);
     if(!chosenFiles.length){
       selected.textContent='No files selected.';
       button.disabled=true;
+      button.textContent='Upload Selected Files';
     }else{
-      const names=chosenFiles.slice(0,5).map(file=>file.name).join('\n');
+      const names=chosenFiles.slice(0,5).map(file=>{
+        const rel=folderMode?(file.webkitRelativePath||file.name):file.name;
+        return rel;
+      }).join('\n');
       const more=chosenFiles.length>5?'\n…and '+(chosenFiles.length-5)+' more':'';
-      selected.textContent=chosenFiles.length+' file'+(chosenFiles.length===1?'':'s')+' · '+formatSize(total)+' total\n'+names+more;
-      button.textContent='Upload '+chosenFiles.length+' File'+(chosenFiles.length===1?'':'s');
+      const rootPath=folderMode?(chosenFiles[0].webkitRelativePath||'').split('/').filter(Boolean)[0]:'';
+      selected.textContent=(folderMode&&rootPath?'Folder: '+rootPath+'\n':'')+chosenFiles.length+' file'+(chosenFiles.length===1?'':'s')+' · '+formatSize(total)+' total\n'+names+more;
+      button.textContent=folderMode?'Upload Folder':'Upload '+chosenFiles.length+' File'+(chosenFiles.length===1?'':'s');
       button.disabled=!!tooLarge;
     }
     progressWrap.style.display='none';progressBar.style.width='0%';
     clearError();
     if(tooLarge)showError(tooLarge.name+' is larger than the '+formatSize(maxUploadBytes)+' per-file limit.');
   }
-  input.addEventListener('change',()=>choose(input.files));
+  input.addEventListener('change',()=>choose(input.files,false));
+  folderInput.addEventListener('change',()=>choose(folderInput.files,true));
   ['dragenter','dragover'].forEach(evt=>drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.add('drag');}));
   ['dragleave','drop'].forEach(evt=>drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.remove('drag');}));
-  drop.addEventListener('drop',e=>{if(e.dataTransfer.files&&e.dataTransfer.files.length)choose(e.dataTransfer.files);});
+  drop.addEventListener('drop',e=>{if(e.dataTransfer.files&&e.dataTransfer.files.length)choose(e.dataTransfer.files,false);});
 
   async function jsonFetch(url,body){
     const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
@@ -232,6 +245,23 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     if(!response.ok){const err=new Error(data.error||'Request failed.');err.status=response.status;err.data=data;throw err;}
     return data;
   }
+  async function ensureFolderPath(path){
+    if(!path)return uploadFolderId;
+    const data=await jsonFetch('/api/file-center/ensure-folder-path',{
+      visibility:uploadVisibility,
+      base_folder_id:uploadFolderId,
+      path:path
+    });
+    return data.folder_id||uploadFolderId;
+  }
+
+  function relativeDirectory(file){
+    const rel=String(file.webkitRelativePath||'').replace(/\\/g,'/').split('/').filter(Boolean);
+    if(rel.length<=1)return '';
+    rel.pop();
+    return rel.join('/');
+  }
+
   function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 
   async function fileFingerprint(file){
@@ -301,7 +331,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     return completed;
   }
 
-  async function uploadOne(file,fileIndex,fileCount,totalBytes,completedBytes){
+  async function uploadOne(file,fileIndex,fileCount,totalBytes,completedBytes,targetFolderId){
     let prep=null;
     try{
       progressText.textContent='Checking '+(fileIndex+1)+' of '+fileCount+' for duplicates… '+file.name;
@@ -313,7 +343,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
       }
       prep=await jsonFetch('/api/file-center/prepare-upload',{
         filename:file.name,size:file.size,content_type:file.type||'application/octet-stream',
-        visibility:uploadVisibility,folder_id:uploadFolderId,fingerprint:fingerprint
+        visibility:uploadVisibility,folder_id:targetFolderId,fingerprint:fingerprint
       });
       const parts=await sendMultipartToBucket(prep,file,loaded=>{
         const pct=Math.max(1,Math.min(99,Math.round(((completedBytes+loaded)/totalBytes)*100)));
@@ -338,14 +368,34 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
 
   button.addEventListener('click',async()=>{
     if(!chosenFiles.length)return;
-    clearError();noticeBox.style.display='none';button.disabled=true;input.disabled=true;
+    clearError();noticeBox.style.display='none';button.disabled=true;input.disabled=true;folderInput.disabled=true;
     progressWrap.style.display='block';progressBar.style.width='1%';
     const totalBytes=chosenFiles.reduce((sum,file)=>sum+file.size,0)||1;
     let completedBytes=0,uploaded=0,duplicates=0,failed=0;
     const duplicateNames=[],failedNames=[],failureMessages=[];
+    const folderIds=new Map();
+
+    if(chosenFolderUpload){
+      progressText.textContent='Creating folder structure…';
+      const directories=[...new Set(chosenFiles.map(relativeDirectory).filter(Boolean))];
+      try{
+        directories.sort((a,b)=>a.split('/').length-b.split('/').length||a.localeCompare(b));
+        for(const directory of directories){
+          folderIds.set(directory,await ensureFolderPath(directory));
+        }
+      }catch(err){
+        showError(err.message||'Could not create the folder structure.');
+        progressText.textContent='Folder upload stopped.';
+        button.disabled=false;input.disabled=false;folderInput.disabled=false;
+        return;
+      }
+    }
+
     for(let i=0;i<chosenFiles.length;i++){
       const file=chosenFiles[i];
-      const result=await uploadOne(file,i,chosenFiles.length,totalBytes,completedBytes);
+      const directory=chosenFolderUpload?relativeDirectory(file):'';
+      const targetFolderId=directory?(folderIds.get(directory)||uploadFolderId):uploadFolderId;
+      const result=await uploadOne(file,i,chosenFiles.length,totalBytes,completedBytes,targetFolderId);
       completedBytes+=file.size;
       const pct=Math.min(99,Math.round((completedBytes/totalBytes)*100));
       progressBar.style.width=pct+'%';
@@ -358,14 +408,14 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     if(uploaded)parts.push(uploaded+' uploaded');
     if(duplicates)parts.push(duplicates+' duplicate'+(duplicates===1?'':'s')+' skipped');
     if(failed)parts.push(failed+' failed');
-    const summary='Upload finished: '+parts.join(', ')+'.';
+    const summary=(chosenFolderUpload?'Folder upload finished: ':'Upload finished: ')+parts.join(', ')+'.';
     progressText.textContent=summary+(failed&&failureMessages[0]?' '+failureMessages[0]:'');
-    button.disabled=false;input.disabled=false;
-    if(uploaded){
+    button.disabled=false;input.disabled=false;folderInput.disabled=false;
+    if(uploaded||duplicates){
       sessionStorage.setItem('familyFileCenterNotice',summary+(duplicates?' Duplicate files were not stored again.':''));
       window.location.reload();
     }else{
-      noticeBox.textContent=summary+(duplicates?' Duplicate files were not stored again.':'');
+      noticeBox.textContent=summary;
       noticeBox.style.display='block';
       if(failed)showError('Could not upload: '+failedNames.slice(0,3).join(', ')+(failedNames.length>3?'…':''));
     }
