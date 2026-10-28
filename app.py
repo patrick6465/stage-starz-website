@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import secrets
 import logging
 import uuid
 from datetime import date, datetime, timedelta
@@ -42,6 +44,9 @@ from config import (
 )
 from database import get_db, init_db
 
+import boto3
+from botocore.config import Config as BotoConfig
+
 import qrcode
 from qrcode.image.svg import SvgPathImage
 
@@ -72,9 +77,10 @@ def login_required(view):
 
 ROLE_DEFINITIONS = {
     "owner": {"label":"Owner","description":"Full access to every module.","permissions":{"*"}},
-    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","production","ticketing","notifications","workflow","orders","website","announcements","media","search","reports"}},
+    "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","production","ticketing","notifications","workflow","orders","website","announcements","media","search","reports","file_center"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
     "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","ticketing","notifications","workflow","reports","media","search"}},
+    "file_user": {"label":"File Center User","description":"Private File Center access only. No Command Center access.","permissions":{"file_center"}},
 }
 
 def current_admin():
@@ -117,6 +123,28 @@ def permission_required(permission):
         return wrapped
     return decorator
 
+def file_center_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("admin_logged_in"):
+            return redirect(url_for("file_center_login"))
+        if not has_permission("file_center"):
+            abort(403)
+        return view(*args, **kwargs)
+    return wrapped
+
+
+@app.before_request
+def isolate_file_center_users():
+    if (
+        session.get("admin_logged_in")
+        and session.get("admin_role") == "file_user"
+        and request.path.startswith("/admin")
+        and request.endpoint not in {"admin_login", "admin_logout"}
+    ):
+        return redirect(url_for("file_center"))
+
+
 def rows_to_products(rows: list[Any]) -> list[dict[str, Any]]:
     products = []
     for row in rows:
@@ -153,6 +181,65 @@ def delete_uploaded_image(image_url: str) -> None:
         target = UPLOAD_FOLDER / Path(image_url).name
         if target.exists() and target.is_file():
             target.unlink()
+
+
+FILE_CENTER_MAX_BYTES = int(
+    os.environ.get("FILE_CENTER_MAX_BYTES", str(5 * 1024 * 1024 * 1024 - 1))
+)
+
+
+def file_center_s3():
+    required = {
+        "ENDPOINT": os.environ.get("ENDPOINT", "").strip(),
+        "REGION": os.environ.get("REGION", "").strip() or "auto",
+        "BUCKET": os.environ.get("BUCKET", "").strip(),
+        "ACCESS_KEY_ID": os.environ.get("ACCESS_KEY_ID", "").strip(),
+        "SECRET_ACCESS_KEY": os.environ.get("SECRET_ACCESS_KEY", "").strip(),
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise RuntimeError(
+            "File Center bucket configuration is incomplete: " + ", ".join(missing)
+        )
+    client = boto3.client(
+        "s3",
+        endpoint_url=required["ENDPOINT"],
+        region_name=required["REGION"],
+        aws_access_key_id=required["ACCESS_KEY_ID"],
+        aws_secret_access_key=required["SECRET_ACCESS_KEY"],
+        config=BotoConfig(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+    )
+    return client, required["BUCKET"]
+
+
+def file_center_size_label(size_bytes: int) -> str:
+    size = float(size_bytes or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size_bytes} B"
+
+
+def file_center_csrf_token() -> str:
+    token = session.get("file_center_csrf")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["file_center_csrf"] = token
+    return token
+
+
+def file_center_csrf_valid() -> bool:
+    supplied = (
+        request.headers.get("X-CSRF-Token", "")
+        or request.form.get("csrf_token", "")
+    )
+    expected = session.get("file_center_csrf", "")
+    return bool(
+        supplied
+        and expected
+        and secrets.compare_digest(str(supplied), str(expected))
+    )
 
 
 @app.context_processor
@@ -1253,7 +1340,7 @@ def admin_login():
             connection.commit(); connection.close()
             session.clear()
             session.update(admin_logged_in=True,admin_user_id=int(user["id"]),admin_username=user["username"],admin_display_name=user["display_name"],admin_role=user["role"])
-            return redirect(url_for("admin_dashboard"))
+            return redirect(url_for("file_center" if user["role"] == "file_user" else "admin_dashboard"))
         connection.commit(); connection.close()
         flash("Invalid username or password.","error")
     return render_template("admin_login.html")
@@ -1262,6 +1349,248 @@ def admin_login():
 def admin_logout():
     session.clear()
     return redirect(url_for("admin_login"))
+
+
+@app.route("/file-center/login", methods=["GET", "POST"])
+def file_center_login():
+    if session.get("admin_logged_in") and has_permission("file_center"):
+        return redirect(url_for("file_center"))
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        connection = get_db()
+        user = connection.execute(
+            "SELECT * FROM admin_users WHERE LOWER(username)=LOWER(?) AND active=1",
+            (username,),
+        ).fetchone()
+        role_info = ROLE_DEFINITIONS.get(user["role"]) if user else None
+        allowed = bool(
+            role_info
+            and ("*" in role_info["permissions"] or "file_center" in role_info["permissions"])
+        )
+        success = bool(
+            user
+            and allowed
+            and user["password_hash"]
+            and check_password_hash(user["password_hash"], password)
+        )
+        connection.execute(
+            "INSERT INTO admin_login_history (admin_user_id,username,success,ip_address,user_agent) VALUES (?,?,?,?,?)",
+            (
+                user["id"] if user else None,
+                username,
+                1 if success else 0,
+                request.headers.get("X-Forwarded-For", request.remote_addr or "")[:200],
+                request.headers.get("User-Agent", "")[:500],
+            ),
+        )
+        if success:
+            connection.execute(
+                "UPDATE admin_users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?",
+                (user["id"],),
+            )
+            connection.commit()
+            connection.close()
+            session.clear()
+            session.update(
+                admin_logged_in=True,
+                admin_user_id=int(user["id"]),
+                admin_username=user["username"],
+                admin_display_name=user["display_name"],
+                admin_role=user["role"],
+            )
+            return redirect(url_for("file_center"))
+        connection.commit()
+        connection.close()
+        flash("Invalid username, password, or File Center access.", "error")
+    return render_template("file_center_login.html")
+
+
+@app.route("/file-center/logout")
+def file_center_logout():
+    session.clear()
+    return redirect(url_for("file_center_login"))
+
+
+@app.route("/file-center")
+@file_center_required
+def file_center():
+    connection = get_db()
+    rows = connection.execute(
+        """
+        SELECT
+            f.id, f.object_key, f.original_name, f.mime_type,
+            f.size_bytes, f.created_at,
+            COALESCE(u.display_name, u.username, 'Unknown user') AS uploaded_by_name
+        FROM file_center_files f
+        LEFT JOIN admin_users u ON u.id = f.uploaded_by
+        ORDER BY f.id DESC
+        """
+    ).fetchall()
+    connection.close()
+    files = []
+    total_bytes = 0
+    for row in rows:
+        item = dict(row)
+        item["size_label"] = file_center_size_label(int(item["size_bytes"] or 0))
+        total_bytes += int(item["size_bytes"] or 0)
+        files.append(item)
+    return render_template(
+        "file_center.html",
+        files=files,
+        total_size=file_center_size_label(total_bytes),
+        max_upload_size=file_center_size_label(FILE_CENTER_MAX_BYTES),
+        csrf_token=file_center_csrf_token(),
+        can_delete=session.get("admin_role") == "owner",
+    )
+
+
+@app.route("/api/file-center/prepare-upload", methods=["POST"])
+@file_center_required
+def file_center_prepare_upload():
+    if not file_center_csrf_valid():
+        return jsonify({"error": "Security token expired. Refresh the page and try again."}), 403
+    data = request.get_json(silent=True) or {}
+    original_name = str(data.get("filename") or "").strip()
+    content_type = str(data.get("content_type") or "application/octet-stream").strip()
+    try:
+        size_bytes = int(data.get("size") or 0)
+    except (TypeError, ValueError):
+        size_bytes = 0
+    if not original_name:
+        return jsonify({"error": "Choose a file first."}), 400
+    if size_bytes < 1 or size_bytes > FILE_CENTER_MAX_BYTES:
+        return jsonify({"error": f"Files must be between 1 byte and {file_center_size_label(FILE_CENTER_MAX_BYTES)}."}), 400
+    safe_name = secure_filename(original_name)[:180] or "file"
+    user_id = int(session.get("admin_user_id") or 0)
+    object_key = (
+        f"file-center/{user_id}/{datetime.utcnow().strftime('%Y/%m')}/"
+        f"{uuid.uuid4().hex}-{safe_name}"
+    )
+    try:
+        s3, bucket = file_center_s3()
+        upload = s3.generate_presigned_post(
+            Bucket=bucket,
+            Key=object_key,
+            Fields={"Content-Type": content_type},
+            Conditions=[
+                {"Content-Type": content_type},
+                ["content-length-range", 1, FILE_CENTER_MAX_BYTES],
+            ],
+            ExpiresIn=3600,
+        )
+    except Exception:
+        logger.exception("File Center presigned upload creation failed")
+        return jsonify({"error": "The storage bucket is unavailable right now."}), 503
+    return jsonify({"upload": upload, "key": object_key})
+
+
+@app.route("/api/file-center/complete-upload", methods=["POST"])
+@file_center_required
+def file_center_complete_upload():
+    if not file_center_csrf_valid():
+        return jsonify({"error": "Security token expired. Refresh the page and try again."}), 403
+    data = request.get_json(silent=True) or {}
+    object_key = str(data.get("key") or "")
+    original_name = str(data.get("filename") or "").strip()[:500]
+    content_type = str(data.get("content_type") or "application/octet-stream").strip()[:250]
+    user_id = int(session.get("admin_user_id") or 0)
+    if not object_key.startswith(f"file-center/{user_id}/") or not original_name:
+        return jsonify({"error": "Invalid upload record."}), 400
+    try:
+        s3, bucket = file_center_s3()
+        head = s3.head_object(Bucket=bucket, Key=object_key)
+        actual_size = int(head.get("ContentLength") or 0)
+        if actual_size < 1 or actual_size > FILE_CENTER_MAX_BYTES:
+            s3.delete_object(Bucket=bucket, Key=object_key)
+            return jsonify({"error": "Uploaded file size is not allowed."}), 400
+    except Exception:
+        logger.exception("File Center upload verification failed")
+        return jsonify({"error": "The uploaded file could not be verified."}), 503
+    connection = get_db()
+    existing = connection.execute(
+        "SELECT id FROM file_center_files WHERE object_key=?",
+        (object_key,),
+    ).fetchone()
+    if existing:
+        connection.close()
+        return jsonify({"ok": True, "id": existing["id"]})
+    sql = """
+        INSERT INTO file_center_files
+            (object_key, original_name, mime_type, size_bytes, uploaded_by)
+        VALUES (?, ?, ?, ?, ?)
+    """
+    if connection.backend == "postgresql":
+        sql += " RETURNING id"
+    cursor = connection.execute(
+        sql,
+        (object_key, original_name, head.get("ContentType") or content_type, actual_size, user_id),
+    )
+    file_id = cursor.fetchone()["id"] if connection.backend == "postgresql" else cursor.lastrowid
+    connection.commit()
+    connection.close()
+    return jsonify({"ok": True, "id": file_id})
+
+
+@app.route("/file-center/download/<int:file_id>")
+@file_center_required
+def file_center_download(file_id):
+    connection = get_db()
+    row = connection.execute(
+        "SELECT object_key, original_name FROM file_center_files WHERE id=?",
+        (file_id,),
+    ).fetchone()
+    connection.close()
+    if not row:
+        abort(404)
+    download_name = str(row["original_name"]).replace('"', "")
+    try:
+        s3, bucket = file_center_s3()
+        url = s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": row["object_key"],
+                "ResponseContentDisposition": f'attachment; filename="{download_name}"',
+            },
+            ExpiresIn=3600,
+        )
+    except Exception:
+        logger.exception("File Center download link creation failed")
+        flash("The download link could not be created.", "error")
+        return redirect(url_for("file_center"))
+    return redirect(url)
+
+
+@app.route("/file-center/delete/<int:file_id>", methods=["POST"])
+@file_center_required
+def file_center_delete(file_id):
+    if session.get("admin_role") != "owner":
+        abort(403)
+    if not file_center_csrf_valid():
+        abort(403)
+    connection = get_db()
+    row = connection.execute(
+        "SELECT object_key, original_name FROM file_center_files WHERE id=?",
+        (file_id,),
+    ).fetchone()
+    if not row:
+        connection.close()
+        abort(404)
+    try:
+        s3, bucket = file_center_s3()
+        s3.delete_object(Bucket=bucket, Key=row["object_key"])
+        connection.execute("DELETE FROM file_center_files WHERE id=?", (file_id,))
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        connection.close()
+        logger.exception("File Center delete failed")
+        flash("The file could not be deleted.", "error")
+        return redirect(url_for("file_center"))
+    connection.close()
+    flash(f'{row["original_name"]} was deleted.', "success")
+    return redirect(url_for("file_center"))
 
 
 @app.route("/admin/system/users")

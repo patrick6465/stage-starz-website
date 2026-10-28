@@ -361,6 +361,21 @@ def init_db() -> None:
 
     cursor.execute(
         f"""
+        CREATE TABLE IF NOT EXISTS file_center_files (
+            id {id_column},
+            object_key TEXT NOT NULL UNIQUE,
+            original_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
+            size_bytes BIGINT NOT NULL DEFAULT 0,
+            uploaded_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(uploaded_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
         CREATE TABLE IF NOT EXISTS teachers (
             id {id_column},
             admin_user_id INTEGER,

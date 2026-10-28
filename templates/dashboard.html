@@ -185,6 +185,7 @@ a{text-decoration:none;color:inherit}button,input{font:inherit}
         <a class="tool-link" href="/admin/search"><span class="tool-icon">⌕</span><span>Global Search</span></a>
         <a class="tool-link" href="/admin/system/database"><span class="tool-icon">🗄</span><span>Database Status</span></a>
         <a class="tool-link" href="/admin/system/migrations"><span class="tool-icon">🧬</span><span>Migration Center</span></a>
+        {% if has_permission("file_center") %}<a class="tool-link" href="/file-center"><span class="tool-icon">📁</span><span>Private File Center</span></a>{% endif %}
         {% if has_permission("users") %}<a class="tool-link" href="/admin/system/users"><span class="tool-icon">🔐</span><span>Users & Roles</span></a>{% endif %}
       </div>
     </article>

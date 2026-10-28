@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Private File Center | Stage Starz</title>
+<style>
+:root{--night:#090510;--night2:#17102a;--panel:#17102a;--line:rgba(255,255,255,.14);--white:#fff;--muted:#bcb2ca;--purple:#9b4dcc;--pink:#ef3d98;--teal:#50d6d0;--danger:#ff6c7d;--success:#62e6aa}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;background:radial-gradient(circle at 5% 0%,rgba(155,77,204,.34),transparent 30rem),radial-gradient(circle at 96% 8%,rgba(80,214,208,.15),transparent 30rem),linear-gradient(145deg,var(--night),var(--night2))}
+a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(1180px,calc(100% - 28px));margin:0 auto;padding:28px 0 60px}
+.top{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:24px}.brand{display:flex;align-items:center;gap:13px}.mark{width:54px;height:54px;border-radius:17px;display:grid;place-items:center;font-size:1.5rem;background:linear-gradient(135deg,var(--pink),var(--purple),var(--teal));box-shadow:0 12px 30px rgba(239,61,152,.25)}h1{margin:0;font-size:clamp(1.65rem,4vw,2.45rem)}.sub{color:var(--muted);margin-top:4px}.actions{display:flex;gap:9px;flex-wrap:wrap}.button,.actions button{border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:rgba(255,255,255,.07);color:#fff;font-weight:850;cursor:pointer}.button.primary{border:0;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal))}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-bottom:18px}.stat,.card{border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.065);box-shadow:0 20px 55px rgba(0,0,0,.18)}.stat{padding:17px}.stat b{font-size:1.5rem;display:block}.stat span{color:var(--muted);font-size:.82rem}
+.card{padding:20px;margin-bottom:18px}.card h2{margin:0 0 7px}.muted{color:var(--muted)}.drop{margin-top:16px;border:2px dashed rgba(80,214,208,.42);border-radius:17px;padding:28px;text-align:center;background:rgba(80,214,208,.055);transition:.18s}.drop.drag{border-color:var(--pink);background:rgba(239,61,152,.08)}.drop input{display:none}.drop label{display:inline-block;padding:11px 16px;border-radius:11px;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));font-weight:900;cursor:pointer}.selected{margin-top:12px;color:var(--muted);overflow-wrap:anywhere}.progress-wrap{display:none;margin-top:16px}.progress-track{height:12px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.progress-bar{width:0;height:100%;background:linear-gradient(90deg,var(--pink),var(--purple),var(--teal));transition:width .15s}.progress-text{margin-top:8px;font-size:.86rem;color:var(--muted)}.error,.flash{padding:12px 14px;border-radius:12px;margin-bottom:14px}.error{display:none;border:1px solid rgba(255,108,125,.45);background:rgba(255,108,125,.11);color:#ffd7dc}.flash{border:1px solid rgba(98,230,170,.32);background:rgba(98,230,170,.09)}
+.file-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.search{width:min(330px,100%);padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.06);color:#fff;outline:0}.table{display:grid;gap:9px}.file{display:grid;grid-template-columns:minmax(0,1fr) 110px 180px auto;gap:14px;align-items:center;padding:13px 14px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035)}.file-name{font-weight:850;overflow-wrap:anywhere}.file-meta{font-size:.78rem;color:var(--muted);margin-top:4px}.file-size,.file-date{color:var(--muted);font-size:.85rem}.file-actions{display:flex;gap:7px;justify-content:flex-end}.download,.delete{border-radius:10px;padding:8px 10px;font-weight:850;font-size:.82rem}.download{background:rgba(80,214,208,.14);color:#bffbf8;border:1px solid rgba(80,214,208,.28)}.delete{background:rgba(255,108,125,.11);color:#ffd0d6;border:1px solid rgba(255,108,125,.27);cursor:pointer}.empty{text-align:center;padding:34px;color:var(--muted)}form{margin:0}
+@media(max-width:760px){.top{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr}.file{grid-template-columns:1fr auto}.file-size{grid-column:2;grid-row:1}.file-date{grid-column:1/-1}.file-actions{grid-column:1/-1;justify-content:flex-start}.file-tools{align-items:flex-start;flex-direction:column}.search{width:100%}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="top">
+    <div class="brand"><div class="mark">📁</div><div><h1>Private File Center</h1><div class="sub">Stage Starz secure storage</div></div></div>
+    <div class="actions">
+      {% if has_permission("dashboard") %}<a class="button" href="/admin">Command Center</a>{% endif %}
+      <a class="button" href="/file-center/logout">Log Out</a>
+    </div>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
+  {% endwith %}
+  <div class="error" id="errorBox"></div>
+
+  <section class="stats">
+    <div class="stat"><b>{{ files|length }}</b><span>Stored files</span></div>
+    <div class="stat"><b>{{ total_size }}</b><span>Total stored size</span></div>
+    <div class="stat"><b>{{ max_upload_size }}</b><span>Maximum single upload</span></div>
+  </section>
+
+  <section class="card">
+    <h2>Upload a File</h2>
+    <div class="muted">Files upload directly to the private Railway bucket. They do not pass through the website server.</div>
+    <div class="drop" id="dropZone">
+      <div style="font-size:2rem;margin-bottom:8px">⬆️</div>
+      <div style="font-weight:850;margin-bottom:12px">Drag a file here or choose one from your device</div>
+      <label for="fileInput">Choose File</label>
+      <input id="fileInput" type="file">
+      <div class="selected" id="selectedFile">No file selected.</div>
+    </div>
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-text" id="progressText">Preparing upload…</div>
+    </div>
+    <div style="margin-top:14px"><button class="button primary" id="uploadButton" type="button" disabled>Upload Selected File</button></div>
+  </section>
+
+  <section class="card">
+    <div class="file-tools"><div><h2 style="margin-bottom:4px">Stored Files</h2><div class="muted">Everyone with File Center access can download these files.</div></div><input class="search" id="fileSearch" placeholder="Search files…"></div>
+    <div class="table" id="fileList">
+      {% for file in files %}
+      <div class="file" data-name="{{ file.original_name|lower }}">
+        <div><div class="file-name">{{ file.original_name }}</div><div class="file-meta">Uploaded by {{ file.uploaded_by_name }}</div></div>
+        <div class="file-size">{{ file.size_label }}</div>
+        <div class="file-date">{{ file.created_at }}</div>
+        <div class="file-actions">
+          <a class="download" href="/file-center/download/{{ file.id }}">Download</a>
+          {% if can_delete %}
+          <form method="post" action="/file-center/delete/{{ file.id }}" onsubmit="return confirm('Delete this file permanently?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="delete" type="submit">Delete</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div class="empty">No files have been uploaded yet.</div>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+<script>
+(function(){
+  const csrf={{ csrf_token|tojson }};
+  const input=document.getElementById('fileInput');
+  const drop=document.getElementById('dropZone');
+  const selected=document.getElementById('selectedFile');
+  const button=document.getElementById('uploadButton');
+  const progressWrap=document.getElementById('progressWrap');
+  const progressBar=document.getElementById('progressBar');
+  const progressText=document.getElementById('progressText');
+  const errorBox=document.getElementById('errorBox');
+  let chosen=null;
+
+  function showError(message){errorBox.textContent=message;errorBox.style.display='block';}
+  function clearError(){errorBox.textContent='';errorBox.style.display='none';}
+  function choose(file){
+    chosen=file||null;
+    selected.textContent=chosen ? chosen.name+' · '+formatSize(chosen.size) : 'No file selected.';
+    button.disabled=!chosen;
+    progressWrap.style.display='none';progressBar.style.width='0%';
+    clearError();
+  }
+  function formatSize(bytes){
+    const units=['B','KB','MB','GB','TB'];let value=Number(bytes)||0;let i=0;
+    while(value>=1024&&i<units.length-1){value/=1024;i++;}
+    return (i===0?Math.round(value):value.toFixed(1))+' '+units[i];
+  }
+  input.addEventListener('change',()=>choose(input.files[0]));
+  ['dragenter','dragover'].forEach(evt=>drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.add('drag');}));
+  ['dragleave','drop'].forEach(evt=>drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.remove('drag');}));
+  drop.addEventListener('drop',e=>{if(e.dataTransfer.files&&e.dataTransfer.files[0])choose(e.dataTransfer.files[0]);});
+
+  async function jsonFetch(url,body){
+    const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error||'Request failed.');
+    return data;
+  }
+  function sendToBucket(upload,file){
+    return new Promise((resolve,reject)=>{
+      const form=new FormData();
+      Object.entries(upload.fields).forEach(([key,value])=>form.append(key,value));
+      form.append('file',file);
+      const xhr=new XMLHttpRequest();
+      xhr.open('POST',upload.url,true);
+      xhr.upload.onprogress=e=>{
+        if(e.lengthComputable){
+          const pct=Math.max(1,Math.min(100,Math.round((e.loaded/e.total)*100)));
+          progressBar.style.width=pct+'%';
+          progressText.textContent='Uploading… '+pct+'%';
+        }
+      };
+      xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300)resolve();else reject(new Error('Storage upload failed ('+xhr.status+').'));};
+      xhr.onerror=()=>reject(new Error('The browser could not reach the storage bucket. Bucket CORS may need to be enabled.'));
+      xhr.send(form);
+    });
+  }
+  button.addEventListener('click',async()=>{
+    if(!chosen)return;
+    clearError();button.disabled=true;progressWrap.style.display='block';progressText.textContent='Preparing secure upload…';progressBar.style.width='2%';
+    try{
+      const prep=await jsonFetch('/api/file-center/prepare-upload',{filename:chosen.name,size:chosen.size,content_type:chosen.type||'application/octet-stream'});
+      await sendToBucket(prep.upload,chosen);
+      progressText.textContent='Verifying file…';progressBar.style.width='100%';
+      await jsonFetch('/api/file-center/complete-upload',{key:prep.key,filename:chosen.name,content_type:chosen.type||'application/octet-stream'});
+      progressText.textContent='Upload complete. Refreshing…';
+      window.location.reload();
+    }catch(err){
+      showError(err.message||'Upload failed.');
+      progressText.textContent='Upload stopped.';
+      button.disabled=false;
+    }
+  });
+  document.getElementById('fileSearch').addEventListener('input',function(){
+    const q=this.value.trim().toLowerCase();
+    document.querySelectorAll('#fileList .file').forEach(row=>{row.style.display=(!q||row.dataset.name.includes(q))?'grid':'none';});
+  });
+})();
+</script>
+</body>
+</html>
