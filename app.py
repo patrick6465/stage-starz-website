@@ -80,7 +80,7 @@ ROLE_DEFINITIONS = {
     "office_staff": {"label":"Office Staff","description":"Customers, families, students, classes, attendance, billing, recitals, workflows, orders, content and reports.","permissions":{"dashboard","families","customers","students","classes","teachers","attendance","billing","costumes","competitions","recitals","production","ticketing","notifications","workflow","orders","website","announcements","media","search","reports","file_center"}},
     "teacher": {"label":"Teacher","description":"View assigned classes, take attendance, and access rosters, students, families, and search.","permissions":{"dashboard","families","students","classes","attendance","search"}},
     "store_manager": {"label":"Store Manager","description":"Store, inventory, orders, customers, notifications, media and reports.","permissions":{"dashboard","store","orders","customers","ticketing","notifications","workflow","reports","media","search"}},
-    "file_user": {"label":"File Center User","description":"Private File Center access only. No Command Center access.","permissions":{"file_center"}},
+    "file_user": {"label":"Family File Center User","description":"Family File Center access only. No Command Center access.","permissions":{"file_center"}},
 }
 
 def current_admin():
