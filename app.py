@@ -297,6 +297,15 @@ def file_center_visibility(value: str) -> str:
     return "private" if str(value or "").strip().lower() == "private" else "family"
 
 
+def file_center_folder_name(value: str) -> str:
+    raw = str(value or "").replace("\\", "/").strip()
+    cleaned = "".join(
+        ch for ch in raw
+        if ch not in {"/", "\\"} and (ord(ch) >= 32 and ord(ch) != 127)
+    ).strip().strip(".")
+    return cleaned[:120]
+
+
 def file_center_folder_allowed(connection, folder_id, visibility: str, user_id: int, is_owner: bool):
     if not folder_id:
         return None
@@ -1682,7 +1691,7 @@ def file_center():
 def file_center_create_folder():
     if not file_center_csrf_valid():
         abort(403)
-    name = secure_filename(request.form.get("name", "").strip())[:120]
+    name = file_center_folder_name(request.form.get("name", ""))
     visibility = file_center_visibility(request.form.get("visibility", "family"))
     user_id = int(session.get("admin_user_id") or 0)
     is_owner = session.get("admin_role") == "owner"
@@ -1715,6 +1724,121 @@ def file_center_create_folder():
     connection.close()
     flash(f'Folder "{name}" created.', "success")
     return redirect(url_for("file_center", view=visibility, folder=parent_id or None))
+
+
+@app.route("/api/file-center/ensure-folder-path", methods=["POST"])
+@file_center_required
+def file_center_ensure_folder_path():
+    if not file_center_csrf_valid():
+        return jsonify({"error": "Security token expired. Refresh the page and try again."}), 403
+
+    data = request.get_json(silent=True) or {}
+    visibility = file_center_visibility(data.get("visibility", "family"))
+    path_value = str(data.get("path") or "").replace("\\", "/").strip("/")
+    user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    try:
+        base_folder_id = int(data.get("base_folder_id") or 0) or None
+    except (TypeError, ValueError):
+        base_folder_id = None
+
+    segments = [
+        file_center_folder_name(segment)
+        for segment in path_value.split("/")
+        if file_center_folder_name(segment)
+    ]
+    if not segments:
+        return jsonify({"folder_id": base_folder_id, "created": []})
+
+    connection = get_db()
+    if base_folder_id:
+        base_folder = file_center_folder_allowed(
+            connection, base_folder_id, visibility, user_id, is_owner
+        )
+        if base_folder is False:
+            connection.close()
+            return jsonify({"error": "The starting folder is not available."}), 403
+
+    parent_id = base_folder_id
+    created = []
+    owner_user_id = user_id if visibility == "private" else None
+
+    for segment in segments:
+        if parent_id is None:
+            if visibility == "private":
+                existing = connection.execute(
+                    """
+                    SELECT id,name FROM file_center_folders
+                    WHERE visibility='private'
+                      AND owner_user_id=?
+                      AND parent_id IS NULL
+                      AND LOWER(name)=LOWER(?)
+                    ORDER BY id LIMIT 1
+                    """,
+                    (owner_user_id, segment),
+                ).fetchone()
+            else:
+                existing = connection.execute(
+                    """
+                    SELECT id,name FROM file_center_folders
+                    WHERE visibility='family'
+                      AND parent_id IS NULL
+                      AND LOWER(name)=LOWER(?)
+                    ORDER BY id LIMIT 1
+                    """,
+                    (segment,),
+                ).fetchone()
+        else:
+            if visibility == "private":
+                existing = connection.execute(
+                    """
+                    SELECT id,name FROM file_center_folders
+                    WHERE visibility='private'
+                      AND owner_user_id=?
+                      AND parent_id=?
+                      AND LOWER(name)=LOWER(?)
+                    ORDER BY id LIMIT 1
+                    """,
+                    (owner_user_id, parent_id, segment),
+                ).fetchone()
+            else:
+                existing = connection.execute(
+                    """
+                    SELECT id,name FROM file_center_folders
+                    WHERE visibility='family'
+                      AND parent_id=?
+                      AND LOWER(name)=LOWER(?)
+                    ORDER BY id LIMIT 1
+                    """,
+                    (parent_id, segment),
+                ).fetchone()
+
+        if existing:
+            parent_id = int(existing["id"])
+            continue
+
+        sql = """
+            INSERT INTO file_center_folders
+                (name,visibility,owner_user_id,parent_id,created_by)
+            VALUES (?,?,?,?,?)
+        """
+        if connection.backend == "postgresql":
+            sql += " RETURNING id"
+        cursor = connection.execute(
+            sql,
+            (segment, visibility, owner_user_id, parent_id, user_id),
+        )
+        new_id = (
+            int(cursor.fetchone()["id"])
+            if connection.backend == "postgresql"
+            else int(cursor.lastrowid)
+        )
+        parent_id = new_id
+        created.append({"id": new_id, "name": segment})
+
+    connection.commit()
+    connection.close()
+    return jsonify({"folder_id": parent_id, "created": created})
 
 
 @app.route("/api/file-center/prepare-upload", methods=["POST"])
