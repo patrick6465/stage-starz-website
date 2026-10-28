@@ -315,6 +315,54 @@ def file_center_folder_allowed(connection, folder_id, visibility: str, user_id: 
     return folder
 
 
+def file_center_fingerprint(value: str) -> str:
+    value = str(value or "").strip().lower()
+    if len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value):
+        return ""
+    return value
+
+
+def file_center_find_duplicate(connection, fingerprint: str, visibility: str, user_id: int):
+    if not fingerprint:
+        return None
+    if visibility == "family":
+        return connection.execute(
+            """
+            SELECT id, original_name, visibility
+            FROM file_center_files
+            WHERE visibility='family' AND content_fingerprint=?
+            ORDER BY id LIMIT 1
+            """,
+            (fingerprint,),
+        ).fetchone()
+    return connection.execute(
+        """
+        SELECT id, original_name, visibility
+        FROM file_center_files
+        WHERE content_fingerprint=?
+          AND (
+            visibility='family'
+            OR (visibility='private' AND uploaded_by=?)
+          )
+        ORDER BY CASE WHEN visibility='family' THEN 0 ELSE 1 END, id
+        LIMIT 1
+        """,
+        (fingerprint, user_id),
+    ).fetchone()
+
+
+def file_center_media_kind(filename: str, mime_type: str) -> str:
+    mime = str(mime_type or "").lower()
+    suffix = Path(str(filename or "")).suffix.lower()
+    if mime.startswith("image/") or suffix in {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"}:
+        return "image"
+    if mime.startswith("video/") or suffix in {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv", ".mpeg", ".mpg"}:
+        return "video"
+    if mime == "application/pdf" or suffix == ".pdf":
+        return "pdf"
+    return "file"
+
+
 @app.context_processor
 def inject_access_context():
     admin_user = current_admin()
@@ -1595,6 +1643,7 @@ def file_center():
         item = dict(row)
         item["size_label"] = file_center_size_label(int(item["size_bytes"] or 0))
         item["can_delete"] = bool(is_owner or int(item["uploaded_by"] or 0) == user_id)
+        item["media_kind"] = file_center_media_kind(item["original_name"], item["mime_type"])
         files.append(item)
 
     connection.close()
@@ -1615,6 +1664,7 @@ def file_center():
         library_help=library_help,
         total_size=file_center_size_label(total_bytes),
         max_upload_size=file_center_size_label(FILE_CENTER_MAX_BYTES),
+        max_upload_bytes=FILE_CENTER_MAX_BYTES,
         storage_used=file_center_size_label(total_bytes),
         storage_capacity=file_center_size_label(storage_capacity),
         storage_remaining=file_center_size_label(storage_remaining),
@@ -1674,6 +1724,7 @@ def file_center_prepare_upload():
     data = request.get_json(silent=True) or {}
     original_name = str(data.get("filename") or "").strip()
     content_type = str(data.get("content_type") or "application/octet-stream").strip()
+    fingerprint = file_center_fingerprint(data.get("fingerprint", ""))
     visibility = file_center_visibility(data.get("visibility", "family"))
     user_id = int(session.get("admin_user_id") or 0)
     is_owner = session.get("admin_role") == "owner"
@@ -1694,9 +1745,17 @@ def file_center_prepare_upload():
     folder = file_center_folder_allowed(
         connection, folder_id, visibility, user_id, is_owner
     )
+    duplicate = file_center_find_duplicate(connection, fingerprint, visibility, user_id)
     connection.close()
     if folder is False:
         return jsonify({"error": "That folder is not available for this upload."}), 403
+    if duplicate:
+        location_label = "Family Library" if duplicate["visibility"] == "family" else "your private files"
+        return jsonify({
+            "error": f'This file is already stored in {location_label} as "{duplicate["original_name"]}".',
+            "duplicate": True,
+            "existing_id": duplicate["id"],
+        }), 409
 
     safe_name = secure_filename(original_name)[:180] or "file"
     object_key = (
@@ -1742,6 +1801,7 @@ def file_center_prepare_upload():
         "part_urls": part_urls,
         "visibility": visibility,
         "folder_id": folder_id,
+        "fingerprint": fingerprint,
     })
 
 
@@ -1755,6 +1815,7 @@ def file_center_complete_upload():
     upload_id = str(data.get("upload_id") or "")
     original_name = str(data.get("filename") or "").strip()[:500]
     content_type = str(data.get("content_type") or "application/octet-stream").strip()[:250]
+    fingerprint = file_center_fingerprint(data.get("fingerprint", ""))
     visibility = file_center_visibility(data.get("visibility", "family"))
     parts = data.get("parts") or []
     user_id = int(session.get("admin_user_id") or 0)
@@ -1778,9 +1839,22 @@ def file_center_complete_upload():
     folder = file_center_folder_allowed(
         connection, folder_id, visibility, user_id, is_owner
     )
+    duplicate = file_center_find_duplicate(connection, fingerprint, visibility, user_id)
     connection.close()
     if folder is False:
         return jsonify({"error": "That folder is not available for this upload."}), 403
+    if duplicate:
+        try:
+            s3, bucket = file_center_s3()
+            s3.abort_multipart_upload(Bucket=bucket, Key=object_key, UploadId=upload_id)
+        except Exception:
+            pass
+        location_label = "Family Library" if duplicate["visibility"] == "family" else "your private files"
+        return jsonify({
+            "error": f'This file is already stored in {location_label} as "{duplicate["original_name"]}".',
+            "duplicate": True,
+            "existing_id": duplicate["id"],
+        }), 409
 
     completed_parts = []
     try:
@@ -1827,8 +1901,8 @@ def file_center_complete_upload():
         return jsonify({"ok": True, "id": existing["id"]})
     sql = """
         INSERT INTO file_center_files
-            (object_key, original_name, mime_type, size_bytes, uploaded_by, visibility, folder_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+            (object_key, original_name, mime_type, size_bytes, uploaded_by, visibility, folder_id, content_fingerprint)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """
     if connection.backend == "postgresql":
         sql += " RETURNING id"
@@ -1842,6 +1916,7 @@ def file_center_complete_upload():
             user_id,
             visibility,
             folder_id,
+            fingerprint,
         ),
     )
     file_id = cursor.fetchone()["id"] if connection.backend == "postgresql" else cursor.lastrowid
@@ -1875,6 +1950,49 @@ def file_center_abort_upload():
     except Exception:
         logger.exception("File Center multipart upload abort failed")
     return jsonify({"ok": True})
+
+
+@app.route("/file-center/preview/<int:file_id>")
+@file_center_required
+def file_center_preview(file_id):
+    connection = get_db()
+    row = connection.execute(
+        """
+        SELECT object_key, original_name, mime_type, visibility, uploaded_by
+        FROM file_center_files
+        WHERE id=?
+        """,
+        (file_id,),
+    ).fetchone()
+    connection.close()
+    if not row:
+        abort(404)
+    user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    if not is_owner and row["visibility"] != "family" and int(row["uploaded_by"] or 0) != user_id:
+        abort(404)
+
+    media_kind = file_center_media_kind(row["original_name"], row["mime_type"])
+    if media_kind not in {"image", "video", "pdf"}:
+        abort(404)
+    display_name = str(row["original_name"]).replace('"', "")
+    mime_type = str(row["mime_type"] or "application/octet-stream")
+    try:
+        s3, bucket = file_center_s3()
+        url = s3.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": row["object_key"],
+                "ResponseContentDisposition": f'inline; filename="{display_name}"',
+                "ResponseContentType": mime_type,
+            },
+            ExpiresIn=3600,
+        )
+    except Exception:
+        logger.exception("File Center preview link creation failed")
+        abort(503)
+    return redirect(url)
 
 
 @app.route("/file-center/download/<int:file_id>")
