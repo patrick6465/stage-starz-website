@@ -184,7 +184,10 @@ def delete_uploaded_image(image_url: str) -> None:
 
 
 FILE_CENTER_MAX_BYTES = int(
-    os.environ.get("FILE_CENTER_MAX_BYTES", str(5 * 1024 * 1024 * 1024 - 1))
+    os.environ.get("FILE_CENTER_MAX_BYTES", str(15 * 1024 * 1024 * 1024 - 1))
+)
+FILE_CENTER_MULTIPART_PART_BYTES = int(
+    os.environ.get("FILE_CENTER_MULTIPART_PART_BYTES", str(100 * 1024 * 1024))
 )
 FILE_CENTER_STORAGE_CAPACITY_BYTES = int(
     os.environ.get("FILE_CENTER_STORAGE_CAPACITY_BYTES", str(1024 * 1024 * 1024 * 1024))
@@ -1539,29 +1542,51 @@ def file_center_prepare_upload():
         return jsonify({"error": "Choose a file first."}), 400
     if size_bytes < 1 or size_bytes > FILE_CENTER_MAX_BYTES:
         return jsonify({"error": f"Files must be between 1 byte and {file_center_size_label(FILE_CENTER_MAX_BYTES)}."}), 400
+
     safe_name = secure_filename(original_name)[:180] or "file"
     user_id = int(session.get("admin_user_id") or 0)
     object_key = (
         f"file-center/{user_id}/{datetime.utcnow().strftime('%Y/%m')}/"
         f"{uuid.uuid4().hex}-{safe_name}"
     )
+    part_size = max(5 * 1024 * 1024, FILE_CENTER_MULTIPART_PART_BYTES)
+    part_count = max(1, (size_bytes + part_size - 1) // part_size)
+    if part_count > 10000:
+        return jsonify({"error": "This file would require too many upload parts."}), 400
+
     try:
         s3, bucket = file_center_s3()
         ensure_file_center_bucket_cors(s3, bucket)
-        upload = s3.generate_presigned_post(
+        multipart = s3.create_multipart_upload(
             Bucket=bucket,
             Key=object_key,
-            Fields={"Content-Type": content_type},
-            Conditions=[
-                {"Content-Type": content_type},
-                ["content-length-range", 1, FILE_CENTER_MAX_BYTES],
-            ],
-            ExpiresIn=3600,
+            ContentType=content_type,
         )
+        upload_id = multipart["UploadId"]
+        part_urls = [
+            s3.generate_presigned_url(
+                "upload_part",
+                Params={
+                    "Bucket": bucket,
+                    "Key": object_key,
+                    "UploadId": upload_id,
+                    "PartNumber": part_number,
+                },
+                ExpiresIn=43200,
+            )
+            for part_number in range(1, part_count + 1)
+        ]
     except Exception:
-        logger.exception("File Center presigned upload creation failed")
+        logger.exception("File Center multipart upload creation failed")
         return jsonify({"error": "The storage bucket is unavailable right now."}), 503
-    return jsonify({"upload": upload, "key": object_key})
+
+    return jsonify({
+        "mode": "multipart",
+        "key": object_key,
+        "upload_id": upload_id,
+        "part_size": part_size,
+        "part_urls": part_urls,
+    })
 
 
 @app.route("/api/file-center/complete-upload", methods=["POST"])
@@ -1571,21 +1596,56 @@ def file_center_complete_upload():
         return jsonify({"error": "Security token expired. Refresh the page and try again."}), 403
     data = request.get_json(silent=True) or {}
     object_key = str(data.get("key") or "")
+    upload_id = str(data.get("upload_id") or "")
     original_name = str(data.get("filename") or "").strip()[:500]
     content_type = str(data.get("content_type") or "application/octet-stream").strip()[:250]
+    parts = data.get("parts") or []
     user_id = int(session.get("admin_user_id") or 0)
-    if not object_key.startswith(f"file-center/{user_id}/") or not original_name:
+
+    if (
+        not object_key.startswith(f"file-center/{user_id}/")
+        or not upload_id
+        or not original_name
+        or not isinstance(parts, list)
+        or not parts
+    ):
         return jsonify({"error": "Invalid upload record."}), 400
+
+    completed_parts = []
     try:
+        for part in parts:
+            part_number = int(part.get("PartNumber") or 0)
+            etag = str(part.get("ETag") or "").strip()
+            if part_number < 1 or not etag:
+                raise ValueError("Invalid multipart completion data")
+            completed_parts.append({"PartNumber": part_number, "ETag": etag})
+        completed_parts.sort(key=lambda item: item["PartNumber"])
+
         s3, bucket = file_center_s3()
+        s3.complete_multipart_upload(
+            Bucket=bucket,
+            Key=object_key,
+            UploadId=upload_id,
+            MultipartUpload={"Parts": completed_parts},
+        )
         head = s3.head_object(Bucket=bucket, Key=object_key)
         actual_size = int(head.get("ContentLength") or 0)
         if actual_size < 1 or actual_size > FILE_CENTER_MAX_BYTES:
             s3.delete_object(Bucket=bucket, Key=object_key)
             return jsonify({"error": "Uploaded file size is not allowed."}), 400
     except Exception:
-        logger.exception("File Center upload verification failed")
-        return jsonify({"error": "The uploaded file could not be verified."}), 503
+        logger.exception("File Center multipart upload verification failed")
+        try:
+            s3, bucket = file_center_s3()
+            s3.abort_multipart_upload(
+                Bucket=bucket,
+                Key=object_key,
+                UploadId=upload_id,
+            )
+        except Exception:
+            pass
+        return jsonify({"error": "The uploaded file could not be completed or verified."}), 503
+
     connection = get_db()
     existing = connection.execute(
         "SELECT id FROM file_center_files WHERE object_key=?",
@@ -1609,6 +1669,29 @@ def file_center_complete_upload():
     connection.commit()
     connection.close()
     return jsonify({"ok": True, "id": file_id})
+
+
+@app.route("/api/file-center/abort-upload", methods=["POST"])
+@file_center_required
+def file_center_abort_upload():
+    if not file_center_csrf_valid():
+        return jsonify({"error": "Security token expired."}), 403
+    data = request.get_json(silent=True) or {}
+    object_key = str(data.get("key") or "")
+    upload_id = str(data.get("upload_id") or "")
+    user_id = int(session.get("admin_user_id") or 0)
+    if not object_key.startswith(f"file-center/{user_id}/") or not upload_id:
+        return jsonify({"ok": True})
+    try:
+        s3, bucket = file_center_s3()
+        s3.abort_multipart_upload(
+            Bucket=bucket,
+            Key=object_key,
+            UploadId=upload_id,
+        )
+    except Exception:
+        logger.exception("File Center multipart upload abort failed")
+    return jsonify({"ok": True})
 
 
 @app.route("/file-center/download/<int:file_id>")
