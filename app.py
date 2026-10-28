@@ -1674,6 +1674,13 @@ def file_center_prepare_upload():
     data = request.get_json(silent=True) or {}
     original_name = str(data.get("filename") or "").strip()
     content_type = str(data.get("content_type") or "application/octet-stream").strip()
+    visibility = file_center_visibility(data.get("visibility", "family"))
+    user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    try:
+        folder_id = int(data.get("folder_id") or 0) or None
+    except (TypeError, ValueError):
+        folder_id = None
     try:
         size_bytes = int(data.get("size") or 0)
     except (TypeError, ValueError):
@@ -1683,10 +1690,17 @@ def file_center_prepare_upload():
     if size_bytes < 1 or size_bytes > FILE_CENTER_MAX_BYTES:
         return jsonify({"error": f"Files must be between 1 byte and {file_center_size_label(FILE_CENTER_MAX_BYTES)}."}), 400
 
+    connection = get_db()
+    folder = file_center_folder_allowed(
+        connection, folder_id, visibility, user_id, is_owner
+    )
+    connection.close()
+    if folder is False:
+        return jsonify({"error": "That folder is not available for this upload."}), 403
+
     safe_name = secure_filename(original_name)[:180] or "file"
-    user_id = int(session.get("admin_user_id") or 0)
     object_key = (
-        f"file-center/{user_id}/{datetime.utcnow().strftime('%Y/%m')}/"
+        f"file-center/{visibility}/{user_id}/{datetime.utcnow().strftime('%Y/%m')}/"
         f"{uuid.uuid4().hex}-{safe_name}"
     )
     part_size = max(5 * 1024 * 1024, FILE_CENTER_MULTIPART_PART_BYTES)
@@ -1726,6 +1740,8 @@ def file_center_prepare_upload():
         "upload_id": upload_id,
         "part_size": part_size,
         "part_urls": part_urls,
+        "visibility": visibility,
+        "folder_id": folder_id,
     })
 
 
@@ -1739,17 +1755,32 @@ def file_center_complete_upload():
     upload_id = str(data.get("upload_id") or "")
     original_name = str(data.get("filename") or "").strip()[:500]
     content_type = str(data.get("content_type") or "application/octet-stream").strip()[:250]
+    visibility = file_center_visibility(data.get("visibility", "family"))
     parts = data.get("parts") or []
     user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    try:
+        folder_id = int(data.get("folder_id") or 0) or None
+    except (TypeError, ValueError):
+        folder_id = None
 
+    expected_prefix = f"file-center/{visibility}/{user_id}/"
     if (
-        not object_key.startswith(f"file-center/{user_id}/")
+        not object_key.startswith(expected_prefix)
         or not upload_id
         or not original_name
         or not isinstance(parts, list)
         or not parts
     ):
         return jsonify({"error": "Invalid upload record."}), 400
+
+    connection = get_db()
+    folder = file_center_folder_allowed(
+        connection, folder_id, visibility, user_id, is_owner
+    )
+    connection.close()
+    if folder is False:
+        return jsonify({"error": "That folder is not available for this upload."}), 403
 
     completed_parts = []
     try:
@@ -1796,14 +1827,22 @@ def file_center_complete_upload():
         return jsonify({"ok": True, "id": existing["id"]})
     sql = """
         INSERT INTO file_center_files
-            (object_key, original_name, mime_type, size_bytes, uploaded_by)
-        VALUES (?, ?, ?, ?, ?)
+            (object_key, original_name, mime_type, size_bytes, uploaded_by, visibility, folder_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     """
     if connection.backend == "postgresql":
         sql += " RETURNING id"
     cursor = connection.execute(
         sql,
-        (object_key, original_name, head.get("ContentType") or content_type, actual_size, user_id),
+        (
+            object_key,
+            original_name,
+            head.get("ContentType") or content_type,
+            actual_size,
+            user_id,
+            visibility,
+            folder_id,
+        ),
     )
     file_id = cursor.fetchone()["id"] if connection.backend == "postgresql" else cursor.lastrowid
     connection.commit()
@@ -1820,7 +1859,11 @@ def file_center_abort_upload():
     object_key = str(data.get("key") or "")
     upload_id = str(data.get("upload_id") or "")
     user_id = int(session.get("admin_user_id") or 0)
-    if not object_key.startswith(f"file-center/{user_id}/") or not upload_id:
+    allowed_prefixes = (
+        f"file-center/family/{user_id}/",
+        f"file-center/private/{user_id}/",
+    )
+    if not any(object_key.startswith(prefix) for prefix in allowed_prefixes) or not upload_id:
         return jsonify({"ok": True})
     try:
         s3, bucket = file_center_s3()
@@ -1838,19 +1881,22 @@ def file_center_abort_upload():
 @file_center_required
 def file_center_download(file_id):
     connection = get_db()
-    if session.get("admin_role") == "owner":
-        row = connection.execute(
-            "SELECT object_key, original_name FROM file_center_files WHERE id=?",
-            (file_id,),
-        ).fetchone()
-    else:
-        row = connection.execute(
-            "SELECT object_key, original_name FROM file_center_files WHERE id=? AND uploaded_by=?",
-            (file_id, int(session.get("admin_user_id") or 0)),
-        ).fetchone()
+    row = connection.execute(
+        """
+        SELECT object_key, original_name, visibility, uploaded_by
+        FROM file_center_files
+        WHERE id=?
+        """,
+        (file_id,),
+    ).fetchone()
     connection.close()
     if not row:
         abort(404)
+    user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    if not is_owner and row["visibility"] != "family" and int(row["uploaded_by"] or 0) != user_id:
+        abort(404)
+
     download_name = str(row["original_name"]).replace('"', "")
     try:
         s3, bucket = file_center_s3()
@@ -1866,25 +1912,32 @@ def file_center_download(file_id):
     except Exception:
         logger.exception("File Center download link creation failed")
         flash("The download link could not be created.", "error")
-        return redirect(url_for("file_center"))
+        return redirect("/family")
     return redirect(url)
 
 
 @app.route("/file-center/delete/<int:file_id>", methods=["POST"])
 @file_center_required
 def file_center_delete(file_id):
-    if session.get("admin_role") != "owner":
-        abort(403)
     if not file_center_csrf_valid():
         abort(403)
     connection = get_db()
     row = connection.execute(
-        "SELECT object_key, original_name FROM file_center_files WHERE id=?",
+        """
+        SELECT object_key, original_name, uploaded_by, visibility, folder_id
+        FROM file_center_files
+        WHERE id=?
+        """,
         (file_id,),
     ).fetchone()
     if not row:
         connection.close()
         abort(404)
+    user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    if not is_owner and int(row["uploaded_by"] or 0) != user_id:
+        connection.close()
+        abort(403)
     try:
         s3, bucket = file_center_s3()
         s3.delete_object(Bucket=bucket, Key=row["object_key"])
@@ -1895,10 +1948,10 @@ def file_center_delete(file_id):
         connection.close()
         logger.exception("File Center delete failed")
         flash("The file could not be deleted.", "error")
-        return redirect(url_for("file_center"))
+        return redirect("/family")
     connection.close()
     flash(f'{row["original_name"]} was deleted.', "success")
-    return redirect(url_for("file_center"))
+    return redirect(url_for("file_center", view=row["visibility"], folder=row["folder_id"] or None))
 
 
 @app.route("/admin/system/users")
