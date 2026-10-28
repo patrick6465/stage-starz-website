@@ -361,6 +361,23 @@ def init_db() -> None:
 
     cursor.execute(
         f"""
+        CREATE TABLE IF NOT EXISTS file_center_folders (
+            id {id_column},
+            name TEXT NOT NULL,
+            visibility TEXT NOT NULL DEFAULT 'family',
+            owner_user_id INTEGER,
+            parent_id INTEGER,
+            created_by INTEGER,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(owner_user_id) REFERENCES admin_users(id) ON DELETE SET NULL,
+            FOREIGN KEY(parent_id) REFERENCES file_center_folders(id) ON DELETE CASCADE,
+            FOREIGN KEY(created_by) REFERENCES admin_users(id) ON DELETE SET NULL
+        )
+        """
+    )
+
+    cursor.execute(
+        f"""
         CREATE TABLE IF NOT EXISTS file_center_files (
             id {id_column},
             object_key TEXT NOT NULL UNIQUE,
@@ -368,11 +385,34 @@ def init_db() -> None:
             mime_type TEXT NOT NULL DEFAULT 'application/octet-stream',
             size_bytes BIGINT NOT NULL DEFAULT 0,
             uploaded_by INTEGER,
+            visibility TEXT NOT NULL DEFAULT 'family',
+            folder_id INTEGER,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY(uploaded_by) REFERENCES admin_users(id) ON DELETE SET NULL
+            FOREIGN KEY(uploaded_by) REFERENCES admin_users(id) ON DELETE SET NULL,
+            FOREIGN KEY(folder_id) REFERENCES file_center_folders(id) ON DELETE SET NULL
         )
         """
     )
+    if connection.backend == "postgresql":
+        cursor.execute(
+            "ALTER TABLE file_center_files ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'family'"
+        )
+        cursor.execute(
+            "ALTER TABLE file_center_files ADD COLUMN IF NOT EXISTS folder_id INTEGER"
+        )
+    else:
+        file_center_columns = {
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(file_center_files)").fetchall()
+        }
+        if "visibility" not in file_center_columns:
+            cursor.execute(
+                "ALTER TABLE file_center_files ADD COLUMN visibility TEXT NOT NULL DEFAULT 'family'"
+            )
+        if "folder_id" not in file_center_columns:
+            cursor.execute(
+                "ALTER TABLE file_center_files ADD COLUMN folder_id INTEGER"
+            )
 
     cursor.execute(
         f"""
