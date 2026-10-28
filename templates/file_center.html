@@ -56,7 +56,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
 
   <section class="card">
     <h2>Upload a File</h2>
-    <div class="muted">Files upload directly to the private Railway bucket. They do not pass through the website server.</div>
+    <div class="muted">Files upload directly to the private Railway bucket. Large videos are uploaded in secure chunks, so files up to {{ max_upload_size }} do not need to be split manually.</div>
     <div class="drop" id="dropZone">
       <div style="font-size:2rem;margin-bottom:8px">⬆️</div>
       <div style="font-weight:850;margin-bottom:12px">Drag a file here or choose one from your device</div>
@@ -133,36 +133,85 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     if(!response.ok)throw new Error(data.error||'Request failed.');
     return data;
   }
-  function sendToBucket(upload,file){
+  function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+
+  function uploadPart(url,blob,partIndex,loadedByPart,attempt=1){
     return new Promise((resolve,reject)=>{
-      const form=new FormData();
-      Object.entries(upload.fields).forEach(([key,value])=>form.append(key,value));
-      form.append('file',file);
       const xhr=new XMLHttpRequest();
-      xhr.open('POST',upload.url,true);
+      xhr.open('PUT',url,true);
       xhr.upload.onprogress=e=>{
         if(e.lengthComputable){
-          const pct=Math.max(1,Math.min(100,Math.round((e.loaded/e.total)*100)));
+          loadedByPart[partIndex]=e.loaded;
+          const loaded=loadedByPart.reduce((sum,n)=>sum+n,0);
+          const pct=Math.max(1,Math.min(99,Math.round((loaded/chosen.size)*100)));
           progressBar.style.width=pct+'%';
-          progressText.textContent='Uploading… '+pct+'%';
+          progressText.textContent='Uploading video… '+pct+'%';
         }
       };
-      xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300)resolve();else reject(new Error('Storage upload failed ('+xhr.status+').'));};
-      xhr.onerror=()=>reject(new Error('The browser could not reach the storage bucket. Bucket CORS may need to be enabled.'));
-      xhr.send(form);
+      xhr.onload=()=>{
+        if(xhr.status>=200&&xhr.status<300){
+          loadedByPart[partIndex]=blob.size;
+          const etag=xhr.getResponseHeader('ETag');
+          if(!etag)return reject(new Error('Storage did not return a part confirmation.'));
+          resolve(etag);
+        }else{
+          reject(new Error('Storage part upload failed ('+xhr.status+').'));
+        }
+      };
+      xhr.onerror=()=>reject(new Error('The browser could not reach the storage bucket.'));
+      xhr.send(blob);
+    }).catch(async err=>{
+      if(attempt>=3)throw err;
+      loadedByPart[partIndex]=0;
+      await sleep(700*attempt);
+      return uploadPart(url,blob,partIndex,loadedByPart,attempt+1);
     });
+  }
+
+  async function sendMultipartToBucket(prep,file){
+    const partSize=Number(prep.part_size);
+    const urls=prep.part_urls||[];
+    if(!partSize||!urls.length)throw new Error('Storage did not return multipart upload information.');
+    const loadedByPart=new Array(urls.length).fill(0);
+    const completed=new Array(urls.length);
+    let nextIndex=0;
+    const workerCount=Math.min(3,urls.length);
+
+    async function worker(){
+      while(true){
+        const index=nextIndex++;
+        if(index>=urls.length)return;
+        const start=index*partSize;
+        const end=Math.min(file.size,start+partSize);
+        const blob=file.slice(start,end);
+        const etag=await uploadPart(urls[index],blob,index,loadedByPart);
+        completed[index]={PartNumber:index+1,ETag:etag};
+      }
+    }
+    await Promise.all(Array.from({length:workerCount},()=>worker()));
+    return completed;
   }
   button.addEventListener('click',async()=>{
     if(!chosen)return;
-    clearError();button.disabled=true;progressWrap.style.display='block';progressText.textContent='Preparing secure upload…';progressBar.style.width='2%';
+    clearError();button.disabled=true;progressWrap.style.display='block';progressText.textContent='Preparing secure multipart upload…';progressBar.style.width='1%';
+    let prep=null;
     try{
-      const prep=await jsonFetch('/api/file-center/prepare-upload',{filename:chosen.name,size:chosen.size,content_type:chosen.type||'application/octet-stream'});
-      await sendToBucket(prep.upload,chosen);
-      progressText.textContent='Verifying file…';progressBar.style.width='100%';
-      await jsonFetch('/api/file-center/complete-upload',{key:prep.key,filename:chosen.name,content_type:chosen.type||'application/octet-stream'});
+      prep=await jsonFetch('/api/file-center/prepare-upload',{filename:chosen.name,size:chosen.size,content_type:chosen.type||'application/octet-stream'});
+      const parts=await sendMultipartToBucket(prep,chosen);
+      progressText.textContent='Finalizing and verifying file…';progressBar.style.width='100%';
+      await jsonFetch('/api/file-center/complete-upload',{
+        key:prep.key,
+        upload_id:prep.upload_id,
+        parts:parts,
+        filename:chosen.name,
+        content_type:chosen.type||'application/octet-stream'
+      });
       progressText.textContent='Upload complete. Refreshing…';
       window.location.reload();
     }catch(err){
+      if(prep&&prep.key&&prep.upload_id){
+        try{await jsonFetch('/api/file-center/abort-upload',{key:prep.key,upload_id:prep.upload_id});}catch(_){}
+      }
       showError(err.message||'Upload failed.');
       progressText.textContent='Upload stopped.';
       button.disabled=false;
