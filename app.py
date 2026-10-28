@@ -293,6 +293,28 @@ def file_center_csrf_valid() -> bool:
     )
 
 
+def file_center_visibility(value: str) -> str:
+    return "private" if str(value or "").strip().lower() == "private" else "family"
+
+
+def file_center_folder_allowed(connection, folder_id, visibility: str, user_id: int, is_owner: bool):
+    if not folder_id:
+        return None
+    try:
+        folder_id = int(folder_id)
+    except (TypeError, ValueError):
+        return False
+    folder = connection.execute(
+        "SELECT id,name,visibility,owner_user_id,parent_id FROM file_center_folders WHERE id=?",
+        (folder_id,),
+    ).fetchone()
+    if not folder or folder["visibility"] != visibility:
+        return False
+    if visibility == "private" and not is_owner and int(folder["owner_user_id"] or 0) != user_id:
+        return False
+    return folder
+
+
 @app.context_processor
 def inject_access_context():
     admin_user = current_admin()
@@ -1402,10 +1424,11 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
+@app.route("/family/login", methods=["GET", "POST"])
 @app.route("/file-center/login", methods=["GET", "POST"])
 def file_center_login():
     if session.get("admin_logged_in") and has_permission("file_center"):
-        return redirect(url_for("file_center"))
+        return redirect("/family")
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
@@ -1450,59 +1473,131 @@ def file_center_login():
                 admin_display_name=user["display_name"],
                 admin_role=user["role"],
             )
-            return redirect(url_for("file_center"))
+            return redirect("/family")
         connection.commit()
         connection.close()
-        flash("Invalid username, password, or File Center access.", "error")
+        flash("Invalid username, password, or Family File Center access.", "error")
     return render_template("file_center_login.html")
 
 
+@app.route("/family/logout")
 @app.route("/file-center/logout")
 def file_center_logout():
     session.clear()
-    return redirect(url_for("file_center_login"))
+    return redirect("/family/login")
 
 
+@app.route("/family")
 @app.route("/file-center")
 @file_center_required
 def file_center():
     connection = get_db()
     is_owner = session.get("admin_role") == "owner"
     user_id = int(session.get("admin_user_id") or 0)
-    if is_owner:
-        rows = connection.execute(
-            """
-            SELECT
-                f.id, f.object_key, f.original_name, f.mime_type,
-                f.size_bytes, f.created_at,
-                COALESCE(u.display_name, u.username, 'Unknown user') AS uploaded_by_name
-            FROM file_center_files f
-            LEFT JOIN admin_users u ON u.id = f.uploaded_by
-            ORDER BY f.id DESC
-            """
+    visibility = file_center_visibility(request.args.get("view", "family"))
+    try:
+        folder_id = int(request.args.get("folder") or 0) or None
+    except (TypeError, ValueError):
+        folder_id = None
+
+    current_folder = None
+    if folder_id:
+        current_folder = file_center_folder_allowed(
+            connection, folder_id, visibility, user_id, is_owner
+        )
+        if current_folder is False:
+            connection.close()
+            abort(403)
+
+    folder_parent_clause = "parent_id IS NULL" if not folder_id else "parent_id=?"
+    folder_params = [] if not folder_id else [folder_id]
+    if visibility == "family":
+        folders = connection.execute(
+            f"""
+            SELECT id,name,visibility,owner_user_id,parent_id,created_at
+            FROM file_center_folders
+            WHERE visibility='family' AND {folder_parent_clause}
+            ORDER BY LOWER(name)
+            """,
+            tuple(folder_params),
         ).fetchall()
+        file_where = "f.visibility='family'"
+        file_params = []
+        library_title = "Family Library"
+        library_help = "Shared photos, videos, and files that everyone in the family can access."
     else:
-        rows = connection.execute(
+        if is_owner:
+            folders = connection.execute(
+                f"""
+                SELECT id,name,visibility,owner_user_id,parent_id,created_at
+                FROM file_center_folders
+                WHERE visibility='private' AND {folder_parent_clause}
+                ORDER BY LOWER(name)
+                """,
+                tuple(folder_params),
+            ).fetchall()
+            file_where = "f.visibility='private'"
+            file_params = []
+            library_title = "Private Files · Owner View"
+            library_help = "You can see private files for all family accounts. Other family members only see their own."
+        else:
+            folders = connection.execute(
+                f"""
+                SELECT id,name,visibility,owner_user_id,parent_id,created_at
+                FROM file_center_folders
+                WHERE visibility='private' AND owner_user_id=? AND {folder_parent_clause}
+                ORDER BY LOWER(name)
+                """,
+                tuple([user_id] + folder_params),
+            ).fetchall()
+            file_where = "f.visibility='private' AND f.uploaded_by=?"
+            file_params = [user_id]
+            library_title = "My Private Files"
+            library_help = "Only you and the family owner can see files stored here."
+
+    if folder_id:
+        file_where += " AND f.folder_id=?"
+        file_params.append(folder_id)
+    else:
+        file_where += " AND f.folder_id IS NULL"
+
+    rows = connection.execute(
+        f"""
+        SELECT
+            f.id, f.object_key, f.original_name, f.mime_type,
+            f.size_bytes, f.created_at, f.uploaded_by, f.visibility, f.folder_id,
+            COALESCE(u.display_name, u.username, 'Unknown user') AS uploaded_by_name
+        FROM file_center_files f
+        LEFT JOIN admin_users u ON u.id = f.uploaded_by
+        WHERE {file_where}
+        ORDER BY f.id DESC
+        """,
+        tuple(file_params),
+    ).fetchall()
+
+    if is_owner:
+        total_row = connection.execute(
+            "SELECT COALESCE(SUM(size_bytes),0) AS total FROM file_center_files"
+        ).fetchone()
+    else:
+        total_row = connection.execute(
             """
-            SELECT
-                f.id, f.object_key, f.original_name, f.mime_type,
-                f.size_bytes, f.created_at,
-                COALESCE(u.display_name, u.username, 'Unknown user') AS uploaded_by_name
-            FROM file_center_files f
-            LEFT JOIN admin_users u ON u.id = f.uploaded_by
-            WHERE f.uploaded_by=?
-            ORDER BY f.id DESC
+            SELECT COALESCE(SUM(size_bytes),0) AS total
+            FROM file_center_files
+            WHERE visibility='family' OR (visibility='private' AND uploaded_by=?)
             """,
             (user_id,),
-        ).fetchall()
-    connection.close()
+        ).fetchone()
+    total_bytes = int(total_row["total"] or 0)
+
     files = []
-    total_bytes = 0
     for row in rows:
         item = dict(row)
         item["size_label"] = file_center_size_label(int(item["size_bytes"] or 0))
-        total_bytes += int(item["size_bytes"] or 0)
+        item["can_delete"] = bool(is_owner or int(item["uploaded_by"] or 0) == user_id)
         files.append(item)
+
+    connection.close()
     storage_capacity = max(1, FILE_CENTER_STORAGE_CAPACITY_BYTES)
     storage_remaining = max(0, storage_capacity - total_bytes)
     storage_percent = min(100.0, (total_bytes / storage_capacity) * 100.0)
@@ -1513,6 +1608,11 @@ def file_center():
     return render_template(
         "file_center.html",
         files=files,
+        folders=[dict(row) for row in folders],
+        current_folder=dict(current_folder) if current_folder else None,
+        current_view=visibility,
+        library_title=library_title,
+        library_help=library_help,
         total_size=file_center_size_label(total_bytes),
         max_upload_size=file_center_size_label(FILE_CENTER_MAX_BYTES),
         storage_used=file_center_size_label(total_bytes),
@@ -1520,10 +1620,50 @@ def file_center():
         storage_remaining=file_center_size_label(storage_remaining),
         storage_percent=storage_percent,
         storage_percent_label=storage_percent_label,
-        storage_scope_label="File Center storage" if is_owner else "Your storage",
+        storage_scope_label="Family archive storage" if is_owner else "Storage available to you",
         csrf_token=file_center_csrf_token(),
-        can_delete=is_owner,
+        is_owner=is_owner,
     )
+
+
+@app.route("/file-center/folders/create", methods=["POST"])
+@file_center_required
+def file_center_create_folder():
+    if not file_center_csrf_valid():
+        abort(403)
+    name = secure_filename(request.form.get("name", "").strip())[:120]
+    visibility = file_center_visibility(request.form.get("visibility", "family"))
+    user_id = int(session.get("admin_user_id") or 0)
+    is_owner = session.get("admin_role") == "owner"
+    try:
+        parent_id = int(request.form.get("parent_id") or 0) or None
+    except (TypeError, ValueError):
+        parent_id = None
+    if not name:
+        flash("Enter a folder name.", "error")
+        return redirect(url_for("file_center", view=visibility, folder=parent_id or None))
+
+    connection = get_db()
+    if parent_id:
+        parent = file_center_folder_allowed(
+            connection, parent_id, visibility, user_id, is_owner
+        )
+        if parent is False:
+            connection.close()
+            abort(403)
+    owner_user_id = user_id if visibility == "private" else None
+    connection.execute(
+        """
+        INSERT INTO file_center_folders
+            (name,visibility,owner_user_id,parent_id,created_by)
+        VALUES (?,?,?,?,?)
+        """,
+        (name, visibility, owner_user_id, parent_id, user_id),
+    )
+    connection.commit()
+    connection.close()
+    flash(f'Folder "{name}" created.', "success")
+    return redirect(url_for("file_center", view=visibility, folder=parent_id or None))
 
 
 @app.route("/api/file-center/prepare-upload", methods=["POST"])
