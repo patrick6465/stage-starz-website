@@ -186,6 +186,9 @@ def delete_uploaded_image(image_url: str) -> None:
 FILE_CENTER_MAX_BYTES = int(
     os.environ.get("FILE_CENTER_MAX_BYTES", str(5 * 1024 * 1024 * 1024 - 1))
 )
+FILE_CENTER_STORAGE_CAPACITY_BYTES = int(
+    os.environ.get("FILE_CENTER_STORAGE_CAPACITY_BYTES", str(1024 * 1024 * 1024 * 1024))
+)
 
 
 def file_center_s3():
@@ -1497,11 +1500,24 @@ def file_center():
         item["size_label"] = file_center_size_label(int(item["size_bytes"] or 0))
         total_bytes += int(item["size_bytes"] or 0)
         files.append(item)
+    storage_capacity = max(1, FILE_CENTER_STORAGE_CAPACITY_BYTES)
+    storage_remaining = max(0, storage_capacity - total_bytes)
+    storage_percent = min(100.0, (total_bytes / storage_capacity) * 100.0)
+    storage_percent_label = (
+        "<0.01%" if total_bytes > 0 and storage_percent < 0.01
+        else f"{storage_percent:.2f}%"
+    )
     return render_template(
         "file_center.html",
         files=files,
         total_size=file_center_size_label(total_bytes),
         max_upload_size=file_center_size_label(FILE_CENTER_MAX_BYTES),
+        storage_used=file_center_size_label(total_bytes),
+        storage_capacity=file_center_size_label(storage_capacity),
+        storage_remaining=file_center_size_label(storage_remaining),
+        storage_percent=storage_percent,
+        storage_percent_label=storage_percent_label,
+        storage_scope_label="File Center storage" if is_owner else "Your storage",
         csrf_token=file_center_csrf_token(),
         can_delete=is_owner,
     )
