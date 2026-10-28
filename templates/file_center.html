@@ -15,8 +15,10 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
 .library-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}.library-tab{padding:15px 16px;border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.045)}.library-tab strong{display:block;font-size:1rem}.library-tab span{display:block;color:var(--muted);font-size:.78rem;margin-top:3px}.library-tab.active{border-color:rgba(80,214,208,.5);background:linear-gradient(110deg,rgba(239,61,152,.12),rgba(155,77,204,.13),rgba(80,214,208,.1))}
 .folder-bar{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;margin-bottom:14px}.folder-form{display:flex;gap:8px;align-items:flex-end}.folder-form label{font-size:.75rem;color:var(--muted);font-weight:850}.folder-form input{display:block;margin-top:5px;min-width:210px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.06);color:#fff}.folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:15px}.folder{padding:14px;border:1px solid rgba(255,255,255,.1);border-radius:13px;background:rgba(255,255,255,.035);font-weight:850}.folder span{display:block;color:var(--muted);font-size:.75rem;font-weight:650;margin-top:4px}.back-folder{display:inline-block;margin:0 0 12px;color:#bffbf8;font-weight:850;font-size:.86rem}
 .drop{margin-top:16px;border:2px dashed rgba(80,214,208,.42);border-radius:17px;padding:28px;text-align:center;background:rgba(80,214,208,.055);transition:.18s}.drop.drag{border-color:var(--pink);background:rgba(239,61,152,.08)}.drop input{display:none}.drop label{display:inline-block;padding:11px 16px;border-radius:11px;background:linear-gradient(110deg,var(--pink),var(--purple),var(--teal));font-weight:900;cursor:pointer}.selected{margin-top:12px;color:var(--muted);overflow-wrap:anywhere}.progress-wrap{display:none;margin-top:16px}.progress-track{height:12px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}.progress-bar{width:0;height:100%;background:linear-gradient(90deg,var(--pink),var(--purple),var(--teal));transition:width .15s}.progress-text{margin-top:8px;font-size:.86rem;color:var(--muted)}.error,.flash{padding:12px 14px;border-radius:12px;margin-bottom:14px}.error{display:none;border:1px solid rgba(255,108,125,.45);background:rgba(255,108,125,.11);color:#ffd7dc}.flash{border:1px solid rgba(98,230,170,.32);background:rgba(98,230,170,.09)}
-.file-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.search{width:min(330px,100%);padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.06);color:#fff;outline:0}.table{display:grid;gap:9px}.file{display:grid;grid-template-columns:minmax(0,1fr) 110px 180px auto;gap:14px;align-items:center;padding:13px 14px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035)}.file-name{font-weight:850;overflow-wrap:anywhere}.file-meta{font-size:.78rem;color:var(--muted);margin-top:4px}.file-size,.file-date{color:var(--muted);font-size:.85rem}.file-actions{display:flex;gap:7px;justify-content:flex-end}.download,.delete{border-radius:10px;padding:8px 10px;font-weight:850;font-size:.82rem}.download{background:rgba(80,214,208,.14);color:#bffbf8;border:1px solid rgba(80,214,208,.28)}.delete{background:rgba(255,108,125,.11);color:#ffd0d6;border:1px solid rgba(255,108,125,.27);cursor:pointer}.empty{text-align:center;padding:34px;color:var(--muted)}form{margin:0}
-@media(max-width:760px){.top{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr}.library-tabs{grid-template-columns:1fr}.folder-bar{align-items:stretch;flex-direction:column}.folder-form{align-items:stretch;flex-direction:column}.folder-form input{min-width:0;width:100%}.storage-head{align-items:flex-start;flex-direction:column}.file{grid-template-columns:1fr auto}.file-size{grid-column:2;grid-row:1}.file-date{grid-column:1/-1}.file-actions{grid-column:1/-1;justify-content:flex-start}.file-tools{align-items:flex-start;flex-direction:column}.search{width:100%}}
+.file-tools{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.search{width:min(330px,100%);padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:rgba(255,255,255,.06);color:#fff;outline:0}.table{display:grid;gap:9px}.file{display:grid;grid-template-columns:72px minmax(0,1fr) 100px 155px auto;gap:14px;align-items:center;padding:13px 14px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.035)}.file-main{min-width:0}.file-name{font-weight:850;overflow-wrap:anywhere}.file-meta{font-size:.78rem;color:var(--muted);margin-top:4px}.file-size,.file-date{color:var(--muted);font-size:.85rem}.file-actions{display:flex;gap:7px;justify-content:flex-end;flex-wrap:wrap}.download,.delete{border-radius:10px;padding:8px 10px;font-weight:850;font-size:.82rem}.download{background:rgba(80,214,208,.14);color:#bffbf8;border:1px solid rgba(80,214,208,.28);cursor:pointer}.delete{background:rgba(255,108,125,.11);color:#ffd0d6;border:1px solid rgba(255,108,125,.27);cursor:pointer}.empty{text-align:center;padding:34px;color:var(--muted)}form{margin:0}
+.file-thumb{width:72px;height:56px;padding:0;border:1px solid rgba(255,255,255,.12);border-radius:10px;overflow:hidden;background:rgba(255,255,255,.06);color:#fff;display:grid;place-items:center;position:relative;cursor:pointer}.file-thumb img,.file-thumb video{width:100%;height:100%;display:block;object-fit:cover}.file-thumb.generic{cursor:default;font-size:1.5rem}.play-badge{position:absolute;inset:auto 6px 5px auto;width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.72);font-size:.68rem}.selected{white-space:pre-line}.queue-note{margin-top:7px;font-size:.78rem;color:var(--muted)}
+.preview-modal{position:fixed;inset:0;z-index:1000;display:none;place-items:center;padding:22px;background:rgba(0,0,0,.78);backdrop-filter:blur(10px)}.preview-modal.open{display:grid}.preview-dialog{width:min(1050px,100%);max-height:92vh;border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#100a1d;box-shadow:0 30px 90px rgba(0,0,0,.55)}.preview-head{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:13px 15px;border-bottom:1px solid var(--line)}.preview-title{font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.preview-close{width:38px;height:38px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.06);color:#fff;cursor:pointer}.preview-body{display:grid;place-items:center;min-height:260px;max-height:calc(92vh - 66px);overflow:auto;background:#07040c}.preview-body img{max-width:100%;max-height:calc(92vh - 90px);object-fit:contain}.preview-body video{width:100%;max-height:calc(92vh - 90px);background:#000}.preview-body iframe{width:100%;height:80vh;border:0;background:#fff}
+@media(max-width:760px){.top{align-items:flex-start;flex-direction:column}.stats{grid-template-columns:1fr}.library-tabs{grid-template-columns:1fr}.folder-bar{align-items:stretch;flex-direction:column}.folder-form{align-items:stretch;flex-direction:column}.folder-form input{min-width:0;width:100%}.storage-head{align-items:flex-start;flex-direction:column}.file{grid-template-columns:72px minmax(0,1fr) auto}.file-thumb{grid-column:1;grid-row:1/3}.file-main{grid-column:2}.file-size{grid-column:3;grid-row:1}.file-date{grid-column:2/-1}.file-actions{grid-column:2/-1;justify-content:flex-start}.file-tools{align-items:flex-start;flex-direction:column}.search{width:100%}}
 </style>
 </head>
 <body>
@@ -32,6 +34,7 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}<div class="flash">{{ message }}</div>{% endfor %}
   {% endwith %}
+  <div class="flash" id="noticeBox" style="display:none"></div>
   <div class="error" id="errorBox"></div>
 
   <section class="stats">
@@ -73,16 +76,17 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     <div class="muted">Files upload directly to the private Railway bucket. Large videos are uploaded in secure chunks, so files up to {{ max_upload_size }} do not need to be split manually.</div>
     <div class="drop" id="dropZone">
       <div style="font-size:2rem;margin-bottom:8px">⬆️</div>
-      <div style="font-weight:850;margin-bottom:12px">Drag a file here or choose one from your device</div>
-      <label for="fileInput">Choose File</label>
-      <input id="fileInput" type="file">
-      <div class="selected" id="selectedFile">No file selected.</div>
+      <div style="font-weight:850;margin-bottom:12px">Drag files here or choose photos, videos, and other files from your device</div>
+      <label for="fileInput">Choose Files</label>
+      <input id="fileInput" type="file" multiple>
+      <div class="selected" id="selectedFile">No files selected.</div>
+      <div class="queue-note">You can select many files at once. They upload one file at a time, while each large file still uses fast multipart chunks.</div>
     </div>
     <div class="progress-wrap" id="progressWrap">
       <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
       <div class="progress-text" id="progressText">Preparing upload…</div>
     </div>
-    <div style="margin-top:14px"><button class="button primary" id="uploadButton" type="button" disabled>Upload Selected File</button></div>
+    <div style="margin-top:14px"><button class="button primary" id="uploadButton" type="button" disabled>Upload Selected Files</button></div>
   </section>
 
   <section class="card">
@@ -116,10 +120,20 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     <div class="table" id="fileList">
       {% for file in files %}
       <div class="file" data-name="{{ file.original_name|lower }}">
-        <div><div class="file-name">{{ file.original_name }}</div><div class="file-meta">Uploaded by {{ file.uploaded_by_name }}</div></div>
+        {% if file.media_kind == 'image' %}
+          <button class="file-thumb preview-trigger" type="button" data-kind="image" data-url="/file-center/preview/{{ file.id }}" data-name="{{ file.original_name }}"><img loading="lazy" src="/file-center/preview/{{ file.id }}" alt=""></button>
+        {% elif file.media_kind == 'video' %}
+          <button class="file-thumb preview-trigger" type="button" data-kind="video" data-url="/file-center/preview/{{ file.id }}" data-name="{{ file.original_name }}"><video muted playsinline preload="metadata" data-src="/file-center/preview/{{ file.id }}#t=0.1"></video><span class="play-badge">▶</span></button>
+        {% elif file.media_kind == 'pdf' %}
+          <button class="file-thumb preview-trigger" type="button" data-kind="pdf" data-url="/file-center/preview/{{ file.id }}" data-name="{{ file.original_name }}">📄</button>
+        {% else %}
+          <div class="file-thumb generic">📎</div>
+        {% endif %}
+        <div class="file-main"><div class="file-name">{{ file.original_name }}</div><div class="file-meta">Uploaded by {{ file.uploaded_by_name }}</div></div>
         <div class="file-size">{{ file.size_label }}</div>
         <div class="file-date">{{ file.created_at }}</div>
         <div class="file-actions">
+          {% if file.media_kind in ['image','video','pdf'] %}<button class="download preview-trigger" type="button" data-kind="{{ file.media_kind }}" data-url="/file-center/preview/{{ file.id }}" data-name="{{ file.original_name }}">Preview</button>{% endif %}
           <a class="download" href="/file-center/download/{{ file.id }}">Download</a>
           {% if file.can_delete %}
           <form method="post" action="/file-center/delete/{{ file.id }}" onsubmit="return confirm('Delete this file permanently?')">
@@ -135,9 +149,16 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     </div>
   </section>
 </main>
+<div class="preview-modal" id="previewModal" aria-hidden="true">
+  <div class="preview-dialog">
+    <div class="preview-head"><div class="preview-title" id="previewTitle">Preview</div><button class="preview-close" id="previewClose" type="button" aria-label="Close preview">✕</button></div>
+    <div class="preview-body" id="previewBody"></div>
+  </div>
+</div>
 <script>
 (function(){
   const csrf={{ csrf_token|tojson }};
+  const maxUploadBytes={{ max_upload_bytes|tojson }};
   const input=document.getElementById('fileInput');
   const drop=document.getElementById('dropZone');
   const selected=document.getElementById('selectedFile');
@@ -146,59 +167,85 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
   const progressBar=document.getElementById('progressBar');
   const progressText=document.getElementById('progressText');
   const errorBox=document.getElementById('errorBox');
+  const noticeBox=document.getElementById('noticeBox');
   const uploadVisibility={{ current_view|tojson }};
   const uploadFolderId={{ (current_folder.id if current_folder else none)|tojson }};
-  let chosen=null;
+  let chosenFiles=[];
+
+  const savedNotice=sessionStorage.getItem('familyFileCenterNotice');
+  if(savedNotice){noticeBox.textContent=savedNotice;noticeBox.style.display='block';sessionStorage.removeItem('familyFileCenterNotice');}
 
   function showError(message){errorBox.textContent=message;errorBox.style.display='block';}
   function clearError(){errorBox.textContent='';errorBox.style.display='none';}
-  function choose(file){
-    chosen=file||null;
-    selected.textContent=chosen ? chosen.name+' · '+formatSize(chosen.size) : 'No file selected.';
-    button.disabled=!chosen;
-    progressWrap.style.display='none';progressBar.style.width='0%';
-    clearError();
-  }
   function formatSize(bytes){
     const units=['B','KB','MB','GB','TB'];let value=Number(bytes)||0;let i=0;
     while(value>=1024&&i<units.length-1){value/=1024;i++;}
     return (i===0?Math.round(value):value.toFixed(1))+' '+units[i];
   }
-  input.addEventListener('change',()=>choose(input.files[0]));
+  function choose(files){
+    chosenFiles=Array.from(files||[]).filter(Boolean);
+    const tooLarge=chosenFiles.find(file=>file.size>maxUploadBytes);
+    const total=chosenFiles.reduce((sum,file)=>sum+file.size,0);
+    if(!chosenFiles.length){
+      selected.textContent='No files selected.';
+      button.disabled=true;
+    }else{
+      const names=chosenFiles.slice(0,5).map(file=>file.name).join('\n');
+      const more=chosenFiles.length>5?'\n…and '+(chosenFiles.length-5)+' more':'';
+      selected.textContent=chosenFiles.length+' file'+(chosenFiles.length===1?'':'s')+' · '+formatSize(total)+' total\n'+names+more;
+      button.textContent='Upload '+chosenFiles.length+' File'+(chosenFiles.length===1?'':'s');
+      button.disabled=!!tooLarge;
+    }
+    progressWrap.style.display='none';progressBar.style.width='0%';
+    clearError();
+    if(tooLarge)showError(tooLarge.name+' is larger than the '+formatSize(maxUploadBytes)+' per-file limit.');
+  }
+  input.addEventListener('change',()=>choose(input.files));
   ['dragenter','dragover'].forEach(evt=>drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.add('drag');}));
   ['dragleave','drop'].forEach(evt=>drop.addEventListener(evt,e=>{e.preventDefault();drop.classList.remove('drag');}));
-  drop.addEventListener('drop',e=>{if(e.dataTransfer.files&&e.dataTransfer.files[0])choose(e.dataTransfer.files[0]);});
+  drop.addEventListener('drop',e=>{if(e.dataTransfer.files&&e.dataTransfer.files.length)choose(e.dataTransfer.files);});
 
   async function jsonFetch(url,body){
     const response=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},body:JSON.stringify(body)});
     const data=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(data.error||'Request failed.');
+    if(!response.ok){const err=new Error(data.error||'Request failed.');err.status=response.status;err.data=data;throw err;}
     return data;
   }
   function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 
-  function uploadPart(url,blob,partIndex,loadedByPart,attempt=1){
+  async function fileFingerprint(file){
+    const sampleSize=4*1024*1024;
+    const firstSize=Math.min(sampleSize,file.size);
+    const first=new Uint8Array(await file.slice(0,firstSize).arrayBuffer());
+    const lastStart=Math.max(firstSize,file.size-sampleSize);
+    const last=lastStart<file.size?new Uint8Array(await file.slice(lastStart).arrayBuffer()):new Uint8Array(0);
+    const sizeBytes=new TextEncoder().encode(':'+file.size);
+    const combined=new Uint8Array(first.length+last.length+sizeBytes.length);
+    combined.set(first,0);
+    combined.set(last,first.length);
+    combined.set(sizeBytes,first.length+last.length);
+    const digest=await crypto.subtle.digest('SHA-256',combined);
+    return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
+  }
+
+  function uploadPart(url,blob,partIndex,loadedByPart,onProgress,attempt=1){
     return new Promise((resolve,reject)=>{
       const xhr=new XMLHttpRequest();
       xhr.open('PUT',url,true);
       xhr.upload.onprogress=e=>{
         if(e.lengthComputable){
           loadedByPart[partIndex]=e.loaded;
-          const loaded=loadedByPart.reduce((sum,n)=>sum+n,0);
-          const pct=Math.max(1,Math.min(99,Math.round((loaded/chosen.size)*100)));
-          progressBar.style.width=pct+'%';
-          progressText.textContent='Uploading video… '+pct+'%';
+          onProgress(loadedByPart.reduce((sum,n)=>sum+n,0));
         }
       };
       xhr.onload=()=>{
         if(xhr.status>=200&&xhr.status<300){
           loadedByPart[partIndex]=blob.size;
+          onProgress(loadedByPart.reduce((sum,n)=>sum+n,0));
           const etag=xhr.getResponseHeader('ETag');
           if(!etag)return reject(new Error('Storage did not return a part confirmation.'));
           resolve(etag);
-        }else{
-          reject(new Error('Storage part upload failed ('+xhr.status+').'));
-        }
+        }else reject(new Error('Storage part upload failed ('+xhr.status+').'));
       };
       xhr.onerror=()=>reject(new Error('The browser could not reach the storage bucket.'));
       xhr.send(blob);
@@ -206,11 +253,11 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
       if(attempt>=3)throw err;
       loadedByPart[partIndex]=0;
       await sleep(700*attempt);
-      return uploadPart(url,blob,partIndex,loadedByPart,attempt+1);
+      return uploadPart(url,blob,partIndex,loadedByPart,onProgress,attempt+1);
     });
   }
 
-  async function sendMultipartToBucket(prep,file){
+  async function sendMultipartToBucket(prep,file,onProgress){
     const partSize=Number(prep.part_size);
     const urls=prep.part_urls||[];
     if(!partSize||!urls.length)throw new Error('Storage did not return multipart upload information.');
@@ -218,7 +265,6 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
     const completed=new Array(urls.length);
     let nextIndex=0;
     const workerCount=Math.min(3,urls.length);
-
     async function worker(){
       while(true){
         const index=nextIndex++;
@@ -226,41 +272,115 @@ a{color:inherit;text-decoration:none}button,input{font:inherit}.shell{width:min(
         const start=index*partSize;
         const end=Math.min(file.size,start+partSize);
         const blob=file.slice(start,end);
-        const etag=await uploadPart(urls[index],blob,index,loadedByPart);
+        const etag=await uploadPart(urls[index],blob,index,loadedByPart,onProgress);
         completed[index]={PartNumber:index+1,ETag:etag};
       }
     }
     await Promise.all(Array.from({length:workerCount},()=>worker()));
     return completed;
   }
-  button.addEventListener('click',async()=>{
-    if(!chosen)return;
-    clearError();button.disabled=true;progressWrap.style.display='block';progressText.textContent='Preparing secure multipart upload…';progressBar.style.width='1%';
+
+  async function uploadOne(file,fileIndex,fileCount,totalBytes,completedBytes){
     let prep=null;
     try{
-      prep=await jsonFetch('/api/file-center/prepare-upload',{filename:chosen.name,size:chosen.size,content_type:chosen.type||'application/octet-stream',visibility:uploadVisibility,folder_id:uploadFolderId});
-      const parts=await sendMultipartToBucket(prep,chosen);
-      progressText.textContent='Finalizing and verifying file…';progressBar.style.width='100%';
-      await jsonFetch('/api/file-center/complete-upload',{
-        key:prep.key,
-        upload_id:prep.upload_id,
-        parts:parts,
-        filename:chosen.name,
-        content_type:chosen.type||'application/octet-stream',
-        visibility:uploadVisibility,
-        folder_id:uploadFolderId
+      progressText.textContent='Checking '+(fileIndex+1)+' of '+fileCount+' for duplicates… '+file.name;
+      const fingerprint=await fileFingerprint(file);
+      prep=await jsonFetch('/api/file-center/prepare-upload',{
+        filename:file.name,size:file.size,content_type:file.type||'application/octet-stream',
+        visibility:uploadVisibility,folder_id:uploadFolderId,fingerprint:fingerprint
       });
-      progressText.textContent='Upload complete. Refreshing…';
-      window.location.reload();
+      const parts=await sendMultipartToBucket(prep,file,loaded=>{
+        const pct=Math.max(1,Math.min(99,Math.round(((completedBytes+loaded)/totalBytes)*100)));
+        progressBar.style.width=pct+'%';
+        progressText.textContent='Uploading '+(fileIndex+1)+' of '+fileCount+'… '+pct+'% · '+file.name;
+      });
+      progressText.textContent='Finalizing '+(fileIndex+1)+' of '+fileCount+'… '+file.name;
+      await jsonFetch('/api/file-center/complete-upload',{
+        key:prep.key,upload_id:prep.upload_id,parts:parts,filename:file.name,
+        content_type:file.type||'application/octet-stream',visibility:uploadVisibility,
+        folder_id:uploadFolderId,fingerprint:fingerprint
+      });
+      return {status:'uploaded',name:file.name};
     }catch(err){
       if(prep&&prep.key&&prep.upload_id){
         try{await jsonFetch('/api/file-center/abort-upload',{key:prep.key,upload_id:prep.upload_id});}catch(_){}
       }
-      showError(err.message||'Upload failed.');
-      progressText.textContent='Upload stopped.';
-      button.disabled=false;
+      if(err.data&&err.data.duplicate)return {status:'duplicate',name:file.name,message:err.message};
+      return {status:'failed',name:file.name,message:err.message||'Upload failed.'};
+    }
+  }
+
+  button.addEventListener('click',async()=>{
+    if(!chosenFiles.length)return;
+    clearError();noticeBox.style.display='none';button.disabled=true;input.disabled=true;
+    progressWrap.style.display='block';progressBar.style.width='1%';
+    const totalBytes=chosenFiles.reduce((sum,file)=>sum+file.size,0)||1;
+    let completedBytes=0,uploaded=0,duplicates=0,failed=0;
+    const duplicateNames=[],failedNames=[];
+    for(let i=0;i<chosenFiles.length;i++){
+      const file=chosenFiles[i];
+      const result=await uploadOne(file,i,chosenFiles.length,totalBytes,completedBytes);
+      completedBytes+=file.size;
+      const pct=Math.min(99,Math.round((completedBytes/totalBytes)*100));
+      progressBar.style.width=pct+'%';
+      if(result.status==='uploaded')uploaded++;
+      else if(result.status==='duplicate'){duplicates++;duplicateNames.push(result.name);}
+      else{failed++;failedNames.push(result.name);}
+    }
+    progressBar.style.width='100%';
+    const parts=[];
+    if(uploaded)parts.push(uploaded+' uploaded');
+    if(duplicates)parts.push(duplicates+' duplicate'+(duplicates===1?'':'s')+' skipped');
+    if(failed)parts.push(failed+' failed');
+    const summary='Upload finished: '+parts.join(', ')+'.';
+    progressText.textContent=summary;
+    button.disabled=false;input.disabled=false;
+    if(uploaded){
+      sessionStorage.setItem('familyFileCenterNotice',summary+(duplicates?' Duplicate files were not stored again.':''));
+      window.location.reload();
+    }else{
+      noticeBox.textContent=summary+(duplicates?' Duplicate files were not stored again.':'');
+      noticeBox.style.display='block';
+      if(failed)showError('Could not upload: '+failedNames.slice(0,3).join(', ')+(failedNames.length>3?'…':''));
     }
   });
+
+  const modal=document.getElementById('previewModal');
+  const previewBody=document.getElementById('previewBody');
+  const previewTitle=document.getElementById('previewTitle');
+  const previewClose=document.getElementById('previewClose');
+  function closePreview(){
+    modal.classList.remove('open');modal.setAttribute('aria-hidden','true');
+    previewBody.replaceChildren();document.body.style.overflow='';
+  }
+  function openPreview(trigger){
+    const kind=trigger.dataset.kind,url=trigger.dataset.url,name=trigger.dataset.name||'Preview';
+    previewTitle.textContent=name;previewBody.replaceChildren();
+    let media;
+    if(kind==='image'){media=document.createElement('img');media.src=url;media.alt=name;}
+    else if(kind==='video'){media=document.createElement('video');media.src=url;media.controls=true;media.autoplay=true;media.playsInline=true;}
+    else if(kind==='pdf'){media=document.createElement('iframe');media.src=url;media.title=name;}
+    else return;
+    previewBody.appendChild(media);modal.classList.add('open');modal.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
+  }
+  document.querySelectorAll('.preview-trigger').forEach(el=>el.addEventListener('click',()=>openPreview(el)));
+  previewClose.addEventListener('click',closePreview);
+  modal.addEventListener('click',e=>{if(e.target===modal)closePreview();});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closePreview();});
+
+  const videoThumbs=document.querySelectorAll('video[data-src]');
+  if('IntersectionObserver' in window){
+    const observer=new IntersectionObserver(entries=>{
+      entries.forEach(entry=>{
+        if(entry.isIntersecting){
+          const video=entry.target;if(!video.src)video.src=video.dataset.src;
+          observer.unobserve(video);
+        }
+      });
+    },{rootMargin:'200px'});
+    videoThumbs.forEach(video=>observer.observe(video));
+  }else videoThumbs.forEach(video=>video.src=video.dataset.src);
+
   document.getElementById('fileSearch').addEventListener('input',function(){
     const q=this.value.trim().toLowerCase();
     document.querySelectorAll('#fileList .file').forEach(row=>{row.style.display=(!q||row.dataset.name.includes(q))?'grid':'none';});
