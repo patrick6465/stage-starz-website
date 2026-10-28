@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>File Center Login | Stage Starz</title>
+<title>Family File Center Login | Stage Starz</title>
 <style>
 :root{--bg:#0c0717;--panel:#17102a;--line:#38294a;--muted:#aa9db8;--pink:#ef3d98;--purple:#9b4dcc;--teal:#50d6d0}
 *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;color:#fff;font-family:Inter,system-ui,sans-serif;background:radial-gradient(circle at 10% 0%,rgba(155,77,204,.34),transparent 30rem),radial-gradient(circle at 95% 10%,rgba(80,214,208,.15),transparent 28rem),var(--bg)}
@@ -13,14 +13,14 @@
 </head>
 <body>
 <main class="card">
-  <div class="brand"><div class="logo">📁</div><h1>Stage Starz File Center</h1><div class="muted">Private files · authorized users only</div></div>
+  <div class="brand"><div class="logo">📁</div><h1>Family File Center</h1><div class="muted">Our private family photo, video, and file library</div></div>
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}<div class="alert">{{ message }}</div>{% endfor %}
   {% endwith %}
-  <form method="post" action="/file-center/login">
+  <form method="post" action="/family/login">
     <label for="username">Username</label><input id="username" name="username" autocomplete="username" required autofocus>
     <label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
-    <button type="submit">Sign In to File Center</button>
+    <button type="submit">Sign In to Family File Center</button>
   </form>
   <a class="back" href="/">Return to website</a>
 </main>
